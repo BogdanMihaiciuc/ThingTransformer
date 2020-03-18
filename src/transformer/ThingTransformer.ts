@@ -915,6 +915,8 @@ Failed parsing at: \n${node.getText()}\n\n`);
 
         subscription.code = node.body!.getText();
 
+        this.subscriptions.push(subscription);
+
     }
 
     visitTranspiledMethod(node: any) {
