@@ -1,0 +1,31 @@
+{
+    "compilerOptions": {
+        "outDir": "./dist/",
+        "sourceMap": true,
+        "noImplicitAny": false,
+        "module": "CommonJS",
+        "target": "esnext",
+        "downlevelIteration": true,
+        "experimentalDecorators": true,
+        "strict": true,
+        "declaration": true,
+        "lib": [
+            "esnext"
+        ],
+        "typeRoots": [
+            "./typings/",
+            "./node_modules/@types/"
+        ]
+    },
+    "include": [
+        "./src/*", 
+        "src/transformer/TWCoreTypes.ts", 
+        "src/transformer/ThingTransformer.ts", 
+        "src/thingworx/TWBaseTypes.d.ts", 
+        "src/thingworx/ThingTemplates.d.ts", 
+        "src/thingworx/ThingShapes.d.ts", 
+        "src/thingworx/Things.d.ts", 
+        "src/thingworx/DefaultEntities.d.ts",
+        "src/thingworx/Decorators.d.ts"
+    ]
+}

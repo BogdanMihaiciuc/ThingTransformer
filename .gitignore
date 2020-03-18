@@ -1,0 +1,11 @@
+metadata.xml
+tsconfigTest.json
+node_modules
+dist
+build
+src/support
+src/thingworx
+src/MyDataShape.ts
+src/MyShape.ts
+src/MyThing.ts
+.DS_Store
