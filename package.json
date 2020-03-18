@@ -1,30 +1,25 @@
 {
     "name": "bm-thing-transformer",
-    "packageName": "thing-transformer",
-    "moduleName": "thing-transformer",
-    "version": "1.0.0-alpha.1",
+    "packageName": "bm-thing-transformer",
+    "moduleName": "bm-thing-transformer",
+    "version": "0.0.1-alpha.2",
     "description": "Develop in ThingWorx with a proper IDE.",
     "author": "Thingworx RoIcenter",
     "minimumThingWorxVersion": "6.0.0",
     "homepage": "https://github.com/BogdanMihaiciuc/",
-    "autoUpdate": {
-        "gitHubURL": "https://api.github.com/repos/ptc-iot-sharing/D3RangeChart/releases/latest"
-    },
     "repository": {
         "type": "git",
-        "url": "https://github.com/ptc-iot-sharing/D3RangeChart.git"
+        "url": "https://github.com/BogdanMihaiciuc/ThingTransformer.git"
     },
     "scripts": {
         "test": "echo \"Error: no test specified\" && exit 1",
-        "build": "gulp",
-        "buildProduction": "gulp --p",
-        "upload": "gulp upload",
-        "uploadProduction": "gulp upload --p"
+        "build": "gulp"
     },
+    "main": "dist/ThingTransformer.js",
     "license": "MIT",
     "files": [
-        "lib",
-        "build",
+        "dist",
+        "src",
         "LICENSE"
     ],
     "devDependencies": {

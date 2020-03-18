@@ -87,10 +87,13 @@ export class TWThingTransformer {
 
     after: boolean;
 
-    constructor(context: ts.TransformationContext, root: string, after: boolean) {
+    watch: boolean;
+
+    constructor(context: ts.TransformationContext, root: string, after: boolean, watch: boolean) {
         this.context = context;
         this.root = root;
         this.after = after;
+        this.watch = watch;
     }
 
     throwErrorForNode(node: ts.Node, error: string): never {
@@ -303,23 +306,25 @@ Failed parsing at: \n${node.getText()}\n\n`);
 
             }
 
-            this.valueStream = this.literalArgumentOfDecoratorNamed('ValueStream', classNode);
+            this.valueStream = this.literalArgumentOfDecoratorNamed('valueStream', classNode);
+            this.identifier = this.literalArgumentOfDecoratorNamed('identifier', classNode);
 
             if (this.valueStream && (this.entityKind != TWEntityKind.Thing && this.entityKind != TWEntityKind.ThingTemplate)) {
-                this.throwErrorForNode(node, `The ValueStream decorator can only be applied to Things and ThingTemplates.`);
+                this.throwErrorForNode(node, `The valueStream decorator can only be applied to Things and ThingTemplates.`);
             }
 
-            this.published = !!classNode.decorators && classNode.decorators.some(decorator => decorator.expression.kind == ts.SyntaxKind.Identifier && decorator.expression.getText() == 'Published');
+            this.published = !!classNode.decorators && classNode.decorators.some(decorator => decorator.expression.kind == ts.SyntaxKind.Identifier && decorator.expression.getText() == 'published');
 
             if (this.published && this.entityKind != TWEntityKind.Thing) {
                 this.throwErrorForNode(node, `Only Things may be published.`);
             }
 
-            this.editable = !!classNode.decorators && classNode.decorators.some(decorator => decorator.expression.kind == ts.SyntaxKind.Identifier && decorator.expression.getText() == 'Published');
+            this.editable = !!classNode.decorators && classNode.decorators.some(decorator => decorator.expression.kind == ts.SyntaxKind.Identifier && decorator.expression.getText() == 'editable');
 
-            for (const member of classNode.members) {
+            if (!this.watch) for (const member of classNode.members) {
                 this.visitClassMember(member);
             }
+            
 
             global._TWEntities = global._TWEntities || {};
             global._TWEntities[this.className] = this;
@@ -403,12 +408,12 @@ Failed parsing at: \n${node.getText()}\n\n`);
 
                 const thingTemplate = typeArguments[0];
                 if (thingTemplate.kind == ts.SyntaxKind.LiteralType) {
-                    property.aspects.thingTemplate = (thingTemplate as ts.LiteralTypeNode).literal.getText();
+                    property.aspects.thingTemplate = ((thingTemplate as ts.LiteralTypeNode).literal as ts.StringLiteral).text;
                 }
 
                 const thingShape = typeArguments[1];
                 if (thingShape && thingShape.kind == ts.SyntaxKind.LiteralType) {
-                    property.aspects.thingShape = (thingShape as ts.LiteralTypeNode).literal.getText();
+                    property.aspects.thingShape = ((thingShape as ts.LiteralTypeNode).literal as ts.StringLiteral).text;
                 }
             }
         }
@@ -478,12 +483,12 @@ Failed parsing at: \n${node.getText()}\n\n`);
 
                 const thingTemplate = typeArguments[0];
                 if (thingTemplate.kind == ts.SyntaxKind.LiteralType) {
-                    property.aspects.thingTemplate = (thingTemplate as ts.LiteralTypeNode).literal.getText();
+                    property.aspects.thingTemplate = ((thingTemplate as ts.LiteralTypeNode).literal as ts.StringLiteral).text;
                 }
 
                 const thingShape = typeArguments[1];
                 if (thingShape && thingShape.kind == ts.SyntaxKind.LiteralType) {
-                    property.aspects.thingShape = (thingShape as ts.LiteralTypeNode).literal.getText();
+                    property.aspects.thingShape = ((thingShape as ts.LiteralTypeNode).literal as ts.StringLiteral).text;
                 }
             }
         }
@@ -522,10 +527,16 @@ Failed parsing at: \n${node.getText()}\n\n`);
             property.remoteBinding.pushType = TWPropertyRemotePushKind.Value;
             property.remoteBinding.pushThreshold = '0.0';
             property.remoteBinding.aspects = {
-                source: '',
-                startType: TWPropertyRemoteStartKind.DefaultValue,
-                tagAddress: ''
+                startType: TWPropertyRemoteStartKind.DefaultValue
             }
+
+            // These exist in exported files, but are not allowed to be in extension files
+            /*
+            if (this.entityKind == TWEntityKind.Thing) {
+                property.remoteBinding.aspects.source = '';
+                property.remoteBinding.aspects.tagAddress = '';
+            }
+            */
 
             if (remoteArguments.length == 2) {
                 if (remoteArguments[1].kind != ts.SyntaxKind.ObjectLiteralExpression) {
@@ -575,7 +586,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
         if (this.hasDecoratorNamed('local', node)) {
             if (property.remoteBinding) this.throwErrorForNode(node, 'A property cannot be both locally and remotely bound.');
 
-            property.localBinding = {aspects: {startType: 'null', tagAddresss: ''}, name: property.name} as TWPropertyBinding;
+            property.localBinding = {aspects: {}, name: property.name} as TWPropertyBinding;
 
             const localArguments = this.argumentsOfDecoratorNamed('local', node)!;
             if (localArguments.length != 2) {
@@ -771,12 +782,12 @@ Failed parsing at: \n${node.getText()}\n\n`);
 
                         const thingTemplate = typeArguments[0];
                         if (thingTemplate.kind == ts.SyntaxKind.LiteralType) {
-                            parameter.aspects.thingTemplate = (thingTemplate as ts.LiteralTypeNode).literal.getText();
+                            parameter.aspects.thingTemplate = ((thingTemplate as ts.LiteralTypeNode).literal as ts.StringLiteral).text;
                         }
 
                         const thingShape = typeArguments[1];
                         if (thingShape && thingShape.kind == ts.SyntaxKind.LiteralType) {
-                            parameter.aspects.thingShape = (thingShape as ts.LiteralTypeNode).literal.getText();
+                            parameter.aspects.thingShape = ((thingShape as ts.LiteralTypeNode).literal as ts.StringLiteral).text;
                         }
                     }
                 }
@@ -843,12 +854,12 @@ Failed parsing at: \n${node.getText()}\n\n`);
     
                         const thingTemplate = typeArguments[0];
                         if (thingTemplate.kind == ts.SyntaxKind.LiteralType) {
-                            service.resultType.aspects.thingTemplate = (thingTemplate as ts.LiteralTypeNode).literal.getText();
+                            service.resultType.aspects.thingTemplate = ((thingTemplate as ts.LiteralTypeNode).literal as ts.StringLiteral).text;
                         }
     
                         const thingShape = typeArguments[1];
                         if (thingShape && thingShape.kind == ts.SyntaxKind.LiteralType) {
-                            service.resultType.aspects.thingShape = (thingShape as ts.LiteralTypeNode).literal.getText();
+                            service.resultType.aspects.thingShape = ((thingShape as ts.LiteralTypeNode).literal as ts.StringLiteral).text;
                         }
                     }
                 }
@@ -1092,8 +1103,8 @@ Failed parsing at: \n${node.getText()}\n\n`);
 
             // **********************************  SERVICE PARAMETERS  **********************************
 
-            serviceDefinition.ParameterDefinitions = [{ParameterDefinition: []}];
-            const parameterDefinitions = serviceDefinition.ParameterDefinitions[0].ParameterDefinition as any[];
+            serviceDefinition.ParameterDefinitions = [{FieldDefinition: []}];
+            const parameterDefinitions = serviceDefinition.ParameterDefinitions[0].FieldDefinition as any[];
 
             for (const parameter of service.parameterDefinitions) {
                 const parameterDefinition = {$:{}};
@@ -1323,6 +1334,20 @@ Failed parsing at: \n${node.getText()}\n\n`);
         return (new Builder()).buildObject(XML);
     }
 
+    toDefinition(): string {
+        if (this.entityKind && this.className) {
+            if (this.entityKind == TWEntityKind.Thing) {
+                return `declare interface ${this.entityKind}s { ${this.className}: ${this.className} }\n\n`;
+            }
+            else {
+                return `declare interface ${this.entityKind}s { ${this.className}: ${this.entityKind}Entity<${this.className}>}`
+            }
+        }
+        else {
+            return '';
+        }
+    }
+
     write(path: string = this.root): void {
         if (!fs.existsSync(`${path}/build`)) fs.mkdirSync(`${path}/build`);
         if (!fs.existsSync(`${path}/build/Entities`)) fs.mkdirSync(`${path}/build/Entities`);
@@ -1333,9 +1358,9 @@ Failed parsing at: \n${node.getText()}\n\n`);
 
 }
 
-export function TWThingTransformerFactory(root: string, after: boolean = false) {
+export function TWThingTransformerFactory(root: string, after: boolean = false, watch: boolean = false) {
     return function TWThingTransformerFunction(context: ts.TransformationContext) {
-        const transformer = new TWThingTransformer(context, root, after);
+        const transformer = new TWThingTransformer(context, root, after, watch);
     
         return (node: ts.Node) => ts.visitNode(node, node => transformer.visit(node));
     }

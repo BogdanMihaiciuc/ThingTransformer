@@ -74,9 +74,11 @@ export interface TWPropertyRemoteBinding {
 }
 
 export interface TWPropertyRemoteBindingAspects {
-    source: "";
+    // This appears in exports, but weirdly thingworx complains about it
+    source?: "";
     startType: TWPropertyRemoteStartKind;
-    tagAddress: string;
+    // This appears in exports, but weirdly thingworx complains about it
+    tagAddress?: string;
 }
 
 export const enum TWPropertyRemotePushKind {
