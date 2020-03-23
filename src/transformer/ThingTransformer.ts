@@ -1017,7 +1017,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
         }
 
         if (this.entityKind != TWEntityKind.ThingShape) {
-            entity.$.thingTemplate = this.thingTemplateName || 'GenericThing';
+            entity.$[this.entityKind == TWEntityKind.Thing ? 'thingTemplate' : 'baseThingTemplate'] = this.thingTemplateName || 'GenericThing';
             entity.$.valueStream = this.valueStream || '';
         }
 
