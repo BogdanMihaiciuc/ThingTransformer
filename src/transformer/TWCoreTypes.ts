@@ -74,10 +74,10 @@ export interface TWPropertyRemoteBinding {
 }
 
 export interface TWPropertyRemoteBindingAspects {
-    // This appears in exports, but weirdly thingworx complains about it
+    // This appears in exports, but weirdly thingworx complains about it when specified
     source?: "";
     startType: TWPropertyRemoteStartKind;
-    // This appears in exports, but weirdly thingworx complains about it
+    // This appears in exports, but weirdly thingworx complains about it when specified
     tagAddress?: string;
 }
 
@@ -161,6 +161,16 @@ export const enum TWSubscriptionSourceKind {
     Thing = 'Thing',
     ThingTemplate = 'ThingTemplate',
     ThingShape = 'ThingShape'
+}
+
+export interface TWConfigurationTable {
+    category: string;
+    dataShapeName: string;
+    description: string;
+    isHidden: boolean;
+    isMultiRow: boolean;
+    name: string;
+    source?: string;
 }
 
 export const TWBaseTypes = {

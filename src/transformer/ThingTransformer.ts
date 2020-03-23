@@ -1,8 +1,9 @@
 import * as ts from 'typescript';
-import { TWEntityKind, TWPropertyDefinition, TWServiceDefinition, TWEventDefinition, TWSubscriptionDefinition, TWBaseTypes, TWPropertyDataChangeKind, TWFieldBase, TWPropertyRemoteBinding, TWPropertyRemoteFoldKind, TWPropertyRemotePushKind, TWPropertyRemoteStartKind, TWPropertyBinding, TWSubscriptionSourceKind, TWServiceParameter, TWDataShapeField } from './TWCoreTypes';
+import { TWEntityKind, TWPropertyDefinition, TWServiceDefinition, TWEventDefinition, TWSubscriptionDefinition, TWBaseTypes, TWPropertyDataChangeKind, TWFieldBase, TWPropertyRemoteBinding, TWPropertyRemoteFoldKind, TWPropertyRemotePushKind, TWPropertyRemoteStartKind, TWPropertyBinding, TWSubscriptionSourceKind, TWServiceParameter, TWDataShapeField, TWConfigurationTable } from './TWCoreTypes';
 import {Builder} from 'xml2js';
 import * as fs from 'fs';
 import * as path from 'path';
+import { Readable } from 'stream';
 
 declare global {
     namespace NodeJS {
@@ -347,8 +348,25 @@ Failed parsing at: \n${node.getText()}\n\n`);
 
             this.editable = !!classNode.decorators && classNode.decorators.some(decorator => decorator.expression.kind == ts.SyntaxKind.Identifier && decorator.expression.getText() == 'editable');
 
-            if (!this.watch) for (const member of classNode.members) {
-                this.visitClassMember(member);
+            if (!this.watch) {
+                if (this.hasDecoratorNamed('ConfigurationTables', classNode)) {
+                    const configurationArgument = this.argumentsOfDecoratorNamed('ConfigurationTables', classNode)!;
+
+                    if (configurationArgument.length != 1) {
+                        this.throwErrorForNode(classNode, `The @ConfigurationTables decorator must take a single class parameter.`);
+                    }
+
+                    const argument = configurationArgument[0];
+                    if (argument.kind != ts.SyntaxKind.ClassExpression) {
+                        this.throwErrorForNode(classNode, `The @ConfigurationTables decorator must take a single class parameter.`);
+                    }
+
+                    this.visitConfigurationTablesDefinition(argument as ts.ClassExpression);
+                }
+
+                for (const member of classNode.members) {
+                    this.visitClassMember(member);
+                }
             }
             
 
@@ -445,7 +463,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
         }
 
         if (node.initializer) {
-            property.aspects.defaultValue = (node.initializer as ts.LiteralExpression).text;
+            property.aspects.defaultValue = (node.initializer as ts.LiteralExpression).text || node.initializer.getText();
         }
 
         this.fields.push(property);
@@ -987,6 +1005,55 @@ Failed parsing at: \n${node.getText()}\n\n`);
         }
     }
 
+    visitConfigurationTablesDefinition(node: ts.ClassExpression) {
+        if (node.name) this.throwErrorForNode(node, `The argument for the @ConfigurationTables decorator must be an anonymous class.`);
+        if (node.heritageClauses) this.throwErrorForNode(node, `The argument for the @ConfigurationTables decorator must be a root class.`);
+
+        for (const member of node.members) {
+            if (member.kind == ts.SyntaxKind.MethodDeclaration) this.throwErrorForNode(node, `The @ConfigurationTables class cannot contain methods.`);
+
+            if (!member.name || member.name.kind != ts.SyntaxKind.Identifier) this.throwErrorForNode(member, `Configuration table names cannot be computed.`);
+
+            const table: TWConfigurationTable = {
+                category: '',
+                description: '',
+                isHidden: false,
+                name: member.name.text,
+                dataShapeName: '',
+                isMultiRow: false
+            };
+
+            const property = member as ts.PropertyDeclaration;
+
+            const type = property.type as ts.TypeReferenceNode;
+            if (!type) this.throwErrorForNode(member, `Configuration table properties must be typed as either "Table" or "MultiRowTable".`);
+
+            if (property.type!.kind != ts.SyntaxKind.TypeReference) {
+                this.throwErrorForNode(member, `Configuration table properties must be typed as either "Table" or "MultiRowTable".`);
+            }
+
+            if (type.typeName.getText() == 'Table') {
+                table.isMultiRow = false;
+            }
+            else if (type.typeName.getText() == 'MultiRowTable') {
+                table.isMultiRow = true;
+            }
+            else {
+                this.throwErrorForNode(member, `Configuration table properties must be typed as either "Table" or "MultiRowTable".`);
+            }
+
+            if (!type.typeArguments || type.typeArguments.length != 1) this.throwErrorForNode(member, `Configuration table properties must have one type parameter representing the data shape name.`);
+
+            const dataShape = type.typeArguments[0] as ts.TypeReferenceNode;
+
+            if (dataShape.kind != ts.SyntaxKind.TypeReference) this.throwErrorForNode(member, `The configuration table type argument must be a data shape class reference.`);
+            
+            table.dataShapeName = dataShape.typeName.getText();
+
+            this.configurationTableDefinitions.push(table);
+        }
+    }
+
     toXML(): string {
         const XML = {} as any;
 
@@ -1315,6 +1382,20 @@ Failed parsing at: \n${node.getText()}\n\n`);
             };
 
             subscriptions.push(subscriptionDefinition);
+        }
+
+        if (this.configurationTableDefinitions.length) {
+            entity.ConfigurationTableDefinitions = [{ConfigurationTableDefinition: []}];
+            const configurationTableDefinitions = entity.ConfigurationTableDefinitions[0].ConfigurationTableDefinition;
+
+            for (const table of this.configurationTableDefinitions) {
+                const configurationTable = {$:{}};
+                for (const key in table) {
+                    configurationTable.$[key] = table[key];
+                }
+
+                configurationTableDefinitions.push(configurationTable);
+            }
         }
 
         return (new Builder()).buildObject(XML);
