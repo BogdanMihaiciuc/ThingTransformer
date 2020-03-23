@@ -73,16 +73,42 @@ export class TWThingTransformer {
      */
     classNode?: ts.ClassDeclaration;
 
+
+    /**
+     * For model entities, an array of discovered properties.
+     */
     properties: TWPropertyDefinition[] = [];
 
+
+    /**
+     * For model entities, an array of discovered services.
+     */
     services: TWServiceDefinition[] = [];
 
+
+    /**
+     * For model entities, an array of discovered events.
+     */
     events: TWEventDefinition[] = [];
 
+    /**
+     * For model entities, an array of discovered subscription.
+     */
     subscriptions: TWSubscriptionDefinition[] = [];
 
+    /**
+     * For model entities, an array of discovered configuration table definitions.
+     */
+    configurationTableDefinitions: TWConfigurationTable[] = [];
+
+    /**
+     * For data shapes, an array of field definitions.
+     */
     fields: TWDataShapeField[] = [];
 
+    /**
+     * The project root path, to which files are written by default.
+     */
     root: string;
 
     after: boolean;
