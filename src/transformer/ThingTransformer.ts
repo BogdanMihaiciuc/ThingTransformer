@@ -520,7 +520,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
         }
 
         if (node.initializer) {
-            property.aspects.defaultValue = (node.initializer as ts.LiteralExpression).text;
+            property.aspects.defaultValue = (node.initializer as ts.LiteralExpression).text || node.initializer.getText();
         }
 
         // Aspects are specified as decorators
@@ -784,7 +784,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
                 parameter.baseType = baseType;
 
                 if (arg.initializer) {
-                    parameter.aspects.defaultValue = (arg.initializer as ts.LiteralExpression).text;
+                    parameter.aspects.defaultValue = (arg.initializer as ts.LiteralExpression).text || arg.initializer.getText();
                 }
 
                 // INFOTABLE can optionally take the data shape as a type argument
