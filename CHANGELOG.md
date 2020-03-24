@@ -1,3 +1,7 @@
+# 0.0.1-alpha.5
+
+Resolves a crash when returning infotables or thingnames from results.
+
 # 0.0.1-alpha.4
 
 Resolves an issue where the base thing template for a thing template was improperly specified as `thingTemplate` instead of `baseThingTemplate`.

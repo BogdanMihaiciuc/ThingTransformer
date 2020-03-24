@@ -880,6 +880,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
                 // INFOTABLE can optionally take the data shape as a type argument
                 if (baseType == 'INFOTABLE') {
                     const typeNode = node.type! as ts.NodeWithTypeArguments;
+                    service.resultType.aspects = service.resultType.aspects || {};
                     service.resultType.aspects.dataShape = '';
                     const typeArguments = typeNode.typeArguments;
                     if (typeArguments) {
@@ -892,6 +893,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
                 else if (baseType == 'THINGNAME') {
                     const typeNode = node.type! as ts.NodeWithTypeArguments;
                     const typeArguments = typeNode.typeArguments;
+                    service.resultType.aspects = service.resultType.aspects || {};
     
                     if (typeArguments && typeArguments.length) {
                         if (typeArguments.length > 2) this.throwErrorForNode(node, `Unknown generics specified for service result: ${service.resultType.baseType}`);
@@ -907,7 +909,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
                         }
                     }
                 }
-                service.resultType.baseType = node.type.getText();
+                service.resultType.baseType = typeNode.typeName.getText();
             }
         }
 
