@@ -111,6 +111,8 @@ export interface TWServiceDefinition {
     code: string;
 
     remoteBinding?: TWServiceRemoteBinding;
+
+    isOverriden?: boolean;
 }
 
 export interface TWServiceAspects {

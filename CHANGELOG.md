@@ -2,6 +2,8 @@
 
 Resolves an import error when returning thingnames with constraints from services.
 
+Added support for the `@override` decorator, which must be specified on services that override a parent implementation.
+
 # 0.0.1-alpha.5
 
 Resolves a crash when returning infotables or thingnames from results.

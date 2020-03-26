@@ -708,6 +708,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
         if (node.name.kind != ts.SyntaxKind.Identifier) this.throwErrorForNode(node, 'Service names cannot be computed property names.');
         service.name = (node.name as ts.Identifier).text;
         service.isAllowOverride = !this.hasDecoratorNamed('final', node);
+        service.isOverriden = this.hasDecoratorNamed('override', node);
         service.isLocalOnly = false;
         service.isPrivate = false;
         service.isOpen = false;
@@ -1171,6 +1172,9 @@ Failed parsing at: \n${node.getText()}\n\n`);
         const remoteServiceBindings = entity.RemoteServiceBindings[0].RemoteServiceBinding as any[];
 
         for (const service of this.services) {
+            // Overriden services only have an implementation
+            if (service.isOverriden) continue;
+
             // **********************************  SERVICE DETAILS  **********************************
             const serviceDefinition = {$:{}} as any;
             
