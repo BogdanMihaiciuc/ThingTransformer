@@ -1173,58 +1173,58 @@ Failed parsing at: \n${node.getText()}\n\n`);
 
         for (const service of this.services) {
             // Overriden services only have an implementation
-            if (service.isOverriden) continue;
-
-            // **********************************  SERVICE DETAILS  **********************************
-            const serviceDefinition = {$:{}} as any;
-            
-            for (const key in service) {
-                if (key == 'aspects' || key == 'remoteBinding' || key == 'code' || key == 'parameterDefinitions' || key == 'resultType' || key == 'isOverriden') continue;
-
-                serviceDefinition.$[key] = service[key];
-            }
-
-            if (service.aspects) {
-                for (const key in service.aspects) {
-                    serviceDefinition.$['aspect.' + key] = service.aspects[key];
+            if (!service.isOverriden) {
+                // **********************************  SERVICE DETAILS  **********************************
+                const serviceDefinition = {$:{}} as any;
+                
+                for (const key in service) {
+                    if (key == 'aspects' || key == 'remoteBinding' || key == 'code' || key == 'parameterDefinitions' || key == 'resultType' || key == 'isOverriden') continue;
+    
+                    serviceDefinition.$[key] = service[key];
                 }
-            }
-
-            // **********************************  SERVICE RESULT  **********************************
-            serviceDefinition.ResultType = [{$:{}}];
-            const resultType = serviceDefinition.ResultType[0];
-            for (const key in service.resultType) {
-                if (key == 'aspects') continue;
-
-                resultType.$[key] = service.resultType[key];
-            }
-
-            if (service.resultType.aspects) for (const key in service.resultType.aspects) {
-                resultType.$['aspect.' + key] = service.resultType.aspects[key];
-            }
-
-            // **********************************  SERVICE PARAMETERS  **********************************
-
-            serviceDefinition.ParameterDefinitions = [{FieldDefinition: []}];
-            const parameterDefinitions = serviceDefinition.ParameterDefinitions[0].FieldDefinition as any[];
-
-            for (const parameter of service.parameterDefinitions) {
-                const parameterDefinition = {$:{}};
-
-                for (const key in parameter) {
+    
+                if (service.aspects) {
+                    for (const key in service.aspects) {
+                        serviceDefinition.$['aspect.' + key] = service.aspects[key];
+                    }
+                }
+    
+                // **********************************  SERVICE RESULT  **********************************
+                serviceDefinition.ResultType = [{$:{}}];
+                const resultType = serviceDefinition.ResultType[0];
+                for (const key in service.resultType) {
                     if (key == 'aspects') continue;
     
-                    parameterDefinition.$[key] = parameter[key];
+                    resultType.$[key] = service.resultType[key];
                 }
     
-                if (parameter.aspects) for (const key in parameter.aspects) {
-                    parameterDefinition.$['aspect.' + key] = parameter.aspects[key];
+                if (service.resultType.aspects) for (const key in service.resultType.aspects) {
+                    resultType.$['aspect.' + key] = service.resultType.aspects[key];
                 }
-
-                parameterDefinitions.push(parameterDefinition);
+    
+                // **********************************  SERVICE PARAMETERS  **********************************
+    
+                serviceDefinition.ParameterDefinitions = [{FieldDefinition: []}];
+                const parameterDefinitions = serviceDefinition.ParameterDefinitions[0].FieldDefinition as any[];
+    
+                for (const parameter of service.parameterDefinitions) {
+                    const parameterDefinition = {$:{}};
+    
+                    for (const key in parameter) {
+                        if (key == 'aspects') continue;
+        
+                        parameterDefinition.$[key] = parameter[key];
+                    }
+        
+                    if (parameter.aspects) for (const key in parameter.aspects) {
+                        parameterDefinition.$['aspect.' + key] = parameter.aspects[key];
+                    }
+    
+                    parameterDefinitions.push(parameterDefinition);
+                }
+    
+                serviceDefinitions.push(serviceDefinition);
             }
-
-            serviceDefinitions.push(serviceDefinition);
 
             // **********************************  SERVICE IMPLEMENTATION  **********************************
             if (service.remoteBinding) {
