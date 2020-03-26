@@ -889,13 +889,14 @@ Failed parsing at: \n${node.getText()}\n\n`);
                         service.resultType.aspects.dataShape = typeArguments[0].getText();
                     }
                 }
-                // THINGNAME can optionally take the thing template name and/or thing shape name as a type argument
+                // THINGNAME can optionally take the thing template name and/or thing shape name as a type argument, however
+                // this is not supported by Thingworx in service results, so it is ignored
                 else if (baseType == 'THINGNAME') {
                     const typeNode = node.type! as ts.NodeWithTypeArguments;
                     const typeArguments = typeNode.typeArguments;
                     service.resultType.aspects = service.resultType.aspects || {};
     
-                    if (typeArguments && typeArguments.length) {
+                    /*if (typeArguments && typeArguments.length) {
                         if (typeArguments.length > 2) this.throwErrorForNode(node, `Unknown generics specified for service result: ${service.resultType.baseType}`);
     
                         const thingTemplate = typeArguments[0];
@@ -907,7 +908,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
                         if (thingShape && thingShape.kind == ts.SyntaxKind.LiteralType) {
                             service.resultType.aspects.thingShape = ((thingShape as ts.LiteralTypeNode).literal as ts.StringLiteral).text;
                         }
-                    }
+                    }*/
                 }
                 service.resultType.baseType = typeNode.typeName.getText();
             }

@@ -1,3 +1,7 @@
+# 0.0.1-alpha.6
+
+Resolves an import error when returning thingnames with constraints from services.
+
 # 0.0.1-alpha.5
 
 Resolves a crash when returning infotables or thingnames from results.
