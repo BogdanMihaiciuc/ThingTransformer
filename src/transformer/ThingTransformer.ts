@@ -1179,7 +1179,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
             const serviceDefinition = {$:{}} as any;
             
             for (const key in service) {
-                if (key == 'aspects' || key == 'remoteBinding' || key == 'code' || key == 'parameterDefinitions' || key == 'resultType') continue;
+                if (key == 'aspects' || key == 'remoteBinding' || key == 'code' || key == 'parameterDefinitions' || key == 'resultType' || key == 'isOverriden') continue;
 
                 serviceDefinition.$[key] = service[key];
             }
