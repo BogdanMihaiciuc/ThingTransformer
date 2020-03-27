@@ -1,3 +1,7 @@
+# 0.1.0-beta.1
+
+The transformer will now inline all const enums used in property initializers, argument initializers or method bodies.
+
 # 0.0.1-alpha.6
 
 Resolves an import error when returning thingnames with constraints from services.

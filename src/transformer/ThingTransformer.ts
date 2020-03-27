@@ -227,6 +227,18 @@ Failed parsing at: \n${node.getText()}\n\n`);
             if (node.kind == ts.SyntaxKind.Decorator) {
                 return undefined;
             }
+
+            // All enum constants should be inlined at this step as the printer is not able to inline them later on
+            if (node.kind == ts.SyntaxKind.PropertyAccessExpression) {
+                const constantValue = (<ts.TypeChecker>(this.context as any).getEmitResolver()).getConstantValue(node as ts.PropertyAccessExpression);
+
+                if (typeof constantValue == 'string') {
+                    return ts.createStringLiteral(constantValue);
+                }
+                else if (typeof constantValue == 'number') {
+                    return ts.createNumericLiteral(constantValue.toString());
+                }
+            }
     
             if (node.kind == ts.SyntaxKind.ThisKeyword) {
                 return this.visitThisNode(node as ts.ThisExpression);
@@ -463,7 +475,18 @@ Failed parsing at: \n${node.getText()}\n\n`);
         }
 
         if (node.initializer) {
-            property.aspects.defaultValue = (node.initializer as ts.LiteralExpression).text || node.initializer.getText();
+            if (node.initializer.kind == ts.SyntaxKind.PropertyAccessExpression) {
+                // Const enums need to be resolved early on
+                property.aspects.defaultValue = ((this.context as any).getEmitResolver() as ts.TypeChecker).getConstantValue(node.initializer as ts.PropertyAccessExpression);
+
+                // If the value is not a compile time constant, it is not a valod initializer
+                if (property.aspects.defaultValue === undefined) {
+                    this.throwErrorForNode(node, `Unknown initializer for property.`);
+                }
+            }
+            else {
+                property.aspects.defaultValue = (node.initializer as ts.LiteralExpression).text || node.initializer.getText();
+            }
         }
 
         this.fields.push(property);
@@ -538,7 +561,18 @@ Failed parsing at: \n${node.getText()}\n\n`);
         }
 
         if (node.initializer) {
-            property.aspects.defaultValue = (node.initializer as ts.LiteralExpression).text || node.initializer.getText();
+            if (node.initializer.kind == ts.SyntaxKind.PropertyAccessExpression) {
+                // Const enums need to be resolved early on
+                property.aspects.defaultValue = ((this.context as any).getEmitResolver() as ts.TypeChecker).getConstantValue(node.initializer as ts.PropertyAccessExpression);
+
+                // If the value is not a compile time constant, it is not a valod initializer
+                if (property.aspects.defaultValue === undefined) {
+                    this.throwErrorForNode(node, `Unknown initializer for property.`);
+                }
+            }
+            else {
+                property.aspects.defaultValue = (node.initializer as ts.LiteralExpression).text || node.initializer.getText();
+            }
         }
 
         // Aspects are specified as decorators
@@ -803,7 +837,18 @@ Failed parsing at: \n${node.getText()}\n\n`);
                 parameter.baseType = baseType;
 
                 if (arg.initializer) {
-                    parameter.aspects.defaultValue = (arg.initializer as ts.LiteralExpression).text || arg.initializer.getText();
+                    if (arg.initializer.kind == ts.SyntaxKind.PropertyAccessExpression) {
+                        // Const enums need to be resolved early on
+                        parameter.aspects.defaultValue = ((this.context as any).getEmitResolver() as ts.TypeChecker).getConstantValue(arg.initializer as ts.PropertyAccessExpression);
+
+                        // If the value is not a compile time constant, it is not a valod initializer
+                        if (parameter.aspects.defaultValue === undefined) {
+                            this.throwErrorForNode(arg, `Unknown initializer for argument.`);
+                        }
+                    }
+                    else {
+                        parameter.aspects.defaultValue = (arg.initializer as ts.LiteralExpression).text || arg.initializer.getText();
+                    }
                 }
 
                 // INFOTABLE can optionally take the data shape as a type argument
