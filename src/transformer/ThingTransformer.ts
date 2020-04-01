@@ -834,7 +834,10 @@ Failed parsing at: \n${node.getText()}\n\n`);
 
                 parameter.aspects.isRequired = !type.questionToken;
                 const baseType = typeNode.typeName.getText();
-                parameter.baseType = baseType;
+                if (!(baseType in TWBaseTypes)) {
+                    this.throwErrorForNode(node, `Unknown base type ${baseType} specified for parameter ${parameter.name}.`);
+                }
+                parameter.baseType = TWBaseTypes[baseType];
 
                 if (arg.initializer) {
                     if (arg.initializer.kind == ts.SyntaxKind.PropertyAccessExpression) {
@@ -923,6 +926,10 @@ Failed parsing at: \n${node.getText()}\n\n`);
                 const typeNode = node.type as ts.TypeReferenceNode;
 
                 const baseType = typeNode.typeName.getText();
+                if (!(baseType in TWBaseTypes)) {
+                    this.throwErrorForNode(node, `Unknown base type ${baseType} specified for service return type.`);
+                }
+
                 // INFOTABLE can optionally take the data shape as a type argument
                 if (baseType == 'INFOTABLE') {
                     const typeNode = node.type! as ts.NodeWithTypeArguments;
@@ -956,7 +963,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
                         }
                     }*/
                 }
-                service.resultType.baseType = typeNode.typeName.getText();
+                service.resultType.baseType = TWBaseTypes[baseType];
             }
         }
 
