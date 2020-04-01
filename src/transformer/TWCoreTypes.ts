@@ -186,6 +186,8 @@ export const TWBaseTypes = {
     LOCATION: "LOCATION",
     XML: "XML",
     Object: "JSON",
+    JSON: "JSON",
+    TWJSON: "JSON",
     QUERY: "QUERY",
     IMAGE: "IMAGE",
     HYPERLINK: "HYPERLINK",
