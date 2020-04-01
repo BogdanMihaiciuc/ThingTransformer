@@ -325,6 +325,26 @@ Failed parsing at: \n${node.getText()}\n\n`);
     }
 
     /**
+     * Returns the documentation for the given node, if it exists.
+     * @param node      The node whose documentation to get.
+     * @return          The documentation, or an empty string if it doesn't exist.
+     */
+    documentationOfNode(node: ts.Node): string {
+        // This method appears to not be included in the type definition
+        const documentation = (ts as any).getJSDocCommentsAndTags(node) as ts.Node[];
+        // Get the first documentation node and use it as the description
+        if (documentation.length) {
+            for (const documentationNode of documentation) {
+                if (documentationNode.kind = ts.SyntaxKind.JSDocComment) {
+                    return (documentationNode as ts.JSDoc).comment || '';
+                }
+            }
+        }
+
+        return '';
+    }
+
+    /**
      * Visits a node whose parent is the source file.
      * @param node      The node to visit.
      */
@@ -359,6 +379,8 @@ Failed parsing at: \n${node.getText()}\n\n`);
             }
 
             this.className = classNode.name.text;
+
+            this.description = this.documentationOfNode(classNode);
 
             // All Thingworx classes are required to inherit from some kind of base class
             if (!classNode.heritageClauses || !classNode.heritageClauses.length) {
@@ -499,6 +521,8 @@ Failed parsing at: \n${node.getText()}\n\n`);
         // First obtain the name of the property
         property.name = node.name.text;
 
+        property.description = this.documentationOfNode(node);
+
         // Create the generic aspects, required for all properties
         property.aspects = {};
         if (this.hasDecoratorNamed('primaryKey', node)) {
@@ -587,6 +611,8 @@ Failed parsing at: \n${node.getText()}\n\n`);
 
         // First obtain the name of the property
         property.name = node.name.text;
+
+        property.description = this.documentationOfNode(node);
 
         // Create the generic aspects, required for all properties
         property.aspects = {
@@ -776,6 +802,8 @@ Failed parsing at: \n${node.getText()}\n\n`);
 
         if (node.name.kind != ts.SyntaxKind.Identifier) this.throwErrorForNode(node, 'Event names cannot be computed names.');
         event.name = (node.name as ts.Identifier).text;
+
+        event.description = this.documentationOfNode(node);
 
         const typeNode = node.type as ts.TypeReferenceNode;
         if (typeNode.typeArguments && typeNode.typeArguments.length) {
@@ -1045,6 +1073,36 @@ Failed parsing at: \n${node.getText()}\n\n`);
             }
         }
 
+        const documentation = (ts as any).getJSDocCommentsAndTags(node) as ts.Node[];
+
+        if (documentation && documentation.length) for (const documentationNode of documentation) {
+            // Get the first JSDocComment
+            if (documentationNode.kind == ts.SyntaxKind.JSDocComment) {
+                // Its text represents the service description
+                const JSDocComment = documentationNode as ts.JSDoc;
+                service.description = JSDocComment.comment || '';
+
+                // The various tags represent the parameter and result type descriptions
+                if (JSDocComment.tags) for (const tag of JSDocComment.tags) {
+                    // The return tag can be applied directly to the result type
+                    if (tag.kind == ts.SyntaxKind.JSDocReturnTag) {
+                        service.resultType.description = tag.comment || '';
+                    }
+                    // For parameters it is necessary to match each parameter to its corresponding tag
+                    else if (tag.kind == ts.SyntaxKind.JSDocParameterTag) {
+                        const parameterTag = tag as ts.JSDocParameterTag;
+
+                        for (const parameter of service.parameterDefinitions) {
+                            if (parameterTag.name.getText() == parameter.name) {
+                                parameter.description = parameterTag.comment || '';
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         this.services.push(service);
     }
 
@@ -1064,6 +1122,8 @@ Failed parsing at: \n${node.getText()}\n\n`);
         }
 
         subscription.name = node.name.getText();
+
+        subscription.description = this.documentationOfNode(node);
 
         if (this.hasDecoratorNamed('localSubscription', node)) {
             subscription.sourceType = this.entityKind as unknown as TWSubscriptionSourceKind;

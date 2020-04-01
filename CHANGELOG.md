@@ -1,3 +1,9 @@
+# 0.2.0-beta.1
+
+Added support for `JSON` and `TWJSON` types. Further improved error handling when specifying unknown base types in certain scenarios.
+
+Added support for converting JSDoc into thingworx descriptions.
+
 # 0.1.0-beta.1
 
 The transformer will now inline all const enums used in property initializers, argument initializers or method bodies.
