@@ -112,8 +112,16 @@ export class TWThingTransformer {
      */
     root: string;
 
+    /**
+     * Set to `true` if this transformer is applied in the after phase. When set to `true`,
+     * this transformer will only extract the transpiled service bodies.
+     */
     after: boolean;
 
+    /**
+     * Set to `true` if this transformer is used during a watch process. When set to `true`,
+     * this transformer will only emit declarations.
+     */
     watch: boolean;
 
     constructor(context: ts.TransformationContext, root: string, after: boolean, watch: boolean) {
@@ -123,14 +131,25 @@ export class TWThingTransformer {
         this.watch = watch;
     }
 
+    /**
+     * Throws a formatted error message for the given AST node.
+     * @param node      The node which caused an error.
+     * @param error     The error message to display.
+     */
     throwErrorForNode(node: ts.Node, error: string): never {
         throw new Error(`Error in file ${node.getSourceFile().fileName} at position ${node.getStart()}: ${error}
 
 Failed parsing at: \n${node.getText()}\n\n`);
     }
 
+    /**
+     * Returns the TW specific entity kind for the given class declaration based on the applied
+     * decorators.
+     * @param classNode     The class node.
+     * @return              The entity kind.
+     */
     entityKindOfClassNode(classNode: ts.ClassDeclaration): TWEntityKind {
-        // Otherwise determine the kind based on the decorators
+        // Determine the kind based on the decorators
         if (!classNode.decorators || !classNode.decorators.length) {
             this.throwErrorForNode(classNode, `Ambiguous class kind ${classNode.name}. Thingworx classes must extend from DataShape, ThingShape or have an entity kind decorator.`);
         }
@@ -145,9 +164,17 @@ Failed parsing at: \n${node.getText()}\n\n`);
         return isThing ? TWEntityKind.Thing : TWEntityKind.ThingTemplate;
     }
 
+    /**
+     * Checks whether the given node has a decorator with the given name.
+     * @param name      The name of the decorator to find.
+     * @param node      The node in which to search.
+     * @return          `true` if the decorator was found, `false` otherwise.
+     */
     hasDecoratorNamed(name: string, node: ts.Node): boolean {
         if (!node.decorators) return false;
 
+        // Getting the decorator name depends on whether the decorator is applied directly or via a
+        // decorator factory
         for (const decorator of node.decorators) {
             if (decorator.expression.kind == ts.SyntaxKind.CallExpression) {
                 const callExpression = decorator.expression as ts.CallExpression;
@@ -165,6 +192,14 @@ Failed parsing at: \n${node.getText()}\n\n`);
         return false;
     }
 
+
+    /**
+     * Retrieves the arguments of the decorator with the given name, if the decorator exists and is a applied
+     * via a decorator factory.
+     * @param name      The name of the decorator to find.
+     * @param node      The node in which to search.
+     * @return          An array of expressions representing the arguments, or `undefined` if they could not be retrieved.
+     */
     argumentsOfDecoratorNamed(name: string, node: ts.Node): ts.NodeArray<ts.Expression> | undefined {
         if (!node.decorators) return;
         
@@ -178,6 +213,13 @@ Failed parsing at: \n${node.getText()}\n\n`);
         }
     }
 
+    /**
+     * Retrieves the text of the single literal argument of the given decorator. This method will throw if the given
+     * decorator factory has no arguments, more than one argument or a non-literal argument.
+     * @param name      The name of the decorator to find.
+     * @param node      The node in which to search.
+     * @return          The text of the literal argument, or `undefined` if the decorator does not exist.
+     */
     literalArgumentOfDecoratorNamed(name: string, node: ts.Node): string | undefined {
         if (!this.hasDecoratorNamed(name, node)) return;
 
@@ -198,7 +240,12 @@ Failed parsing at: \n${node.getText()}\n\n`);
         }
     }
     
-    visit(node: ts.Node) {
+    /**
+     * Visits the given node.
+     * @param node      The node to visit.
+     * @return          The visited node, or a new node that will replace it. 
+     */
+    visit(node: ts.Node): ts.Node | undefined {
         if (this.after) {
             if (node.kind == ts.SyntaxKind.SourceFile) {
                 (this as any).source = node;
@@ -249,6 +296,12 @@ Failed parsing at: \n${node.getText()}\n\n`);
         return result;
     }
 
+    /**
+     * Visits a `this` node and decides whether to replace with `me` or leave it as is. The node will be replaced by
+     * `me` if its scope - the closest parent non-arrow function - is a thingworx service.
+     * @param node      The node to visit.
+     * @return          A node.
+     */
     visitThisNode(node: ts.ThisExpression) {
         // Replace the node with "me" if the closest function declaration is the class method
         let parent = node.parent;
@@ -271,6 +324,10 @@ Failed parsing at: \n${node.getText()}\n\n`);
         return ts.visitEachChild(node, node => this.visit(node), this.context);
     }
 
+    /**
+     * Visits a node whose parent is the source file.
+     * @param node      The node to visit.
+     */
     visitRootNode(node: ts.Node) {
         // The only permitted entries at the source level are class declarations, interface declarations, const enums and import statements
         if (![ts.SyntaxKind.ClassDeclaration, ts.SyntaxKind.InterfaceDeclaration, ts.SyntaxKind.EnumDeclaration, ts.SyntaxKind.ImportClause, ts.SyntaxKind.SingleLineCommentTrivia, ts.SyntaxKind.JSDocComment, ts.SyntaxKind.MultiLineCommentTrivia].includes(node.kind)) {
@@ -388,6 +445,11 @@ Failed parsing at: \n${node.getText()}\n\n`);
         }
     }
 
+    /**
+     * Visits a class member. This will invoke one of the specialized visit method depending on the
+     * kind of node and class.
+     * @param node      The node to visit.
+     */
     visitClassMember(node: ts.ClassElement) {
         if (node.kind == ts.SyntaxKind.Constructor) {
             this.throwErrorForNode(node, `Constructors are not supported in Thingworx classes.`);
@@ -412,6 +474,10 @@ Failed parsing at: \n${node.getText()}\n\n`);
         }
     }
 
+    /**
+     * Visits a data shape property declaration.
+     * @param node      The node to visit.
+     */
     visitDataShapeField(node: ts.PropertyDeclaration) {
         // Ensure that the property has a type annotation
         if (!node.type) {
@@ -492,6 +558,10 @@ Failed parsing at: \n${node.getText()}\n\n`);
         this.fields.push(property);
     }
 
+    /**
+     * Visits a thing, thing template or thing shape property or event.
+     * @param node      The node to visit.
+     */
     visitProperty(node: ts.PropertyDeclaration) {
         // Ensure that the property has a type annotation
         if (!node.type) {
@@ -697,6 +767,10 @@ Failed parsing at: \n${node.getText()}\n\n`);
         this.properties.push(property);
     }
 
+    /**
+     * Visits a property node that represents an event definition.
+     * @param node      The node to visit.
+     */
     visitEvent(node: ts.PropertyDeclaration) {
         const event = {} as TWEventDefinition;
 
@@ -727,6 +801,10 @@ Failed parsing at: \n${node.getText()}\n\n`);
         this.events.push(event);
     }
 
+    /**
+     * Visits a service or subscription definition.
+     * @param node      The node to visit.
+     */
     visitMethod(node: ts.MethodDeclaration) {
         if (this.hasDecoratorNamed('subscription', node) || this.hasDecoratorNamed('localSubscription', node)) {
             return this.visitSubscription(node);
@@ -970,6 +1048,10 @@ Failed parsing at: \n${node.getText()}\n\n`);
         this.services.push(service);
     }
 
+    /**
+     * Visits a method declaration that represents a subscription definition.
+     * @param node      The node to visit.
+     */
     visitSubscription(node: ts.MethodDeclaration) {
         const subscription = {
             source: '',
@@ -1019,6 +1101,11 @@ Failed parsing at: \n${node.getText()}\n\n`);
 
     }
 
+    /**
+     * Invoked during the after phase. Visits function definitions and identifies which represent service
+     * implementations.
+     * @param node      The node to visit.
+     */
     visitTranspiledMethod(node: any) {
         // Ensure that this is a top-level method
         // Find the original node
@@ -1061,6 +1148,10 @@ Failed parsing at: \n${node.getText()}\n\n`);
         }
     }
 
+    /**
+     * Visits a class expression that represents a configuration table definition.
+     * @param node      The node to visit.
+     */
     visitConfigurationTablesDefinition(node: ts.ClassExpression) {
         if (node.name) this.throwErrorForNode(node, `The argument for the @ConfigurationTables decorator must be an anonymous class.`);
         if (node.heritageClauses) this.throwErrorForNode(node, `The argument for the @ConfigurationTables decorator must be a root class.`);
@@ -1110,6 +1201,10 @@ Failed parsing at: \n${node.getText()}\n\n`);
         }
     }
 
+    /**
+     * Returns the XML entity representation of the file processed by this transformer.
+     * @return      An XML.
+     */
     toXML(): string {
         const XML = {} as any;
 
@@ -1460,6 +1555,10 @@ Failed parsing at: \n${node.getText()}\n\n`);
         return (new Builder()).buildObject(XML);
     }
 
+    /**
+     * Returns the XML data shape entity representation of the file processed by this transformer.
+     * @return      An XML.
+     */
     private toDataShapeXML(): string {
         const XML = {} as any;
 
@@ -1502,7 +1601,22 @@ Failed parsing at: \n${node.getText()}\n\n`);
         return (new Builder()).buildObject(XML);
     }
 
+    /**
+     * @deprecated - Use `toDeclaration` instead.
+     * 
+     * Returns the Thingworx collection declaration of the entity within the file processed by this transformer.
+     * @return      The typescript declaration.
+     */
     toDefinition(): string {
+        return this.toDeclaration();
+    }
+
+
+    /**
+     * Returns the Thingworx collection declaration of the entity within the file processed by this transformer.
+     * @return      The typescript declaration.
+     */
+    toDeclaration(): string {
         if (this.entityKind && this.className) {
             if (this.entityKind == TWEntityKind.Thing) {
                 return `declare interface ${this.entityKind}s { ${this.className}: ${this.className} }\n\n`;
@@ -1516,6 +1630,11 @@ Failed parsing at: \n${node.getText()}\n\n`);
         }
     }
 
+    /**
+     * Writes the XML entity representation of the file processed by this transformer to an appropriate file
+     * and path based on the entity kind and its name. The path will use the given path as a root.
+     * @param path      Defaults the `root` property. The root path.
+     */
     write(path: string = this.root): void {
         if (!fs.existsSync(`${path}/build`)) fs.mkdirSync(`${path}/build`);
         if (!fs.existsSync(`${path}/build/Entities`)) fs.mkdirSync(`${path}/build/Entities`);
