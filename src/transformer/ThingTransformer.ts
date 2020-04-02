@@ -1162,6 +1162,106 @@ Failed parsing at: \n${node.getText()}\n\n`);
     }
 
     /**
+     * Returns the emit result of the body of the specified function declaration. This will strip
+     * out the surrounding braces.
+     * @param node  The function declaration.
+     * @return      The emit result.
+     */
+    transpiledBodyOfFunctionDelcaration(node: ts.FunctionDeclaration): string {
+        const result = ts.createPrinter().printNode(ts.EmitHint.Unspecified, node.body!, (this as any).source);
+        return result.substring(1, result.length - 1);
+    }
+
+    /**
+     * Returns the emit result of the body of the specified function declaration and inlines any helpers necessary
+     * for the method to function.
+     * @param node  The function declaration.
+     * @return      The emit result, with added helpers as necessary.
+     */
+    transpiledBodyOfThingworxMethod(node: ts.FunctionDeclaration): string {
+        // If no helpers are used, just return the compiled method
+        const helpers = ts.getEmitHelpers((this as any).source);
+        // Note that the __extends helper is always included to implement classes; if it is the only one used, skip searching
+        if (!helpers || !helpers.length || (helpers.length == 1 && helpers[0].name == 'typescript:extends')) {
+            return this.transpiledBodyOfFunctionDelcaration(node);
+        }
+
+        // Some helpers depend on others only via their body text and not via the
+        // generated js code
+        // This is something I may need to keep up to date.
+        // TODO: Need a way to automate this.
+        const dependencies = {
+            'typescript:read': ['typescrript:values'],
+            'typescript:spread': ['typescript:read'],
+            'typescript:asyncGenerator': ['typescript:await'],
+            'typescript:asyncDelegator': ['typescript:await'],
+            'typescript:asyncValues': ['typescript:values']
+        }
+
+        // Some helpers can use a little help to work better with thingworx
+        // This contains a few replacements for some of the helpers
+        const codeMap = {
+            // The read helper requires symbol support, but it can work for thingworx with just
+            // the __values helper replacing symbols
+            'typescript:read': `var __read = (this && this.__read) || function (o, n) {
+                var m = typeof Symbol === "function" && o[Symbol.iterator];
+                var i = (m ? m.call(o) : __values(o)), r, ar = [], e;
+                try {
+                    while ((n === void 0 || n-- > 0) && !(r = i.next()).done) ar.push(r.value);
+                }
+                catch (error) { e = { error: error }; }
+                finally {
+                    try {
+                        if (r && !r.done && (m = i["return"])) m.call(i);
+                    }
+                    finally { if (e) throw e.error; }
+                }
+                return ar;
+            };`
+        }
+
+        // Otherwise need to look up usages for each helper and inline it
+        const helpersToInline = new Set<ts.EmitHelper>();
+        const visitor = (node: ts.Node) => {
+            // All helpers so far are global functions, so need to look for function invocations
+            if (node.kind == ts.SyntaxKind.CallExpression) {
+                const callNode = node as ts.CallExpression;
+                
+                if (callNode.expression.kind == ts.SyntaxKind.Identifier) {
+                    // A helper is considered to be used if the call expression is an identifier
+                    // whose text matches the "import name" of the helper
+                    const callIdentifier = (callNode.expression as ts.Identifier).text;
+
+                    for (const helper of helpers) {
+                        if ((helper as any).importName == callIdentifier) {
+                            // If found, add the helper to a set that will be added to the method body directly
+                            helpersToInline.add(helper);
+                        }
+                    }
+                }
+            }
+            node.forEachChild(visitor);
+        }
+        node.forEachChild(visitor);
+
+        // Need to ensure that all helper dependencies exist in the set
+        let size;
+        do {
+            size = helpersToInline.size;
+            if (helpersToInline.size) for (const helper of [...helpersToInline]) {
+                if (dependencies[helper.name]) for (const dependency of dependencies[helper.name]) {
+                    for (const rootHelper of helpers) {
+                        if (rootHelper.name == dependency) helpersToInline.add(rootHelper);
+                    }
+                }
+            }
+        } while (helpersToInline.size != size)
+
+        // After identifying the helpers, join their text and add them to the transpiled method body
+        return [...helpersToInline].map(helper => codeMap[helper.name] || helper.text).join('\n\n') + this.transpiledBodyOfFunctionDelcaration(node);
+    }
+
+    /**
      * Invoked during the after phase. Visits function definitions and identifies which represent service
      * implementations.
      * @param node      The node to visit.
@@ -1195,14 +1295,14 @@ Failed parsing at: \n${node.getText()}\n\n`);
 
             for (const service of entity.services) {
                 if (service.name == name) {
-                    const body = ts.createPrinter().printNode(ts.EmitHint.Unspecified, node.body, (this as any).source);
-                    service.code = `var result = (function () ${body})()`;
+                    //const body = ts.createPrinter().printNode(ts.EmitHint.Unspecified, node.body, (this as any).source);
+                    service.code = `var result = (function () {${this.transpiledBodyOfThingworxMethod(node)}})()`;
                 }
             }
             for (const subscription of entity.subscriptions) {
                 if (subscription.name == name) {
-                    const body = ts.createPrinter().printNode(ts.EmitHint.Unspecified, node.body, (this as any).source);
-                    subscription.code = body.substring(1, body.length - 1);
+                    //const body = ts.createPrinter().printNode(ts.EmitHint.Unspecified, node.body, (this as any).source);
+                    subscription.code = this.transpiledBodyOfThingworxMethod(node);
                 }
             }
         }

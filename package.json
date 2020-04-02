@@ -2,7 +2,7 @@
     "name": "bm-thing-transformer",
     "packageName": "bm-thing-transformer",
     "moduleName": "bm-thing-transformer",
-    "version": "0.2.0-beta.1",
+    "version": "0.3.0-beta.1",
     "description": "Develop in ThingWorx with a proper IDE.",
     "author": "Thingworx RoIcenter",
     "minimumThingWorxVersion": "6.0.0",
