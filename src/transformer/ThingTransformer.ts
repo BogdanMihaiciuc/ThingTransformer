@@ -537,7 +537,6 @@ Failed parsing at: \n${node.getText()}\n\n`);
 
         // INFOTABLE can optionally take the data shape as a type argument
         if (baseType == 'INFOTABLE') {
-            property.aspects.dataShape = '';
             const typeArguments = typeNode.typeArguments;
             if (typeArguments) {
                 if (typeArguments.length != 1) this.throwErrorForNode(node, `Unknown generics specified for property ${property.name}: ${property.baseType}`);
@@ -629,7 +628,6 @@ Failed parsing at: \n${node.getText()}\n\n`);
 
         // INFOTABLE can optionally take the data shape as a type argument
         if (baseType == 'INFOTABLE') {
-            property.aspects.dataShape = '';
             const typeArguments = typeNode.typeArguments;
             if (typeArguments) {
                 if (typeArguments.length != 1) this.throwErrorForNode(node, `Unknown generics specified for property ${property.name}: ${property.baseType}`);
@@ -963,7 +961,6 @@ Failed parsing at: \n${node.getText()}\n\n`);
                 // INFOTABLE can optionally take the data shape as a type argument
                 if (baseType == 'INFOTABLE') {
                     const typeNode = type.type! as ts.NodeWithTypeArguments;
-                    parameter.aspects.dataShape = '';
                     const typeArguments = typeNode.typeArguments;
                     if (typeArguments) {
                         if (typeArguments.length != 1) this.throwErrorForNode(node, `Unknown generics specified for parameter ${parameter.name}: ${parameter.baseType}`);
@@ -1040,7 +1037,6 @@ Failed parsing at: \n${node.getText()}\n\n`);
                 if (baseType == 'INFOTABLE') {
                     const typeNode = node.type! as ts.NodeWithTypeArguments;
                     service.resultType.aspects = service.resultType.aspects || {};
-                    service.resultType.aspects.dataShape = '';
                     const typeArguments = typeNode.typeArguments;
                     if (typeArguments) {
                         if (typeArguments.length != 1) this.throwErrorForNode(node, `Unknown generics specified for service result: ${service.resultType.baseType}`);
