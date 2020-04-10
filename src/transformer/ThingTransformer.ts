@@ -1733,6 +1733,8 @@ Failed parsing at: \n${node.getText()}\n\n`);
         // Tags are yet unsupported
         entity.$.tags = '';
 
+        if (this.description) entity.$.description = this.description;
+
         entity.FieldDefinitions = [{FieldDefinition: []}];
         const fieldDefinitions = entity.FieldDefinitions[0].FieldDefinition as any[];
 
