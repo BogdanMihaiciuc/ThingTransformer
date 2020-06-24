@@ -177,31 +177,81 @@ export interface TWConfigurationTable {
 
 export const TWBaseTypes = {
     NOTHING: "NOTHING",
+    void: 'NOTHING',
+    nothing: 'NOTHING',
+
     STRING: "STRING",
+    string: 'STRING',
+
     NUMBER: "NUMBER",
+    number: 'NUMBER',
+
     BOOLEAN: "BOOLEAN",
+    boolean: 'BOOLEAN',
+
     DATETIME: "DATETIME",
+    Date: 'DATETIME',
+    datetime: 'DATETIME',
+
     TIMESPAN: "TIMESPAN",
+    timespan: 'TIMESPAN',
+
     INFOTABLE: "INFOTABLE",
+    infotable: 'INFOTABLE',
+
     LOCATION: "LOCATION",
+    location: 'LOCATION',
+
     XML: "XML",
+    xml: 'XML',
+
     Object: "JSON",
     JSON: "JSON",
     TWJSON: "JSON",
+    json: 'JSON',
+
     QUERY: "QUERY",
+    query: 'QUERY',
+
     IMAGE: "IMAGE",
+    image: 'IMAGE',
+
     HYPERLINK: "HYPERLINK",
+    hyperlink: 'HYPERLINK',
+
     IMAGELINK: "IMAGELINK",
+    imagelink: 'IMAGELINK',
+
     PASSWORD: "PASSWORD",
+    password: 'PASSWORD',
+
     HTML: "HTML",
+    html: 'HTML',
+
     TEXT: "TEXT",
+    text: 'TEXT',
+
     TAGS: "TAGS",
+    tags: 'TAGS',
+
     SCHEDULE: "SCHEDULE",
+    schedule: 'SCHEDULE',
+
     VARIANT: "VARIANT",
+    variant: 'variant',
+
     GUID: "GUID",
+    guid: 'GUILD',
+
     BLOB: "BLOB",
+    blob: 'BLOB',
+
     INTEGER: "INTEGER",
+    integer: 'INTEGER',
+
     LONG: "LONG",
+    long: 'LONG',
+
     PROPERTYNAME: "PROPERTYNAME",
     SERVICENAME: "SERVICENAME",
     EVENTNAME: "EVENTNAME",
@@ -228,10 +278,41 @@ export const TWBaseTypes = {
     PERSISTENCEPROVIDERPACKAGENAME: "PERSISTENCEPROVIDERPACKAGENAME",
     PERSISTENCEPROVIDERNAME: "PERSISTENCEPROVIDERNAME",
     PROJECTNAME: "PROJECTNAME",
+
+    
+    propertyName: "PROPERTYNAME",
+    serviceName: "SERVICENAME",
+    eventName: "EVENTNAME",
+    thingName: "THINGNAME",
+    thingShapeName: "THINGSHAPENAME",
+    thingTemplateName: "THINGTEMPLATENAME",
+    dataShapeName: "DATASHAPENAME",
+    mashupName: "MASHUPNAME",
+    menuName: "MENUNAME",
+    baseTypeName: "BASETYPENAME",
+    userName: "USERNAME",
+    groupName: "GROUPNAME",
+    categoryName: "CATEGORYNAME",
+    stateDefinitionName: "STATEDEFINITIONNAME",
+    styleDefinitionName: "STYLEDEFINITIONNAME",
+    modelTagVocabularyName: "MODELTAGVOCABULARYNAME",
+    dataTagVocabularyName: "DATATAGVOCABULARYNAME",
+    networkName: "NETWORKNAME",
+    mediaEntityName: "MEDIAENTITYNAME",
+    applicationKeyName: "APPLICATIONKEYNAME",
+    localizationTableName: "LOCALIZATIONTABLENAME",
+    organizationName: "ORGANIZATIONNAME",
+    dashboardName: "DASHBOARDNAME",
+    presistenceProviderPackageName: "PERSISTENCEPROVIDERPACKAGENAME",
+    persistenceProviderName: "PERSISTENCEPROVIDERNAME",
+    projectName: "PROJECTNAME",
+
     VEC2: "VEC2",
     VEC3: "VEC3",
     VEC4: "VEC4",
-    THINGCODE: "THINGCODE"
+
+    THINGCODE: "THINGCODE",
+    thingcode: 'THINGCODE'
 };
 
 export const enum TWEntityKind {
