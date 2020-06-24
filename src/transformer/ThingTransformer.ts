@@ -1848,9 +1848,10 @@ Failed parsing at: \n${node.getText()}\n\n`);
 
 }
 
-export function TWThingTransformerFactory(root: string, after: boolean = false, watch: boolean = false) {
+export function TWThingTransformerFactory(root: string, after: boolean = false, watch: boolean = false, project?: string) {
     return function TWThingTransformerFunction(context: ts.TransformationContext) {
         const transformer = new TWThingTransformer(context, root, after, watch);
+        if (project) transformer.projectName = project;
     
         return (node: ts.Node) => ts.visitNode(node, node => transformer.visit(node));
     }
