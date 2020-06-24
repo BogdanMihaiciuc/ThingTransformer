@@ -28,6 +28,16 @@ export class TWThingTransformer {
     className?: string;
 
     /**
+     * The exported name of the entity to use.
+     */
+    exportedName?: string;
+
+    /**
+     * When set to a string, this project will be assigned to the entity.
+     */
+    projectName?: string;
+
+    /**
      * For things and thing templates, this represents the name of the template from which
      * this entity inherits.
      */
@@ -379,8 +389,14 @@ Failed parsing at: \n${node.getText()}\n\n`);
             }
 
             this.className = classNode.name.text;
+            this.exportedName = this.className;
 
             this.description = this.documentationOfNode(classNode);
+
+            if (this.hasDecoratorNamed('exportName', classNode)) {
+                const exportName = this.literalArgumentOfDecoratorNamed('exportName', classNode);
+                this.exportedName = exportName;
+            }
 
             // All Thingworx classes are required to inherit from some kind of base class
             if (!classNode.heritageClauses || !classNode.heritageClauses.length) {
@@ -536,16 +552,21 @@ Failed parsing at: \n${node.getText()}\n\n`);
         property.baseType = TWBaseTypes[baseType];
 
         // INFOTABLE can optionally take the data shape as a type argument
-        if (baseType == 'INFOTABLE') {
+        if (TWBaseTypes[baseType] == 'INFOTABLE') {
             const typeArguments = typeNode.typeArguments;
             if (typeArguments) {
                 if (typeArguments.length != 1) this.throwErrorForNode(node, `Unknown generics specified for property ${property.name}: ${property.baseType}`);
 
-                property.aspects.dataShape = typeArguments[0].getText();
+                if (typeArguments[0].kind == ts.SyntaxKind.LiteralType) {
+                    property.aspects.dataShape = ((typeArguments[0] as ts.LiteralTypeNode).literal as ts.StringLiteral).text;
+                }
+                else {
+                    property.aspects.dataShape = typeArguments[0].getText();
+                }
             }
         }
         // THINGNAME can optionally take the thing template name and/or thing shape name as a type argument
-        else if (baseType == 'THINGNAME') {
+        else if (TWBaseTypes[baseType] == 'THINGNAME') {
             const typeArguments = typeNode.typeArguments;
 
             if (typeArguments && typeArguments.length) {
@@ -627,16 +648,21 @@ Failed parsing at: \n${node.getText()}\n\n`);
         property.baseType = TWBaseTypes[baseType];
 
         // INFOTABLE can optionally take the data shape as a type argument
-        if (baseType == 'INFOTABLE') {
+        if (TWBaseTypes[baseType] == 'INFOTABLE') {
             const typeArguments = typeNode.typeArguments;
             if (typeArguments) {
                 if (typeArguments.length != 1) this.throwErrorForNode(node, `Unknown generics specified for property ${property.name}: ${property.baseType}`);
 
-                property.aspects.dataShape = typeArguments[0].getText();
+                if (typeArguments[0].kind == ts.SyntaxKind.LiteralType) {
+                    property.aspects.dataShape = ((typeArguments[0] as ts.LiteralTypeNode).literal as ts.StringLiteral).text;
+                }
+                else {
+                    property.aspects.dataShape = typeArguments[0].getText();
+                }
             }
         }
         // THINGNAME can optionally take the thing template name and/or thing shape name as a type argument
-        else if (baseType == 'THINGNAME') {
+        else if (TWBaseTypes[baseType] == 'THINGNAME') {
             const typeArguments = typeNode.typeArguments;
 
             if (typeArguments && typeArguments.length) {
@@ -805,7 +831,12 @@ Failed parsing at: \n${node.getText()}\n\n`);
 
         const typeNode = node.type as ts.TypeReferenceNode;
         if (typeNode.typeArguments && typeNode.typeArguments.length) {
-            event.dataShape = typeNode.typeArguments[0].getText();
+            if (typeNode.typeArguments[0].kind == ts.SyntaxKind.LiteralType) {
+                event.dataShape = ((typeNode.typeArguments[0] as ts.LiteralTypeNode).literal as ts.StringLiteral).text;
+            }
+            else {
+                event.dataShape = typeNode.typeArguments[0].getText();
+            }
         }
 
         if (this.hasDecoratorNamed('remoteEvent', node)) {
@@ -959,17 +990,22 @@ Failed parsing at: \n${node.getText()}\n\n`);
                 }
 
                 // INFOTABLE can optionally take the data shape as a type argument
-                if (baseType == 'INFOTABLE') {
+                if (TWBaseTypes[baseType] == 'INFOTABLE') {
                     const typeNode = type.type! as ts.NodeWithTypeArguments;
                     const typeArguments = typeNode.typeArguments;
                     if (typeArguments) {
                         if (typeArguments.length != 1) this.throwErrorForNode(node, `Unknown generics specified for parameter ${parameter.name}: ${parameter.baseType}`);
 
-                        parameter.aspects.dataShape = typeArguments[0].getText();
+                        if (typeArguments[0].kind == ts.SyntaxKind.LiteralType) {
+                            parameter.aspects.dataShape = ((typeArguments[0] as ts.LiteralTypeNode).literal as ts.StringLiteral).text;
+                        }
+                        else {
+                            parameter.aspects.dataShape = typeArguments[0].getText();
+                        }
                     }
                 }
                 // THINGNAME can optionally take the thing template name and/or thing shape name as a type argument
-                else if (baseType == 'THINGNAME') {
+                else if (TWBaseTypes[baseType] == 'THINGNAME') {
                     const typeNode = type.type! as ts.NodeWithTypeArguments;
                     const typeArguments = typeNode.typeArguments;
 
@@ -1034,19 +1070,24 @@ Failed parsing at: \n${node.getText()}\n\n`);
                 }
 
                 // INFOTABLE can optionally take the data shape as a type argument
-                if (baseType == 'INFOTABLE') {
+                if (TWBaseTypes[baseType] == 'INFOTABLE') {
                     const typeNode = node.type! as ts.NodeWithTypeArguments;
                     service.resultType.aspects = service.resultType.aspects || {};
                     const typeArguments = typeNode.typeArguments;
                     if (typeArguments) {
                         if (typeArguments.length != 1) this.throwErrorForNode(node, `Unknown generics specified for service result: ${service.resultType.baseType}`);
     
-                        service.resultType.aspects.dataShape = typeArguments[0].getText();
+                        if (typeArguments[0].kind == ts.SyntaxKind.LiteralType) {
+                            service.resultType.aspects.dataShape = ((typeArguments[0] as ts.LiteralTypeNode).literal as ts.StringLiteral).text;
+                        }
+                        else {
+                            service.resultType.aspects.dataShape = typeArguments[0].getText();
+                        }
                     }
                 }
                 // THINGNAME can optionally take the thing template name and/or thing shape name as a type argument, however
                 // this is not supported by Thingworx in service results, so it is ignored
-                else if (baseType == 'THINGNAME') {
+                else if (TWBaseTypes[baseType] == 'THINGNAME') {
                     const typeNode = node.type! as ts.NodeWithTypeArguments;
                     const typeArguments = typeNode.typeArguments;
                     service.resultType.aspects = service.resultType.aspects || {};
@@ -1376,7 +1417,9 @@ Failed parsing at: \n${node.getText()}\n\n`);
         
         const entity = XML.Entities[collectionKind][0][entityKind][0];
 
-        entity.$.name = this.className;
+        entity.$.name = this.exportedName;
+
+        if (this.projectName) entity.$.projectName = this.projectName;
 
         // Tags are yet unsupported
         entity.$.tags = '';
@@ -1728,7 +1771,9 @@ Failed parsing at: \n${node.getText()}\n\n`);
         
         const entity = XML.Entities[collectionKind][0][entityKind][0];
 
-        entity.$.name = this.className;
+        entity.$.name = this.exportedName;
+
+        if (this.projectName) entity.$.projectName = this.projectName;
 
         // Tags are yet unsupported
         entity.$.tags = '';
@@ -1777,10 +1822,10 @@ Failed parsing at: \n${node.getText()}\n\n`);
     toDeclaration(): string {
         if (this.entityKind && this.className) {
             if (this.entityKind == TWEntityKind.Thing) {
-                return `declare interface ${this.entityKind}s { ${this.className}: ${this.className} }\n\n`;
+                return `declare interface ${this.entityKind}s { ${JSON.stringify(this.exportedName)}: ${this.className} }\n\n`;
             }
             else {
-                return `declare interface ${this.entityKind}s { ${this.className}: ${this.entityKind}Entity<${this.className}>}`
+                return `declare interface ${this.entityKind}s { ${JSON.stringify(this.exportedName)}: ${this.entityKind}Entity<${this.className}>}`
             }
         }
         else {
@@ -1798,7 +1843,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
         if (!fs.existsSync(`${path}/build/Entities`)) fs.mkdirSync(`${path}/build/Entities`);
         if (!fs.existsSync(`${path}/build/Entities/${this.entityKind}s`)) fs.mkdirSync(`${path}/build/Entities/${this.entityKind}s`);
 
-        fs.writeFileSync(`${path}/build/Entities/${this.entityKind}s/${this.className}.xml`, this.toXML());
+        fs.writeFileSync(`${path}/build/Entities/${this.entityKind}s/${this.exportedName}.xml`, this.toXML());
     }
 
 }
