@@ -1388,11 +1388,17 @@ Failed parsing at: \n${node.getText()}\n\n`);
 
             if (!type.typeArguments || type.typeArguments.length != 1) this.throwErrorForNode(member, `Configuration table properties must have one type parameter representing the data shape name.`);
 
-            const dataShape = type.typeArguments[0] as ts.TypeReferenceNode;
-
-            if (dataShape.kind != ts.SyntaxKind.TypeReference) this.throwErrorForNode(member, `The configuration table type argument must be a data shape class reference.`);
+            const typeArgument = type.typeArguments[0];
+            if (typeArgument.kind == ts.SyntaxKind.TypeReference) {
+                table.dataShapeName = (typeArgument as ts.TypeReferenceNode).typeName.getText();
+            }
+            else if (typeArgument.kind = ts.SyntaxKind.LiteralType) {
+                table.dataShapeName = ((typeArgument as ts.LiteralTypeNode).literal as ts.StringLiteral).text;
+            }
+            else {
+                this.throwErrorForNode(member, `The configuration table type argument must be a data shape class reference or exported name.`);
+            } 
             
-            table.dataShapeName = dataShape.typeName.getText();
 
             this.configurationTableDefinitions.push(table);
         }
