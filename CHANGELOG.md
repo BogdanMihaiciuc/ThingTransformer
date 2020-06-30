@@ -2,7 +2,11 @@
 
 Added support for the `@exportName(_)` decorator which can be used to assign an entity name that is different from the class name. This can be useful when the project's naming conventions aren't compatible with the javascript identifier naming rules. Additionally, with the infotables and event types, it is now possible to specify a data shape name instead of a data shape type as a type argument. For types that aren't erased (e.g. property, argument and return types) it is required to use the data shape name if it is different from its class name.
 
+Added support for referencing thing templates and thing shapes in extends clauses via string literals.
+
 Added support for setting the `projectName` property on a transformer instance. This will cause the specified value to be used as the `projectName` attribute of the exported entity.
+
+Resolves an issue that caused implemented shapes to not be included in the XML files.
 
 # 0.4.0-beta.1
 
