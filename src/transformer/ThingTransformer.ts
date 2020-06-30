@@ -437,7 +437,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
                     }
     
                     this.thingTemplateName = callNode.arguments[0].kind == ts.SyntaxKind.StringLiteral ? (callNode.arguments[0] as ts.StringLiteral).text : callNode.arguments[0].getText();
-                    this.thingShapes = callNode.arguments.slice(1, callNode.arguments.length - 1).map(node => {
+                    this.thingShapes = callNode.arguments.slice(1, callNode.arguments.length).map(node => {
                         if (node.kind == ts.SyntaxKind.StringLiteral) {
                             return (node as ts.StringLiteral).text;
                         }
