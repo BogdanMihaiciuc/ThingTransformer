@@ -1760,6 +1760,14 @@ Failed parsing at: \n${node.getText()}\n\n`);
             subscriptions.push(subscriptionDefinition);
         }
 
+        if (this.thingShapes.length) {
+            entity.ImplementedShapes = [{ImplementedShape: []}];
+            const implementedShapes = entity.ImplementedShapes[0].ImplementedShape;
+            for (const shape of this.thingShapes) {
+                implementedShapes.push({$:{name: shape, type: 'ThingShape'}});
+            }
+        }
+
         if (this.configurationTableDefinitions.length) {
             entity.ConfigurationTableDefinitions = [{ConfigurationTableDefinition: []}];
             const configurationTableDefinitions = entity.ConfigurationTableDefinitions[0].ConfigurationTableDefinition;
