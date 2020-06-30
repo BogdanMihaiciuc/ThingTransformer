@@ -426,17 +426,34 @@ Failed parsing at: \n${node.getText()}\n\n`);
 
                 const callNode = heritage.expression as ts.CallExpression;
                 // Ensure that the call signature is of the correct type
-                if (callNode.expression.getText() != 'ThingTemplateWithShapes') {
-                    this.throwErrorForNode(node, `Unknown base class for ${classNode.name}. Thing and ThingTemplate classes must extend from a ThingTemplateWithShapes(...) expression or a base ThingTemplate class.`);
+                if (callNode.expression.getText() != 'ThingTemplateWithShapes' && callNode.expression.getText() != 'ThingTemplateReference') {
+                    this.throwErrorForNode(node, `Unknown base class for ${classNode.name}. Thing and ThingTemplate classes must extend from a ThingTemplateWithShapes(...) expression, a ThingTemplateReference(...) expression or a base ThingTemplate class.`);
                 }
 
-                // Ensure that each parameter is of the correct type
-                if (!callNode.arguments.length) {
-                    this.throwErrorForNode(node, `The ThingTemplateWithShapes(...) expression must have at least one ThingTemplate parameter.`);
+                if (callNode.expression.getText() == 'ThingTemplateWithShapes') {
+                    // Ensure that each parameter is of the correct type
+                    if (!callNode.arguments.length) {
+                        this.throwErrorForNode(node, `The ThingTemplateWithShapes(...) expression must have at least one ThingTemplate parameter.`);
+                    }
+    
+                    this.thingTemplateName = callNode.arguments[0].kind == ts.SyntaxKind.StringLiteral ? (callNode.arguments[0] as ts.StringLiteral).text : callNode.arguments[0].getText();
+                    this.thingShapes = callNode.arguments.slice(1, callNode.arguments.length - 1).map(node => {
+                        if (node.kind == ts.SyntaxKind.StringLiteral) {
+                            return (node as ts.StringLiteral).text;
+                        }
+                        else {
+                            return node.getText();
+                        }
+                    });
+                }
+                else {
+                    if (callNode.arguments.length != 1) this.throwErrorForNode(node, `The ThingTemplateReference(...) expression must have a single string literal parameter.`);
+
+                    if (callNode.arguments[0].kind != ts.SyntaxKind.StringLiteral) this.throwErrorForNode(node, `The ThingTemplateReference(...) expression must have a single string literal parameter.`);
+
+                    this.thingTemplateName = (callNode.arguments[0] as ts.StringLiteral).text;
                 }
 
-                this.thingTemplateName = callNode.arguments[0].getText();
-                this.thingShapes = callNode.arguments.slice(1, callNode.arguments.length - 1).map(node => node.getText());
 
             }
 
