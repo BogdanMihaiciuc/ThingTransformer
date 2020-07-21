@@ -15,15 +15,46 @@ declare global {
 
 /**
  * The thing transformer is applied to Thingworx source files to convert them into Thingworx XML entities.
+ * It can also be used with global files to export symbols into the shared global scope.
  */
 export class TWThingTransformer {
 
     context: ts.TransformationContext;
 
+    /**
+     * Set to `true` when experimental support for global code is enabled.
+     */
+    experimentalGlobals?: boolean = false;
+
+    /**
+     * Set to `true` when the file parsed by this transformer is global code that should not be evaluated using
+     * thingworx rules.
+     */
+    isGlobalCode?: boolean;
+
+    /**
+     * For global files, this is an array of global symbols that should be exported.
+     */
+    globalSymbols: string[] = [];
+
+    /**
+     * Set to `true` after the first root node has been visited.
+     */
+    anyNodeVisited: boolean = false;
+
+    /**
+     * The filename.
+     */
+    filename?: string;
+
+    /**
+     * The JSDoc description for this entity.
+     */
     description?: string;
 
     /**
-     * The name of the entity to create.
+     * The name of the entity to create. For global code, this is the name of the
+     * thing to which the global code will be attached.
      */
     className?: string;
 
@@ -108,6 +139,16 @@ export class TWThingTransformer {
     subscriptions: TWSubscriptionDefinition[] = [];
 
     /**
+     * An array of global blocks associated with this entity.
+     */
+    globalBlocks: TWThingTransformer[] = [];
+
+    /**
+     * For global code transformers processed in the `after` phase, this is the compiled global code.
+     */
+    compiledGlobalCode?: string;
+
+    /**
      * For model entities, an array of discovered configuration table definitions.
      */
     configurationTableDefinitions: TWConfigurationTable[] = [];
@@ -133,6 +174,11 @@ export class TWThingTransformer {
      * this transformer will only emit declarations.
      */
     watch: boolean;
+
+    /**
+     * An object containing instances of the transformer.
+     */
+    store?: {[key: string]: TWThingTransformer};
 
     constructor(context: ts.TransformationContext, root: string, after: boolean, watch: boolean) {
         this.context = context;
@@ -249,6 +295,17 @@ Failed parsing at: \n${node.getText()}\n\n`);
             return literalArgument.text;
         }
     }
+
+    /**
+     * Compiles the global code and sets the `compiledGlobalCode` property.
+     * @param node      The source file node.
+     */
+    compileGlobalCode(node: ts.SourceFile) {
+        const compiledCode = ts.createPrinter().printNode(ts.EmitHint.Unspecified, node, node);
+
+        // Note that the exported symbol names are javascript identifiers, so it is safe to use them with dot notation
+        this.compiledGlobalCode = compiledCode + '\n\n' + this.globalSymbols.map(symbol => `Object.getPrototypeOf(this).${symbol} = ${symbol};`).join('\n');
+    }
     
     /**
      * Visits the given node.
@@ -259,46 +316,93 @@ Failed parsing at: \n${node.getText()}\n\n`);
         if (this.after) {
             if (node.kind == ts.SyntaxKind.SourceFile) {
                 (this as any).source = node;
+
+                // Check if this file is global code
+                const globalClass = this.getGlobalFileClass(node as ts.SourceFile);
+                if (globalClass) {
+                    this.isGlobalCode = true;
+
+                    // Find the matching before transformer and replace it by this one
+                    const store = this.store || global._TWEntities;
+                    let targetArray;
+                    if (store[globalClass]) {
+                        targetArray = (store[globalClass] as TWThingTransformer).globalBlocks;
+                    }
+                    else if (store['@globalBlocks'][globalClass]) {
+                        targetArray = store['@globalBlocks'][globalClass];
+                    }
+
+                    if (targetArray) {
+                        const filename = (node as ts.SourceFile).fileName;
+                        this.filename = filename;
+                        for (let i = 0; i < targetArray.length; i++) {
+                            // Find the pre-compilation block and replace it by this one, while copying
+                            // the exported symbol names
+                            const globalTransformer = targetArray[i];
+                            if (globalTransformer.filename == filename) {
+                                this.globalSymbols = globalTransformer.globalSymbols;
+                                targetArray[i] = this;
+                                // Compile the global code so that it can be used directly when creating the XML files
+                                this.compileGlobalCode(node as ts.SourceFile);
+                                break;
+                            }
+                        }
+                    }
+                }
             }
 
             // This doesn't seem properly documented in typescript.d.ts?
             const transpiledNode = node as any;
 
-            // After transpilation, methods get turned into function declarations
-            // that are assigned to properties
-            if (node.kind == ts.SyntaxKind.FunctionExpression && transpiledNode.original && transpiledNode.original.kind == ts.SyntaxKind.MethodDeclaration) {
-                this.visitTranspiledMethod(transpiledNode);
+            if (!this.isGlobalCode) {
+                // After transpilation, methods get turned into function declarations
+                // that are assigned to properties
+                if (node.kind == ts.SyntaxKind.FunctionExpression && transpiledNode.original && transpiledNode.original.kind == ts.SyntaxKind.MethodDeclaration) {
+                    this.visitTranspiledMethod(transpiledNode);
+                }
             }
         }
         else {
+            if (node.kind == ts.SyntaxKind.SourceFile) {
+                this.filename = (node as ts.SourceFile).fileName;
+            }
+
             if (node.parent && node.parent.kind == ts.SyntaxKind.SourceFile) {
-                this.visitRootNode(node);
-            }
-
-            // Async is only included for metadata but cannot be used on the result
-            if (node.kind == ts.SyntaxKind.AsyncKeyword) {
-                return undefined;
-            }
-
-            // Decorators are only included for metadata but cannot be used on the result
-            if (node.kind == ts.SyntaxKind.Decorator) {
-                return undefined;
-            }
-
-            // All enum constants should be inlined at this step as the printer is not able to inline them later on
-            if (node.kind == ts.SyntaxKind.PropertyAccessExpression) {
-                const constantValue = (<ts.TypeChecker>(this.context as any).getEmitResolver()).getConstantValue(node as ts.PropertyAccessExpression);
-
-                if (typeof constantValue == 'string') {
-                    return ts.createStringLiteral(constantValue);
+                if (this.isGlobalCode) {
+                    this.visitGlobalRootNode(node);
                 }
-                else if (typeof constantValue == 'number') {
-                    return ts.createNumericLiteral(constantValue.toString());
+                else {
+                    this.visitRootNode(node);
                 }
             }
+
+            // The following transformations only make sense for non-global code
+            if (!this.isGlobalCode) {
+                // Async is only included for metadata but cannot be used on the result
+                if (node.kind == ts.SyntaxKind.AsyncKeyword) {
+                    return undefined;
+                }
     
-            if (node.kind == ts.SyntaxKind.ThisKeyword) {
-                return this.visitThisNode(node as ts.ThisExpression);
+                // Decorators are only included for metadata but cannot be used on the result
+                if (node.kind == ts.SyntaxKind.Decorator) {
+                    return undefined;
+                }
+    
+                // All enum constants should be inlined at this step as the printer is not able to inline them later on
+                if (node.kind == ts.SyntaxKind.PropertyAccessExpression) {
+                    const constantValue = (<ts.TypeChecker>(this.context as any).getEmitResolver()).getConstantValue(node as ts.PropertyAccessExpression);
+    
+                    if (typeof constantValue == 'string') {
+                        return ts.createStringLiteral(constantValue);
+                    }
+                    else if (typeof constantValue == 'number') {
+                        return ts.createNumericLiteral(constantValue.toString());
+                    }
+                }
+        
+                if (node.kind == ts.SyntaxKind.ThisKeyword) {
+                    return this.visitThisNode(node as ts.ThisExpression);
+                }
             }
         }
 
@@ -355,10 +459,84 @@ Failed parsing at: \n${node.getText()}\n\n`);
     }
 
     /**
+     * Checks whether the source file processed by this transformer is global code. If it is, this returns
+     * the name of the entity to which the global code will be attached.
+     * @param node      The source file node.
+     * @return          `true` if this file represents global code, `false` otherwise.
+     */
+    getGlobalFileClass(node: ts.SourceFile): string | undefined {
+        // TODO: merge into visitRootNode below
+        if (!node.statements.length) return undefined;
+        
+        const firstStatement = node.statements[0];
+        if (firstStatement.kind != ts.SyntaxKind.ExpressionStatement || (firstStatement as ts.ExpressionStatement).expression.kind != ts.SyntaxKind.StringLiteral) return undefined;
+
+        const literalNode = (firstStatement as ts.ExpressionStatement).expression as ts.StringLiteral;
+        let literal = literalNode.text;
+
+        // Depending on tsconfig.json, the first statement in the transpiled file may be "use strict"
+        if (literal == 'use strict') {
+            const secondStatement = node.statements[1];
+            if (secondStatement.kind != ts.SyntaxKind.ExpressionStatement || (secondStatement as ts.ExpressionStatement).expression.kind != ts.SyntaxKind.StringLiteral) return undefined;
+            const literalNode = (secondStatement as ts.ExpressionStatement).expression as ts.StringLiteral;
+
+            literal = literalNode.text;
+        }
+        const literalComponents = literal.split(' ');
+
+        if (literalComponents.length == 2 && literalComponents[0] == 'use' && literalComponents[1] != 'strict') {
+            return literalComponents[1];
+        }
+
+        return undefined;
+    }
+
+    /**
      * Visits a node whose parent is the source file.
      * @param node      The node to visit.
      */
     visitRootNode(node: ts.Node) {
+        // Check if this file is global code
+        if (!this.anyNodeVisited) {
+            // A file is considered global code if the first node it contains is a string literal node in the form of
+            // 'use <name>', where <name> is any string except 'strict'
+            if (node.kind == ts.SyntaxKind.ExpressionStatement && (node as ts.ExpressionStatement).expression.kind == ts.SyntaxKind.StringLiteral) {
+                const literal = ((node as ts.ExpressionStatement).expression as ts.StringLiteral).text;
+                const literalComponents = literal.split(' ');
+
+                if (literalComponents.length == 2 && literalComponents[0] == 'use' && literalComponents[1] != 'strict') {
+                    this.isGlobalCode = true;
+                    this.anyNodeVisited = true;
+                    this.className = literalComponents[1];
+
+                    // Throw when using global code without the flag
+                    if (!this.experimentalGlobals) {
+                        this.throwErrorForNode(node, 'Experimental support for global code must be enabled in order to declare global symbols.');
+                    }
+
+                    // Throw when a local store is not specified - this likely indicates an old build script that cannot handle the @globalBlocks key
+                    if (!this.store) {
+                        this.throwErrorForNode(node, 'Experimental support for global code is not compatible with your build script. Ensure the gulpfile is up to date.');
+                    }
+
+                    const store = this.store || (global._TWEntities = global._TWEntities || {});
+                    store['@globalBlocks'] = store['@globalBlocks'] || {};
+                    store['@globalBlocks'][this.className] = store['@globalBlocks'][this.className] || [];
+                    store['@globalBlocks'][this.className].push(this);
+
+                    if (store[this.className]) {
+                        if ((store[this.className] as TWThingTransformer).entityKind != TWEntityKind.Thing) {
+                            this.throwErrorForNode(node, `Blocks of global code can only be attached to thing entities.`);
+                        }
+                        store[this.className].globalBlocks.push(this);
+                    }
+                    return;
+                }
+            }
+        }
+
+        this.anyNodeVisited = true;
+
         // The only permitted entries at the source level are class declarations, interface declarations, const enums and import statements
         if (![ts.SyntaxKind.ClassDeclaration, ts.SyntaxKind.InterfaceDeclaration, ts.SyntaxKind.EnumDeclaration, ts.SyntaxKind.ImportClause, ts.SyntaxKind.SingleLineCommentTrivia, ts.SyntaxKind.JSDocComment, ts.SyntaxKind.MultiLineCommentTrivia].includes(node.kind)) {
             this.throwErrorForNode(node, `Only classes, interfaces, const enums and import statements are permitted at the root level.`);
@@ -493,11 +671,70 @@ Failed parsing at: \n${node.getText()}\n\n`);
                 }
             }
             
+            const store = this.store || (global._TWEntities = global._TWEntities || {});
+            store[this.className] = this;
 
-            global._TWEntities = global._TWEntities || {};
-            global._TWEntities[this.className] = this;
+            if (store['@globalBlocks'] && store['@globalBlocks'][this.className]) {
+                for (const block of store['@globalBlocks'][this.className]) {
+                    this.globalBlocks.push(block);
+                }
+            }
 
         }
+    }
+
+    /**
+     * Visits a node whose parent is the source file. This method is only called
+     * on global code files.
+     * @param node      The node to visit.
+     */
+    visitGlobalRootNode(node: ts.Node) {
+        // The only permitted entries at the source level are declarations; other kinds of executables can only be included as initializers for those declarations
+        if (![
+            ts.SyntaxKind.ClassDeclaration,
+            ts.SyntaxKind.InterfaceDeclaration, 
+            ts.SyntaxKind.VariableStatement,
+            ts.SyntaxKind.VariableDeclarationList,
+            ts.SyntaxKind.VariableDeclaration,
+            ts.SyntaxKind.FunctionDeclaration,
+            ts.SyntaxKind.EnumDeclaration, 
+            ts.SyntaxKind.SingleLineCommentTrivia, 
+            ts.SyntaxKind.JSDocComment, 
+            ts.SyntaxKind.MultiLineCommentTrivia
+        ].includes(node.kind)) {
+            this.throwErrorForNode(node, `Only declarations are permitted at the root level.`);
+        }
+
+        // Store the symbol name so it can be exported, depending on the syntax kind
+        switch (node.kind) {
+            case ts.SyntaxKind.ClassDeclaration:
+            case ts.SyntaxKind.FunctionDeclaration:
+            case ts.SyntaxKind.VariableDeclaration:
+            case ts.SyntaxKind.EnumDeclaration:
+                const declarationNode = node as ts.ClassDeclaration | ts.FunctionDeclaration | ts.EnumDeclaration | ts.FunctionDeclaration;
+                if (declarationNode.name) this.globalSymbols.push(declarationNode.name!.text);
+                break;
+            case ts.SyntaxKind.VariableStatement:
+                const variableNode = node as ts.VariableStatement;
+                const statementList = variableNode.declarationList;
+                for (const declaration of statementList.declarations) {
+                    // Binding patterns aren't supported yet
+                    if (ts.SyntaxKind.Identifier != declaration.name.kind) continue;
+                    this.globalSymbols.push((declaration.name as ts.Identifier).text);
+                }
+                break;
+            case ts.SyntaxKind.VariableDeclarationList:
+                const declarationList = node as ts.VariableDeclarationList;
+                for (const declaration of declarationList.declarations) {
+                    // Binding patterns aren't supported yet
+                    if (ts.SyntaxKind.Identifier != declaration.name.kind) continue;
+                    this.globalSymbols.push((declaration.name as ts.Identifier).text);
+                }
+                break;
+            // Other kinds don't export anything
+            default: break;
+        }
+
     }
 
     /**
@@ -1344,7 +1581,8 @@ Failed parsing at: \n${node.getText()}\n\n`);
             const className = classDeclaration.name!.text;
             if (!className) return;
 
-            const entity = global._TWEntities[className];
+            const store = this.store || global._TWEntities;
+            const entity = store[className];
             if (!entity) return;
 
             for (const service of entity.services) {
@@ -1760,6 +1998,70 @@ Failed parsing at: \n${node.getText()}\n\n`);
             subscriptions.push(subscriptionDefinition);
         }
 
+        // **********************************  GLOBAL CODE  *************************************
+        for (let i = 0; i < this.globalBlocks.length; i++) {
+            const globalBlock = this.globalBlocks[i];
+            const subscriptionDefinition = {$:{
+                name: `__globalBlock__` + i,
+                description: 'Global code block generated by TypeScript.',
+                enabled: true,
+                eventName: 'ThingStart',
+                sourceType: TWSubscriptionSourceKind.Thing
+            }} as any;
+
+            subscriptionDefinition.ServiceImplementation = [];
+            subscriptionDefinition.ServiceImplementation[0] = {
+                $: {
+                    description: "",
+                    handlerName: "Script",
+                    name: `__globalBlock__` + i
+                },
+                ConfigurationTables: [
+                    {
+                        ConfigurationTable: [
+                            {
+                                $: {
+                                    description: "Script",
+                                    isMultiRow: "false",
+                                    name: "Script",
+                                    ordinal: "0"
+                                },
+                                DataShape: [
+                                    {
+                                        FieldDefinitions: [
+                                            {
+                                                FieldDefinition: [
+                                                    {
+                                                        $: {
+                                                            baseType: "STRING",
+                                                            description: "code",
+                                                            name: "code",
+                                                            ordinal: "0"
+                                                        }
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    }
+                                ],
+                                Rows: [
+                                    {
+                                        Row: [
+                                            {
+                                                code: [globalBlock.compiledGlobalCode!]
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            };
+
+            subscriptions.push(subscriptionDefinition);
+        }
+
         if (this.thingShapes.length) {
             entity.ImplementedShapes = [{ImplementedShape: []}];
             const implementedShapes = entity.ImplementedShapes[0].ImplementedShape;
@@ -1879,10 +2181,39 @@ Failed parsing at: \n${node.getText()}\n\n`);
 
 }
 
-export function TWThingTransformerFactory(root: string, after: boolean = false, watch: boolean = false, project?: string) {
+/**
+ * An interface containing the configuration options that may be used to initialize a transformer.
+ */
+interface TWConfig {
+    /**
+     * The name of the project to use for the entitiy.
+     */
+    projectName: string;
+
+    /**
+     * Whether experimental support for global code is enabled.
+     */
+    experimentalGlobals: boolean;
+
+    /**
+     * An object holding transformer instances. 
+     */
+    store: {[key: string]: TWThingTransformer};
+}
+
+export function TWThingTransformerFactory(root: string, after: boolean = false, watch: boolean = false, project?: string | TWConfig) {
     return function TWThingTransformerFunction(context: ts.TransformationContext) {
         const transformer = new TWThingTransformer(context, root, after, watch);
-        if (project) transformer.projectName = project;
+        if (project) {
+            if (typeof project == 'string') {
+                transformer.projectName = project;
+            }
+            else {
+                transformer.projectName = project.projectName;
+                transformer.experimentalGlobals = project.experimentalGlobals;
+                transformer.store = project.store;
+            }
+        }
     
         return (node: ts.Node) => ts.visitNode(node, node => transformer.visit(node));
     }

@@ -8,6 +8,8 @@ Added support for setting the `projectName` property on a transformer instance. 
 
 Resolves an issue that caused implemented shapes to not be included in the XML files.
 
+Added experimental support for global code.
+
 # 0.4.0-beta.1
 
 Since the all caps base types don't blend in nicely with generic typescript type names, this versions has added support for lowercase variants to the Thingworx base type names, with the exception of the various entity name types which are camel cased.
