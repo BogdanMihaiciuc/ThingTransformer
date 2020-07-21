@@ -198,6 +198,8 @@ export const TWBaseTypes = {
 
     INFOTABLE: "INFOTABLE",
     infotable: 'INFOTABLE',
+    InfoTableReference: 'INFOTABLE',
+    InfoTable: 'INFOTABLE',
 
     LOCATION: "LOCATION",
     location: 'LOCATION',
