@@ -604,11 +604,11 @@ Failed parsing at: \n${node.getText()}\n\n`);
 
                 const callNode = heritage.expression as ts.CallExpression;
                 // Ensure that the call signature is of the correct type
-                if (callNode.expression.getText() != 'ThingTemplateWithShapes' && callNode.expression.getText() != 'ThingTemplateReference') {
-                    this.throwErrorForNode(node, `Unknown base class for ${classNode.name}. Thing and ThingTemplate classes must extend from a ThingTemplateWithShapes(...) expression, a ThingTemplateReference(...) expression or a base ThingTemplate class.`);
+                if (callNode.expression.getText() != 'ThingTemplateWithShapes' && callNode.expression.getText() != 'ThingTemplateReference' && callNode.expression.getText() != 'ThingTemplateWithShapesReference') {
+                    this.throwErrorForNode(node, `Unknown base class for ${classNode.name}. Thing and ThingTemplate classes must extend from a ThingTemplateWithShapes(...) expression, a ThingTemplateWithShapesReference(...) expression, a ThingTemplateReference(...) expression or a base ThingTemplate class.`);
                 }
 
-                if (callNode.expression.getText() == 'ThingTemplateWithShapes') {
+                if (callNode.expression.getText() == 'ThingTemplateWithShapes' || callNode.expression.getText() == 'ThingTemplateWithShapesReference') {
                     // Ensure that each parameter is of the correct type
                     if (!callNode.arguments.length) {
                         this.throwErrorForNode(node, `The ThingTemplateWithShapes(...) expression must have at least one ThingTemplate parameter.`);
