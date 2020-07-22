@@ -24,6 +24,11 @@ const TypeScriptReturnPrimitiveTypes = [ts.SyntaxKind.StringKeyword, ts.SyntaxKi
 const TypeScriptPrimitiveTypes = [ts.SyntaxKind.StringKeyword, ts.SyntaxKind.NumberKeyword, ts.SyntaxKind.BooleanKeyword];
 
 /**
+ * The kinds of nodes that are permitted to express Thingworx types.
+ */
+const PermittedTypeNodeKinds = [...TypeScriptPrimitiveTypes, ts.SyntaxKind.TypeReference];
+
+/**
  * The thing transformer is applied to Thingworx source files to convert them into Thingworx XML entities.
  * It can also be used with global files to export symbols into the shared global scope.
  */
@@ -785,7 +790,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
         if (!node.type) {
             this.throwErrorForNode(node, `Properties must have type annotation in Thingworx classes.`);
         }
-        if (node.type.kind != ts.SyntaxKind.TypeReference) {
+        if (!PermittedTypeNodeKinds.includes(node.type.kind)) {
             this.throwErrorForNode(node, `Unknown baseType for property ${node.name.getText()}: ${node.type.getText()}`);
         }
 
@@ -875,7 +880,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
         if (!node.type) {
             this.throwErrorForNode(node, `Properties must have type annotation in Thingworx classes.`);
         }
-        if (node.type.kind != ts.SyntaxKind.TypeReference) {
+        if (!PermittedTypeNodeKinds.includes(node.type.kind)) {
             this.throwErrorForNode(node, `Unknown baseType for property ${node.name.getText()}: ${node.type.getText()}`);
         }
 
@@ -1857,7 +1862,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
                 remoteServiceBindings.push(remoteBinding);
             }
             else {
-                // This sad JSON is just how an infotable appears after conversion from an XML format - copy-pasted from an export
+                // This JSON is just how an infotable appears after conversion from an XML format - copy-pasted from an export
                 const implementation = {
                     $: {
                         description: "",
