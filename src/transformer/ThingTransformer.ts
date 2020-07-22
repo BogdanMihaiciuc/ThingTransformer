@@ -208,9 +208,16 @@ export class TWThingTransformer {
      * @param error     The error message to display.
      */
     throwErrorForNode(node: ts.Node, error: string): never {
-        throw new Error(`Error in file ${node.getSourceFile().fileName} at position ${node.getStart()}: ${error}
-
+        const limit = Error.stackTraceLimit;
+        try {
+            Error.stackTraceLimit = 0;
+            const {line, character} = node.getSourceFile().getLineAndCharacterOfPosition(node.getStart());
+            throw new Error(`Error in file ${node.getSourceFile().fileName}:${line},${character}\n\n${error}\n
 Failed parsing at: \n${node.getText()}\n\n`);
+        }
+        finally {
+            Error.stackTraceLimit = limit;
+        }
     }
 
     /**
