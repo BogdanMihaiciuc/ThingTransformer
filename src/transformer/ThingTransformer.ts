@@ -14,6 +14,16 @@ declare global {
 }
 
 /**
+ * The primitive type keywords that can be used in function returns.
+ */
+const TypeScriptReturnPrimitiveTypes = [ts.SyntaxKind.StringKeyword, ts.SyntaxKind.NumberKeyword, ts.SyntaxKind.VoidKeyword, ts.SyntaxKind.BooleanKeyword];
+
+/**
+ * The primitive type keywords that can be used anywhere.
+ */
+const TypeScriptPrimitiveTypes = [ts.SyntaxKind.StringKeyword, ts.SyntaxKind.NumberKeyword, ts.SyntaxKind.BooleanKeyword];
+
+/**
  * The thing transformer is applied to Thingworx source files to convert them into Thingworx XML entities.
  * It can also be used with global files to export symbols into the shared global scope.
  */
@@ -781,7 +791,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
 
         // Extract the type name
         const typeNode = node.type as ts.TypeReferenceNode;
-        const baseType = typeNode.typeName.getText();
+        const baseType = TypeScriptPrimitiveTypes.includes(typeNode.kind) ? typeNode.getText() : typeNode.typeName.getText();
 
         const property = {} as TWDataShapeField;
         if (node.name.kind != ts.SyntaxKind.Identifier) {
@@ -871,7 +881,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
 
         // Extract the type name
         const typeNode = node.type as ts.TypeReferenceNode;
-        const baseType = typeNode.typeName.getText();
+        const baseType = TypeScriptPrimitiveTypes.includes(typeNode.kind) ? typeNode.getText() : typeNode.typeName.getText();
 
         // The special base type "EVENT" identifies properties that will be converted into events.
         if (baseType == 'EVENT') {
@@ -1222,7 +1232,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
                 const typeNode = type.type as ts.TypeReferenceNode;
 
                 parameter.aspects.isRequired = !type.questionToken;
-                const baseType = typeNode.typeName.getText();
+                const baseType = TypeScriptPrimitiveTypes.includes(typeNode.kind) ? typeNode.getText() : typeNode.typeName.getText();
                 if (!(baseType in TWBaseTypes)) {
                     this.throwErrorForNode(node, `Unknown base type ${baseType} specified for parameter ${parameter.name}.`);
                 }
@@ -1318,7 +1328,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
             else {
                 const typeNode = node.type as ts.TypeReferenceNode;
 
-                const baseType = typeNode.typeName.getText();
+                const baseType = TypeScriptReturnPrimitiveTypes.includes(typeNode.kind) ? typeNode.getText() : typeNode.typeName.getText();
                 if (!(baseType in TWBaseTypes)) {
                     this.throwErrorForNode(node, `Unknown base type ${baseType} specified for service return type.`);
                 }
