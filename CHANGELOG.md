@@ -8,6 +8,10 @@ Added support for setting the `projectName` property on a transformer instance. 
 
 Resolves an issue that caused implemented shapes to not be included in the XML files.
 
+Added support for specifying a `store` object where transformer instances will be retained. When specified, these will no longer be added to the global object.
+
+Thrown errors that aren't caught will no longer display the call stack. Additionally, the line and character positions where transformation failed will now be displayed in error in place of the file position.
+
 Added experimental support for global code.
 
 # 0.4.0-beta.1
