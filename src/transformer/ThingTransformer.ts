@@ -327,6 +327,33 @@ Failed parsing at: \n${node.getText()}\n\n`);
     }
 
     /**
+     * Retrieves the text of the single numeric argument of the given decorator. This method will throw if the given
+     * decorator factory has no arguments, more than one argument or a non-numeric argument.
+     * @param name      The name of the decorator to find.
+     * @param node      The node in which to search.
+     * @return          The text of the numeric argument, or `undefined` if the decorator does not exist.
+     */
+    numericArgumentOfDecoratorNamed(name: string, node: ts.Node): string | undefined {
+        if (!this.hasDecoratorNamed(name, node)) return;
+
+        const args = this.argumentsOfDecoratorNamed(name, node);
+
+        if (!args || args.length != 1) {
+            this.throwErrorForNode(node, `The @${name} decorator must take a single parameter.`);
+        }
+        else {
+            const argument = args[0];
+
+            if (argument.kind != ts.SyntaxKind.NumericLiteral) {
+                this.throwErrorForNode(node, `The argument for the @${name} decorator must be a numeric literal.`);
+            }
+
+            const literalArgument = argument as ts.NumericLiteral;
+            return literalArgument.text;
+        }
+    }
+
+    /**
      * Compiles the global code and sets the `compiledGlobalCode` property.
      * @param node      The source file node.
      */
@@ -829,7 +856,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
             property.aspects.isPrimaryKey = true;
         }
 
-        const ordinal = this.literalArgumentOfDecoratorNamed('ordinal', node);
+        const ordinal = this.numericArgumentOfDecoratorNamed('ordinal', node);
         if (ordinal) {
             if (!parseInt(ordinal)) this.throwErrorForNode(node, `Non numeric value specified in ordinal decorator for property ${property.name}: ${property.baseType}`);
             property.ordinal = parseInt(ordinal);
