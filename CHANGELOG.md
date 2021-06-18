@@ -1,3 +1,9 @@
+# 0.11.0-beta.1
+
+Updated Typescript to version 4.
+
+Added support for specifying the type of destructured service parameters as an interface, in addition to a literal type.
+
 # 0.10.0-beta.1
 
 Added support for the `@ordinal(_)` decorator which can be used to specify ordinal values on data shape fields.
