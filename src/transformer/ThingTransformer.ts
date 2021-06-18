@@ -34,6 +34,8 @@ const PermittedTypeNodeKinds = [...TypeScriptPrimitiveTypes, ts.SyntaxKind.TypeR
  */
 export class TWThingTransformer {
 
+    program: ts.Program;
+
     context: ts.TransformationContext;
 
     /**
@@ -203,7 +205,8 @@ export class TWThingTransformer {
      */
     store?: {[key: string]: TWThingTransformer};
 
-    constructor(context: ts.TransformationContext, root: string, after: boolean, watch: boolean) {
+    constructor(program: ts.Program, context: ts.TransformationContext, root: string, after: boolean, watch: boolean) {
+        this.program = program;
         this.context = context;
         this.root = root;
         this.after = after;
@@ -506,8 +509,11 @@ Failed parsing at: \n${node.getText()}\n\n`);
         // Get the first documentation node and use it as the description
         if (documentation.length) {
             for (const documentationNode of documentation) {
-                if (documentationNode.kind = ts.SyntaxKind.JSDocComment) {
-                    return (documentationNode as ts.JSDoc).comment || '';
+                if (documentationNode.kind == ts.SyntaxKind.JSDocComment) {
+                    const comment = (documentationNode as ts.JSDoc).comment || '';
+                    if (typeof comment != 'string') {
+                        return comment.reduce((acc, val) => acc + (val.text), "");
+                    }
                 }
             }
         }
@@ -1175,11 +1181,19 @@ Failed parsing at: \n${node.getText()}\n\n`);
         this.events.push(event);
     }
 
+    getDescription(node?: ts.JSDoc | ts.JSDocTag): string | undefined {
+        if (typeof node?.comment != 'string') {
+            return node?.comment?.reduce((acc, val) => acc + val.text, "");
+        }
+
+        return node?.comment as string;
+    }
+
     /**
      * Visits a service or subscription definition.
      * @param node      The node to visit.
      */
-    visitMethod(node: ts.MethodDeclaration) {
+    visitMethod(node: ts.MethodDeclaration): ts.MethodDeclaration {
         if (this.hasDecoratorNamed('subscription', node) || this.hasDecoratorNamed('localSubscription', node)) {
             return this.visitSubscription(node);
         }
@@ -1190,6 +1204,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
                 service.aspects = {isAsync: true};
             }
         }
+        const originalNode = node;
 
         if (node.name.kind != ts.SyntaxKind.Identifier) this.throwErrorForNode(node, 'Service names cannot be computed property names.');
         service.name = (node.name as ts.Identifier).text;
@@ -1267,12 +1282,40 @@ Failed parsing at: \n${node.getText()}\n\n`);
                 this.throwErrorForNode(node, 'The parameter of a service must be typed.');
             }
 
-            if (argList.type.kind != ts.SyntaxKind.TypeLiteral) {
-                this.throwErrorForNode(node, 'The type of a service parameter must be a literal.');
+            if (argList.type.kind != ts.SyntaxKind.TypeLiteral && argList.type.kind != ts.SyntaxKind.TypeReference) {
+                this.throwErrorForNode(node, 'The type of a service parameter must be a literal or an interface.');
+            }
+
+            let type: ts.TypeLiteralNode;
+
+            if (argList.type.kind == ts.SyntaxKind.TypeReference) {
+                const typeChecker = this.program.getTypeChecker();
+                const symbol = typeChecker.getTypeAtLocation(argList.type);
+                if (symbol) {
+                    const literalType = symbol;
+
+                    if (!literalType.isClassOrInterface()) {
+                        this.throwErrorForNode(node, 'The type of the service parameter list must be a literal or interface.');
+                    }
+
+                    const declarations = literalType.getProperties().flatMap(p => p.declarations).filter(d => !!d) as ts.Declaration[];
+                    const typeElements = declarations.filter(d => ts.isTypeElement(d)) as ts.TypeElement[];
+                    type = ts.factory.createTypeLiteralNode(typeElements);
+                }
+                else {
+                    this.throwErrorForNode(node, 'The type of the service parameter list cannot be resolved.');
+                }
+            } else {
+               type = argList.type as ts.TypeLiteralNode;
             }
 
             const args = argList.name as ts.ObjectBindingPattern;
-            const argTypes = argList.type as ts.TypeLiteralNode;
+            const argTypes = type;
+
+            if (args.elements.length != argTypes.members.length) {
+                this.throwErrorForNode(node, 'All service parameters must be destructured.');
+            }
+
             for (const arg of args.elements) {
                 const parameter = {aspects: {}} as TWServiceParameter;
                 if (arg.name.kind != ts.SyntaxKind.Identifier) this.throwErrorForNode(node, 'Service parameter names cannot be computed property names.');
@@ -1347,10 +1390,20 @@ Failed parsing at: \n${node.getText()}\n\n`);
             // Replace the destructured parameter with a regular parameter list
             const plainArgs: ts.ParameterDeclaration[] = [];
             for (const arg of service.parameterDefinitions) {
-                plainArgs.push(ts.createParameter(undefined, undefined, undefined,arg.name))
+                plainArgs.push(ts.factory.createParameterDeclaration(undefined, undefined, undefined,arg.name))
             }
-            const regularArgs = ts.createNodeArray([]);
-            node.parameters = regularArgs;
+            const regularArgs = ts.factory.createNodeArray([]);
+            node = ts.factory.createMethodDeclaration(
+                node.decorators,
+                node.modifiers,
+                node.asteriskToken,
+                node.name,
+                node.questionToken,
+                node.typeParameters,
+                regularArgs,
+                node.type,
+                node.body
+            );
 
         }
         else {
@@ -1359,7 +1412,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
 
         if (!node.type) {
             if (!service.aspects.isAsync) {
-                this.throwErrorForNode(node, 'The return type of non-async services must be specified.');
+                this.throwErrorForNode(originalNode, 'The return type of non-async services must be specified.');
             }
             else {
                 service.resultType = {} as TWServiceParameter;
@@ -1375,7 +1428,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
             if (service.aspects.isAsync) {
                 service.resultType.baseType = 'NOTHING';
                 if (node.type) {
-                    this.throwErrorForNode(node, 'Async services must not have a return type annotation.');
+                    this.throwErrorForNode(originalNode, 'Async services must not have a return type annotation.');
                 }
             }
             else {
@@ -1383,7 +1436,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
 
                 const baseType = TypeScriptReturnPrimitiveTypes.includes(typeNode.kind) ? typeNode.getText() : typeNode.typeName.getText();
                 if (!(baseType in TWBaseTypes)) {
-                    this.throwErrorForNode(node, `Unknown base type ${baseType} specified for service return type.`);
+                    this.throwErrorForNode(originalNode, `Unknown base type ${baseType} specified for service return type.`);
                 }
 
                 // INFOTABLE can optionally take the data shape as a type argument
@@ -1392,7 +1445,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
                     service.resultType.aspects = service.resultType.aspects || {};
                     const typeArguments = typeNode.typeArguments;
                     if (typeArguments) {
-                        if (typeArguments.length != 1) this.throwErrorForNode(node, `Unknown generics specified for service result: ${service.resultType.baseType}`);
+                        if (typeArguments.length != 1) this.throwErrorForNode(originalNode, `Unknown generics specified for service result: ${service.resultType.baseType}`);
     
                         if (typeArguments[0].kind == ts.SyntaxKind.LiteralType) {
                             service.resultType.aspects.dataShape = ((typeArguments[0] as ts.LiteralTypeNode).literal as ts.StringLiteral).text;
@@ -1406,22 +1459,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
                 // this is not supported by Thingworx in service results, so it is ignored
                 else if (TWBaseTypes[baseType] == 'THINGNAME') {
                     const typeNode = node.type! as ts.NodeWithTypeArguments;
-                    const typeArguments = typeNode.typeArguments;
                     service.resultType.aspects = service.resultType.aspects || {};
-    
-                    /*if (typeArguments && typeArguments.length) {
-                        if (typeArguments.length > 2) this.throwErrorForNode(node, `Unknown generics specified for service result: ${service.resultType.baseType}`);
-    
-                        const thingTemplate = typeArguments[0];
-                        if (thingTemplate.kind == ts.SyntaxKind.LiteralType) {
-                            service.resultType.aspects.thingTemplate = ((thingTemplate as ts.LiteralTypeNode).literal as ts.StringLiteral).text;
-                        }
-    
-                        const thingShape = typeArguments[1];
-                        if (thingShape && thingShape.kind == ts.SyntaxKind.LiteralType) {
-                            service.resultType.aspects.thingShape = ((thingShape as ts.LiteralTypeNode).literal as ts.StringLiteral).text;
-                        }
-                    }*/
                 }
                 service.resultType.baseType = TWBaseTypes[baseType];
             }
@@ -1434,13 +1472,13 @@ Failed parsing at: \n${node.getText()}\n\n`);
             if (documentationNode.kind == ts.SyntaxKind.JSDocComment) {
                 // Its text represents the service description
                 const JSDocComment = documentationNode as ts.JSDoc;
-                service.description = JSDocComment.comment || '';
+                service.description = this.getDescription(JSDocComment) || '';
 
                 // The various tags represent the parameter and result type descriptions
                 if (JSDocComment.tags) for (const tag of JSDocComment.tags) {
                     // The return tag can be applied directly to the result type
                     if (tag.kind == ts.SyntaxKind.JSDocReturnTag) {
-                        service.resultType.description = tag.comment || '';
+                        service.resultType.description = this.getDescription(tag) || '';
                     }
                     // For parameters it is necessary to match each parameter to its corresponding tag
                     else if (tag.kind == ts.SyntaxKind.JSDocParameterTag) {
@@ -1448,7 +1486,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
 
                         for (const parameter of service.parameterDefinitions) {
                             if (parameterTag.name.getText() == parameter.name) {
-                                parameter.description = parameterTag.comment || '';
+                                parameter.description = this.getDescription(parameterTag) || '';
                                 break;
                             }
                         }
@@ -1458,13 +1496,14 @@ Failed parsing at: \n${node.getText()}\n\n`);
         }
 
         this.services.push(service);
+        return node;
     }
 
     /**
      * Visits a method declaration that represents a subscription definition.
      * @param node      The node to visit.
      */
-    visitSubscription(node: ts.MethodDeclaration) {
+    visitSubscription(node: ts.MethodDeclaration): ts.MethodDeclaration {
         const subscription = {
             source: '',
             sourceProperty: ''
@@ -1512,7 +1551,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
         subscription.code = node.body!.getText();
 
         this.subscriptions.push(subscription);
-
+        return node;
     }
 
     /**
@@ -1710,7 +1749,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
             if (typeArgument.kind == ts.SyntaxKind.TypeReference) {
                 table.dataShapeName = (typeArgument as ts.TypeReferenceNode).typeName.getText();
             }
-            else if (typeArgument.kind = ts.SyntaxKind.LiteralType) {
+            else if (typeArgument.kind == ts.SyntaxKind.LiteralType) {
                 table.dataShapeName = ((typeArgument as ts.LiteralTypeNode).literal as ts.StringLiteral).text;
             }
             else {
@@ -2280,9 +2319,9 @@ interface TWConfig {
     store: {[key: string]: TWThingTransformer};
 }
 
-export function TWThingTransformerFactory(root: string, after: boolean = false, watch: boolean = false, project?: string | TWConfig) {
+export function TWThingTransformerFactory(program: ts.Program, root: string, after: boolean = false, watch: boolean = false, project?: string | TWConfig) {
     return function TWThingTransformerFunction(context: ts.TransformationContext) {
-        const transformer = new TWThingTransformer(context, root, after, watch);
+        const transformer = new TWThingTransformer(program, context, root, after, watch);
         if (project) {
             if (typeof project == 'string') {
                 transformer.projectName = project;
