@@ -205,6 +205,12 @@ export class TWThingTransformer {
      */
     store?: {[key: string]: TWThingTransformer};
 
+    /**
+     * A weak map that contains a mapping between nodes that have been marked for replacement before
+     * having been visited.
+     */
+    nodeReplacementMap: WeakMap<ts.Node, ts.Node> = new WeakMap;
+
     constructor(program: ts.Program, context: ts.TransformationContext, root: string, after: boolean, watch: boolean) {
         this.program = program;
         this.context = context;
@@ -453,20 +459,27 @@ Failed parsing at: \n${node.getText()}\n\n`);
                     const constantValue = (<ts.TypeChecker>(this.context as any).getEmitResolver()).getConstantValue(node as ts.PropertyAccessExpression);
     
                     if (typeof constantValue == 'string') {
-                        return ts.createStringLiteral(constantValue);
+                        return ts.factory.createStringLiteral(constantValue);
                     }
                     else if (typeof constantValue == 'number') {
-                        return ts.createNumericLiteral(constantValue.toString());
+                        return ts.factory.createNumericLiteral(constantValue.toString());
                     }
                 }
         
                 if (node.kind == ts.SyntaxKind.ThisKeyword) {
                     return this.visitThisNode(node as ts.ThisExpression);
                 }
+
+                if (this.nodeReplacementMap.get(node)) {
+                    // If the node was already processed and marked for replacement, return its replacement\
+                    return this.nodeReplacementMap.get(node);
+                }
+                
             }
         }
 
         const result = ts.visitEachChild(node, node => this.visit(node), this.context);
+
         return result;
     }
 
@@ -1405,6 +1418,8 @@ Failed parsing at: \n${node.getText()}\n\n`);
                 node.body
             );
 
+            // Mark this node for replacement
+            this.nodeReplacementMap.set(originalNode, node);
         }
         else {
             service.parameterDefinitions = [];

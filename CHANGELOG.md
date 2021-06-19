@@ -1,3 +1,7 @@
+# 0.11.1-beta.1
+
+Resolves an issue that caused an issue with transforming service arguments, leading to code that would crash at runtime.
+
 # 0.11.0-beta.1
 
 Updated Typescript to version 4.
