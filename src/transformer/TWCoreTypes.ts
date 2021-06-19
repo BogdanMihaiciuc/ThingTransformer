@@ -347,6 +347,35 @@ export interface TWThingTemplate extends TWEntityDefinition {
 export interface TWThing extends TWThingTemplate {
     published: boolean;
     enabled: boolean;
-    identifier: string;
-    
+    identifier: string;   
+}
+
+export interface TWPermission {
+    isPermitted: boolean;
+    principal: string;
+    type: string;
+}
+
+export interface TWRuntimePermissionDeclaration {
+    PropertyRead: TWPermission[],
+    PropertyWrite: TWPermission[],
+    ServiceInvoke: TWPermission[],
+    EventInvoke: TWPermission[],
+    EventSubscribe: TWPermission[],
+}
+
+export interface TWRuntimePermissionsList {
+    // These are indexed with the resource name
+    [key: string]: TWRuntimePermissionDeclaration
+}
+
+export interface TWExtractedPermissionLists {
+    runtime?: TWRuntimePermissionsList,
+    runtimeInstance?: TWRuntimePermissionsList
+}
+
+export interface TWVisibility {
+    isPermitted: boolean;
+    name: string;
+    type: string;
 }
