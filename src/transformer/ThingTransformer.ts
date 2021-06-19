@@ -245,12 +245,24 @@ Failed parsing at: \n${node.getText()}\n\n`);
 
         let isThing = classNode.decorators.some(decorator => decorator.expression.kind == ts.SyntaxKind.Identifier && decorator.expression.getText() == 'ThingDefinition');
         let isThingTemplate = classNode.decorators.some(decorator => decorator.expression.kind == ts.SyntaxKind.Identifier && decorator.expression.getText() == 'ThingTemplateDefinition');
+        let isDataShape = classNode.decorators.some(decorator => decorator.expression.kind == ts.SyntaxKind.Identifier && decorator.expression.getText() == 'DataShapeDefinition');
 
-        if (isThing && isThingTemplate) {
-            this.throwErrorForNode(classNode, `Class ${classNode.name} cannot be both a Thing and a ThingTemplate.`);
+        const kinds = [isThing, isThingTemplate, isDataShape].filter(b => b);
+
+        // Ensure that there is exactly a single kind specified
+        if (kinds.length != 1) {
+            this.throwErrorForNode(classNode, `Class ${classNode.name} must have a single entity kind annotation.`);
         }
 
-        return isThing ? TWEntityKind.Thing : TWEntityKind.ThingTemplate;
+        if (isThing) {
+            return TWEntityKind.Thing;
+        } else if (isThingTemplate) {
+            return TWEntityKind.ThingTemplate;
+        } else if (isDataShape) {
+            return TWEntityKind.DataShape;
+        }
+
+        this.throwErrorForNode(classNode, `Unknown entity kind for class ${classNode.name}`);
     }
 
     /**
@@ -664,6 +676,10 @@ Failed parsing at: \n${node.getText()}\n\n`);
             else if (heritage.expression.kind == ts.SyntaxKind.CallExpression) {
                 // Call expression base classes can only be things or thing templates
                 this.entityKind = this.entityKindOfClassNode(classNode);
+
+                if (this.entityKind != TWEntityKind.Thing && this.entityKind != TWEntityKind.ThingTemplate) {
+                    this.throwErrorForNode(node, `Extending from expressions is only supported on Things and ThingTemplates.`);
+                }
 
                 const callNode = heritage.expression as ts.CallExpression;
                 // Ensure that the call signature is of the correct type
@@ -2202,7 +2218,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
         XML.Entities = {};
         XML.Entities[collectionKind] = [];
         XML.Entities[collectionKind][0] = {};
-        XML.Entities[collectionKind][0][entityKind] = [{$:{baseDataShape: ''}}]; // may explore this base data shape in the future
+        XML.Entities[collectionKind][0][entityKind] = [{$:{baseDataShape: this.thingTemplateName || ''}}];
         
         const entity = XML.Entities[collectionKind][0][entityKind][0];
 
