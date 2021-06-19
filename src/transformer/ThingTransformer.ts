@@ -229,9 +229,10 @@ export class TWThingTransformer {
     store?: {[key: string]: TWThingTransformer};
 
     /**
-     * A map containing replacement nodes.
+     * A weak map that contains a mapping between nodes that have been marked for replacement before
+     * having been visited.
      */
-    nodeMap: WeakMap<ts.Node, ts.Node> = new WeakMap;
+    nodeReplacementMap: WeakMap<ts.Node, ts.Node> = new WeakMap;
 
     constructor(program: ts.Program, context: ts.TransformationContext, root: string, after: boolean, watch: boolean) {
         this.program = program;
@@ -503,10 +504,17 @@ Failed parsing at: \n${node.getText()}\n\n`);
                 if (node.kind == ts.SyntaxKind.ThisKeyword) {
                     return this.visitThisNode(node as ts.ThisExpression);
                 }
+
+                if (this.nodeReplacementMap.get(node)) {
+                    // If the node was already processed and marked for replacement, return its replacement\
+                    return this.nodeReplacementMap.get(node);
+                }
+                
             }
         }
 
         const result = ts.visitEachChild(node, node => this.visit(node), this.context);
+
         return result;
     }
 
@@ -1541,6 +1549,8 @@ Failed parsing at: \n${node.getText()}\n\n`);
                 node.body
             );
 
+            // Mark this node for replacement
+            this.nodeReplacementMap.set(originalNode, node);
         }
         else {
             service.parameterDefinitions = [];
