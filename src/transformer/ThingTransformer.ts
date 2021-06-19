@@ -1,9 +1,7 @@
 import * as ts from 'typescript';
-import { TWEntityKind, TWPropertyDefinition, TWServiceDefinition, TWEventDefinition, TWSubscriptionDefinition, TWBaseTypes, TWPropertyDataChangeKind, TWFieldBase, TWPropertyRemoteBinding, TWPropertyRemoteFoldKind, TWPropertyRemotePushKind, TWPropertyRemoteStartKind, TWPropertyBinding, TWSubscriptionSourceKind, TWServiceParameter, TWDataShapeField, TWConfigurationTable } from './TWCoreTypes';
+import { TWEntityKind, TWPropertyDefinition, TWServiceDefinition, TWEventDefinition, TWSubscriptionDefinition, TWBaseTypes, TWPropertyDataChangeKind, TWFieldBase, TWPropertyRemoteBinding, TWPropertyRemoteFoldKind, TWPropertyRemotePushKind, TWPropertyRemoteStartKind, TWPropertyBinding, TWSubscriptionSourceKind, TWServiceParameter, TWDataShapeField, TWConfigurationTable, TWRuntimePermissionsList, TWVisibility, TWExtractedPermissionLists, TWRuntimePermissionDeclaration } from './TWCoreTypes';
 import {Builder} from 'xml2js';
 import * as fs from 'fs';
-import * as path from 'path';
-import { Readable } from 'stream';
 
 declare global {
     namespace NodeJS {
@@ -27,6 +25,11 @@ const TypeScriptPrimitiveTypes = [ts.SyntaxKind.StringKeyword, ts.SyntaxKind.Num
  * The kinds of nodes that are permitted to express Thingworx types.
  */
 const PermittedTypeNodeKinds = [...TypeScriptPrimitiveTypes, ts.SyntaxKind.TypeReference];
+
+/**
+ * An array of decorator names that are used to specify permissions.
+ */
+const PermissionDecorators = ['allow', 'deny', 'allowInstance', 'denyInstance'];
 
 /**
  * The thing transformer is applied to Thingworx source files to convert them into Thingworx XML entities.
@@ -176,6 +179,26 @@ export class TWThingTransformer {
     fields: TWDataShapeField[] = [];
 
     /**
+     * A dictionary of runtime permissions to apply to this entity.
+     */
+    runtimePermissions: TWRuntimePermissionsList = {};
+
+    /**
+     * A dictionary of runtime permissions to apply to instances of this entity.
+     */
+    instanceRuntimePermissions: TWRuntimePermissionsList = {};
+
+    /**
+     * An array of visibility permissions to apply to this entity.
+     */
+    visibilityPermissions: TWVisibility[] = [];
+
+    /**
+     * An array of visibility permissions to apply to instances of this entity.
+     */
+    instanceVisibilityPermissions: TWVisibility[] = [];
+
+    /**
      * When enabled, ordinal values will be generated for data shape fields, in the order in which they
      * appear, starting from 0.
      * 
@@ -204,6 +227,11 @@ export class TWThingTransformer {
      * An object containing instances of the transformer.
      */
     store?: {[key: string]: TWThingTransformer};
+
+    /**
+     * A map containing replacement nodes.
+     */
+    nodeMap: WeakMap<ts.Node, ts.Node> = new WeakMap;
 
     constructor(program: ts.Program, context: ts.TransformationContext, root: string, after: boolean, watch: boolean) {
         this.program = program;
@@ -501,7 +529,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
             if (parent.kind == ts.SyntaxKind.MethodDeclaration) {
                 const method = parent as ts.MethodDeclaration;
                 if (method.parent == this.classNode) {
-                    return ts.createIdentifier('me');
+                    return ts.factory.createIdentifier('me');
                 }
             }
             parent = parent.parent;
@@ -531,6 +559,87 @@ Failed parsing at: \n${node.getText()}\n\n`);
         }
 
         return '';
+    }
+
+    /**
+     * Constructs and returns a permission declaration object.
+     * @returns     A permission declaration object.
+     */
+    static createPermissionList(): TWRuntimePermissionDeclaration {
+        return {
+            PropertyRead: [],
+            PropertyWrite: [],
+            ServiceInvoke: [],
+            EventInvoke: [],
+            EventSubscribe: []
+        } as TWRuntimePermissionDeclaration;
+    }
+
+    /**
+     * Returns a list of permissions for the given node.
+     * @param node      The node whose permissions should be retrieved.
+     * @returns         A list of permissions
+     */
+    permissionsOfNode(node: ts.Node): TWExtractedPermissionLists {
+        // Filter out the list of decorators to exclude any non-permission decorators
+        const decorators = node.decorators?.filter(d => d.expression.kind == ts.SyntaxKind.CallExpression && PermissionDecorators.includes((d.expression as ts.CallExpression).expression.getText()));
+        const result: TWExtractedPermissionLists = {};
+
+        if (!decorators?.length) return result;
+
+        for (const decorator of decorators) {
+            const text = (decorator.expression as ts.CallExpression).expression.getText();
+
+            // Determine the kind of permission based on the decorator name
+            let permissionKind: keyof TWExtractedPermissionLists = 'runtime';
+            let permitted = false;
+            let resource = '*';
+
+            switch (text) {
+                case 'allow':
+                    permitted = true;
+                    permissionKind = 'runtime';
+                    break;
+                case 'deny':
+                    permitted = false;
+                    permissionKind = 'runtime';
+                    break;
+                case 'allowInstance':
+                    permitted = true;
+                    permissionKind = 'runtimeInstance';
+                    break;
+                case 'denyInstance':
+                    permitted = false;
+                    permissionKind = 'runtimeInstance';
+                    break;
+                default:
+                    this.throwErrorForNode(node, `Unkown permission decorator '${text}' specified.`)
+            }
+
+            // Determine if this decorator applies to a specific property or to the entire node
+            // and extract the specified permissions and users.
+            const callExpression = decorator.expression as ts.CallExpression;
+
+            if (!callExpression.arguments.length) this.throwErrorForNode(node, `A permission decorator must have at least one user or group and at least one permission`);
+            // The index at which to start looking for users and permissions
+            let argumentsIndex = 0;
+
+            // if this decorator refers to a specific field, set it as the resource and look for users and permissions starting at index 1
+            const firstArgument = callExpression.arguments[0];
+            if (firstArgument.kind == ts.SyntaxKind.StringLiteral) {
+                resource = (firstArgument as ts.StringLiteral).text;
+                argumentsIndex = 1;
+            }
+
+            for (let i = argumentsIndex; i < callExpression.arguments.length; i++) {
+                const argument = callExpression.arguments[i];
+                //if (argument.kind != ts.SyntaxKind.Identifier) this.throwErrorForNode(node, `Invalid argument '${argument.getText()}' supplied to ${decorator.getText()}`);
+
+                //debugger;
+            }
+        }
+
+        return result;
     }
 
     /**
@@ -745,6 +854,8 @@ Failed parsing at: \n${node.getText()}\n\n`);
                     this.visitConfigurationTablesDefinition(argument as ts.ClassExpression);
                 }
 
+                this.permissionsOfNode(classNode);
+
                 for (const member of classNode.members) {
                     this.visitClassMember(member);
                 }
@@ -936,6 +1047,11 @@ Failed parsing at: \n${node.getText()}\n\n`);
             else {
                 property.aspects.defaultValue = (node.initializer as ts.LiteralExpression).text || node.initializer.getText();
             }
+        }
+
+        const permissions = this.permissionsOfNode(node);
+        if (Object.keys(permissions).length) {
+            this.throwErrorForNode(node, `Permission decorators are not allowed for data shape members.`);
         }
 
         this.fields.push(property);
@@ -1153,6 +1269,8 @@ Failed parsing at: \n${node.getText()}\n\n`);
             }
         }
 
+        this.permissionsOfNode(node);
+
         this.properties.push(property);
     }
 
@@ -1193,6 +1311,8 @@ Failed parsing at: \n${node.getText()}\n\n`);
 
             event.remoteBinding.sourceName = (arg as ts.StringLiteral).text;
         }
+
+        this.permissionsOfNode(node);
 
         this.events.push(event);
     }
@@ -1511,6 +1631,8 @@ Failed parsing at: \n${node.getText()}\n\n`);
             }
         }
 
+        this.permissionsOfNode(node);
+
         this.services.push(service);
         return node;
     }
@@ -1565,6 +1687,11 @@ Failed parsing at: \n${node.getText()}\n\n`);
         }
 
         subscription.code = node.body!.getText();
+
+        const permissions = this.permissionsOfNode(node);
+        if (Object.keys(permissions).length) {
+            this.throwErrorForNode(node, `Permission decorators are not allowed for subscriptions.`);
+        }
 
         this.subscriptions.push(subscription);
         return node;
