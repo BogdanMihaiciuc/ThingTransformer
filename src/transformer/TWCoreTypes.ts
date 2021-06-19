@@ -350,6 +350,11 @@ export interface TWThing extends TWThingTemplate {
     identifier: string;   
 }
 
+export interface TWPrincipal {
+    name: string;
+    type: string;
+}
+
 export interface TWPermission {
     isPermitted: boolean;
     principal: string;
