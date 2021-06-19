@@ -1,3 +1,7 @@
+# 0.12.0-beta.1
+
+Adds support for specifying the `baseDataShape` attribute on data shapes and for the `@DataShapeDefinition` decorator. This feature doesn't seem to work yet in Thingworx though, so it is not included in the project template.
+
 # 0.11.0-beta.1
 
 Updated Typescript to version 4.
