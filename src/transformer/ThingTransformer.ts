@@ -1,5 +1,5 @@
 import * as ts from 'typescript';
-import { TWEntityKind, TWPropertyDefinition, TWServiceDefinition, TWEventDefinition, TWSubscriptionDefinition, TWBaseTypes, TWPropertyDataChangeKind, TWFieldBase, TWPropertyRemoteBinding, TWPropertyRemoteFoldKind, TWPropertyRemotePushKind, TWPropertyRemoteStartKind, TWPropertyBinding, TWSubscriptionSourceKind, TWServiceParameter, TWDataShapeField, TWConfigurationTable, TWRuntimePermissionsList, TWVisibility, TWExtractedPermissionLists, TWRuntimePermissionDeclaration } from './TWCoreTypes';
+import { TWEntityKind, TWPropertyDefinition, TWServiceDefinition, TWEventDefinition, TWSubscriptionDefinition, TWBaseTypes, TWPropertyDataChangeKind, TWFieldBase, TWPropertyRemoteBinding, TWPropertyRemoteFoldKind, TWPropertyRemotePushKind, TWPropertyRemoteStartKind, TWPropertyBinding, TWSubscriptionSourceKind, TWServiceParameter, TWDataShapeField, TWConfigurationTable, TWRuntimePermissionsList, TWVisibility, TWExtractedPermissionLists, TWRuntimePermissionDeclaration, TWPrincipal, TWPermission } from './TWCoreTypes';
 import {Builder} from 'xml2js';
 import * as fs from 'fs';
 
@@ -181,12 +181,7 @@ export class TWThingTransformer {
     /**
      * A dictionary of runtime permissions to apply to this entity.
      */
-    runtimePermissions: TWRuntimePermissionsList = {};
-
-    /**
-     * A dictionary of runtime permissions to apply to instances of this entity.
-     */
-    instanceRuntimePermissions: TWRuntimePermissionsList = {};
+    runtimePermissions: TWExtractedPermissionLists = {};
 
     /**
      * An array of visibility permissions to apply to this entity.
@@ -585,15 +580,19 @@ Failed parsing at: \n${node.getText()}\n\n`);
 
     /**
      * Returns a list of permissions for the given node.
-     * @param node      The node whose permissions should be retrieved.
-     * @returns         A list of permissions
+     * @param node          The node whose permissions should be retrieved.
+     * @param resource      The resource to which the permissions should refer. If specified and any decorator
+     *                      refers to a different resource, this method will throw.
+     * @returns             A list of permissions
      */
-    permissionsOfNode(node: ts.Node): TWExtractedPermissionLists {
+    permissionsOfNode(node: ts.Node, resource: string = '*'): TWExtractedPermissionLists {
         // Filter out the list of decorators to exclude any non-permission decorators
         const decorators = node.decorators?.filter(d => d.expression.kind == ts.SyntaxKind.CallExpression && PermissionDecorators.includes((d.expression as ts.CallExpression).expression.getText()));
         const result: TWExtractedPermissionLists = {};
 
         if (!decorators?.length) return result;
+
+        const permissionLists: TWExtractedPermissionLists[] = [];
 
         for (const decorator of decorators) {
             const text = (decorator.expression as ts.CallExpression).expression.getText();
@@ -601,7 +600,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
             // Determine the kind of permission based on the decorator name
             let permissionKind: keyof TWExtractedPermissionLists = 'runtime';
             let permitted = false;
-            let resource = '*';
+            let targetResource = resource;
 
             switch (text) {
                 case 'allow':
@@ -635,19 +634,99 @@ Failed parsing at: \n${node.getText()}\n\n`);
             // if this decorator refers to a specific field, set it as the resource and look for users and permissions starting at index 1
             const firstArgument = callExpression.arguments[0];
             if (firstArgument.kind == ts.SyntaxKind.StringLiteral) {
-                resource = (firstArgument as ts.StringLiteral).text;
+                targetResource = (firstArgument as ts.StringLiteral).text;
                 argumentsIndex = 1;
+
+                // If the specified resource is not a wildcard and this refers to a different resource, throw
+                if (resource != '*' && targetResource != resource) {
+                    this.throwErrorForNode(node, `A permission decorator applied to a member cannot refer to a different member.`);
+                }
             }
 
+            const permissions: (keyof TWRuntimePermissionDeclaration)[] = [];
+            const principals: TWPrincipal[] = [];
+
+            // Extract the users, groups and permissions referenced by this decorator
             for (let i = argumentsIndex; i < callExpression.arguments.length; i++) {
                 const argument = callExpression.arguments[i];
-                //if (argument.kind != ts.SyntaxKind.Identifier) this.throwErrorForNode(node, `Invalid argument '${argument.getText()}' supplied to ${decorator.getText()}`);
+                if (argument.kind != ts.SyntaxKind.PropertyAccessExpression) this.throwErrorForNode(node, `Invalid argument '${argument.getText()}' supplied to ${decorator.getText()}`);
 
-                //debugger;
+                const expression = argument as ts.PropertyAccessExpression;
+                const kind = expression.expression.getText();
+                const value = expression.name;
+
+                switch (kind) {
+                    case 'Permission':
+                        permissions.push(value.text as keyof TWRuntimePermissionDeclaration);
+                        break;
+                    case 'Users':
+                    case 'Groups':
+                        principals.push({ name: value.text, type: kind.substring(0, kind.length - 1) });
+                        break;
+                    default:
+                        this.throwErrorForNode(node, `Invalid argument '${argument.getText()}' supplied to ${decorator.getText()}`);
+                }
             }
+
+            // Convert the lists of permissions and principals into an extracted permissions list
+            const permissionList: TWExtractedPermissionLists = {
+                [permissionKind]: {
+                    [targetResource]: TWThingTransformer.createPermissionList()
+                }
+            }
+
+            for (const permission of permissions) {
+                permissionList[permissionKind]![targetResource][permission] = principals.map(p => ({principal: p.name, type: p.type, isPermitted: permitted}));
+            }
+
+            permissionLists.push(permissionList);
         }
 
-        return result;
+        // Merge the lists together
+        return this.mergePermissionListsForNode(permissionLists, node);
+    }
+
+    /**
+     * Merges the given permission lists into a single permission list.
+     * @param lists     The lists to merge.
+     * @param node      A node to be included in the error message if a validation failure occurs.
+     * @returns         The merged list.
+     */
+    mergePermissionListsForNode(permissionLists: TWExtractedPermissionLists[], node: ts.Node): TWExtractedPermissionLists {
+        return permissionLists.reduce((acc, val) => {
+            for (const kind in val) {
+                // If the given kind isn't specified at all, just copy over from the value
+                if (!acc[kind]) {
+                    if (!val[kind]) continue;
+
+                    acc[kind] = val[kind];
+                    continue;
+                }
+
+                // Otherwise merge the lists
+                for (const resource in val[kind]!) {
+                    // If the given resource isn't specified at all, just copy over from the value
+                    if (!acc[kind]![resource]) {
+                        acc[kind]![resource] = val[kind]![resource];
+                        continue;
+                    }
+    
+                    // If the resource is specified, merge the list of principals
+                    for (const key of Object.keys(val[kind]![resource])) {
+                        const value: TWPermission[] = acc[kind]![resource][key].concat(val[kind]![resource][key]);
+    
+                        // Throw if any duplicates are found
+                        if (value.filter((p, i) => value.find((p2, i2) => i != i2 && p2.type == p.type && p2.principal == p.principal)).length) {
+                            this.throwErrorForNode(node, `Each user or group may only appear a single time per permission in a permissions decorator.`);
+                        }
+    
+                        acc[kind]![resource][key] = value;
+                    }
+                }
+            }
+
+            return acc;
+        }, {});
     }
 
     /**
@@ -862,7 +941,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
                     this.visitConfigurationTablesDefinition(argument as ts.ClassExpression);
                 }
 
-                this.permissionsOfNode(classNode);
+                this.runtimePermissions = this.mergePermissionListsForNode([this.runtimePermissions].concat(this.permissionsOfNode(classNode)), node);
 
                 for (const member of classNode.members) {
                     this.visitClassMember(member);
@@ -1277,7 +1356,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
             }
         }
 
-        this.permissionsOfNode(node);
+        this.runtimePermissions = this.mergePermissionListsForNode([this.runtimePermissions].concat(this.permissionsOfNode(node, node.name.text)), node);
 
         this.properties.push(property);
     }
@@ -1320,7 +1399,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
             event.remoteBinding.sourceName = (arg as ts.StringLiteral).text;
         }
 
-        this.permissionsOfNode(node);
+        this.runtimePermissions = this.mergePermissionListsForNode([this.runtimePermissions].concat(this.permissionsOfNode(node, node.name.text)), node);
 
         this.events.push(event);
     }
@@ -1641,7 +1720,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
             }
         }
 
-        this.permissionsOfNode(node);
+        this.runtimePermissions = this.mergePermissionListsForNode([this.runtimePermissions].concat(this.permissionsOfNode(node, service.name)), node);
 
         this.services.push(service);
         return node;
@@ -2251,6 +2330,37 @@ Failed parsing at: \n${node.getText()}\n\n`);
             };
 
             subscriptions.push(subscriptionDefinition);
+        }
+
+        // **********************************  PERMISSIONS  **********************************
+        if (this.runtimePermissions.runtime) {
+            entity.RunTimePermissions = [{Permissions: []}];
+
+            for (const resource in this.runtimePermissions.runtime) {
+                const permissionDefinition = {$: {resourceName: resource}};
+
+                for (const permission in this.runtimePermissions.runtime[resource]) {
+                    const principals = this.runtimePermissions.runtime[resource][permission].map(p => ({$: p}));
+                    permissionDefinition[permission] = [{Principal: principals}];
+                }
+
+                entity.RunTimePermissions[0].Permissions.push(permissionDefinition);
+            }
+        }
+        
+        if (this.runtimePermissions.runtimeInstance) {
+            entity.InstanceRunTimePermissions = [{Permissions: []}];
+
+            for (const resource in this.runtimePermissions.runtimeInstance) {
+                const permissionDefinition = {$: {resourceName: resource}};
+
+                for (const permission in this.runtimePermissions.runtimeInstance[resource]) {
+                    const principals = this.runtimePermissions.runtimeInstance[resource][permission].map(p => ({$: p}));
+                    permissionDefinition[permission] = [{Principal: principals}];
+                }
+
+                entity.InstanceRunTimePermissions[0].Permissions.push(permissionDefinition);
+            }
         }
 
         // **********************************  GLOBAL CODE  *************************************
