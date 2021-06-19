@@ -453,10 +453,10 @@ Failed parsing at: \n${node.getText()}\n\n`);
                     const constantValue = (<ts.TypeChecker>(this.context as any).getEmitResolver()).getConstantValue(node as ts.PropertyAccessExpression);
     
                     if (typeof constantValue == 'string') {
-                        return ts.createStringLiteral(constantValue);
+                        return ts.factory.createStringLiteral(constantValue);
                     }
                     else if (typeof constantValue == 'number') {
-                        return ts.createNumericLiteral(constantValue.toString());
+                        return ts.factory.createNumericLiteral(constantValue.toString());
                     }
                 }
         
