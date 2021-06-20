@@ -194,6 +194,16 @@ export class TWThingTransformer {
     instanceVisibilityPermissions: TWVisibility[] = [];
 
     /**
+     * A dictionary of users declared in this entity.
+     */
+    users: { [key: string]: { [key: string]: unknown } } = {};
+
+    /**
+     * A dictionary of user groups declared in this entity.
+     */
+    userGroups: { [key: string]: TWPrincipal[] } = {};
+
+    /**
      * When enabled, ordinal values will be generated for data shape fields, in the order in which they
      * appear, starting from 0.
      * 
