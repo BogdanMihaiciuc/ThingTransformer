@@ -8,6 +8,10 @@ Adds support for parsing `@allow`, `@allowInstance`, `@deny` and `@denyInstance`
 
 Adds support for specifying the `baseDataShape` attribute on data shapes and for the `@DataShapeDefinition` decorator. This feature doesn't seem to work yet in Thingworx though, so it is not included in the project template.
 
+# 0.11.2-beta.1
+
+Resolves an issue that caused descriptions to be omitted.
+
 # 0.11.1-beta.1
 
 Resolves an issue that caused an issue with transforming service arguments, leading to code that would crash at runtime.
