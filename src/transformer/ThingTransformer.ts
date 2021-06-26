@@ -1,5 +1,5 @@
 import * as ts from 'typescript';
-import { TWEntityKind, TWPropertyDefinition, TWServiceDefinition, TWEventDefinition, TWSubscriptionDefinition, TWBaseTypes, TWPropertyDataChangeKind, TWFieldBase, TWPropertyRemoteBinding, TWPropertyRemoteFoldKind, TWPropertyRemotePushKind, TWPropertyRemoteStartKind, TWPropertyBinding, TWSubscriptionSourceKind, TWServiceParameter, TWDataShapeField, TWConfigurationTable, TWRuntimePermissionsList, TWVisibility, TWExtractedPermissionLists, TWRuntimePermissionDeclaration, TWPrincipal, TWPermission } from './TWCoreTypes';
+import { TWEntityKind, TWPropertyDefinition, TWServiceDefinition, TWEventDefinition, TWSubscriptionDefinition, TWBaseTypes, TWPropertyDataChangeKind, TWFieldBase, TWPropertyRemoteBinding, TWPropertyRemoteFoldKind, TWPropertyRemotePushKind, TWPropertyRemoteStartKind, TWPropertyBinding, TWSubscriptionSourceKind, TWServiceParameter, TWDataShapeField, TWConfigurationTable, TWRuntimePermissionsList, TWVisibility, TWExtractedPermissionLists, TWRuntimePermissionDeclaration, TWPrincipal, TWPermission, TWUser, TWUserGroup } from './TWCoreTypes';
 import {Builder} from 'xml2js';
 import * as fs from 'fs';
 
@@ -196,12 +196,12 @@ export class TWThingTransformer {
     /**
      * A dictionary of users declared in this entity.
      */
-    users: { [key: string]: { [key: string]: unknown } } = {};
+    users: { [key: string]: TWUser } = {};
 
     /**
      * A dictionary of user groups declared in this entity.
      */
-    userGroups: { [key: string]: TWPrincipal[] } = {};
+    userGroups: { [key: string]: TWUserGroup } = {};
 
     /**
      * When enabled, ordinal values will be generated for data shape fields, in the order in which they
@@ -2012,6 +2012,8 @@ Failed parsing at: \n${node.getText()}\n\n`);
 
         if (this.entityKind == TWEntityKind.DataShape) return this.toDataShapeXML();
 
+        if (this.entityKind == TWEntityKind.UserList) return this.toUserListXML();
+
         const collectionKind = this.entityKind + 's';
         const entityKind = this.entityKind;
         
@@ -2517,7 +2519,170 @@ Failed parsing at: \n${node.getText()}\n\n`);
             fieldDefinitions.push(fieldDefinition);
         }
 
+        if (this.runtimePermissions.runtime) {
+            entity.RunTimePermissions = [{Permissions: []}];
+
+            for (const resource in this.runtimePermissions.runtime) {
+                const permissionDefinition = {$: {resourceName: resource}};
+
+                for (const permission in this.runtimePermissions.runtime[resource]) {
+                    const principals = this.runtimePermissions.runtime[resource][permission].map(p => ({$: p}));
+                    permissionDefinition[permission] = [{Principal: principals}];
+                }
+
+                entity.RunTimePermissions[0].Permissions.push(permissionDefinition);
+            }
+        }
+
         return (new Builder()).buildObject(XML);
+    }
+
+    /**
+     * Returns an array of XML entities containing the users and groups in the file processed by this transformer.
+     */
+    private toUserListXML(): string {
+        const XML = {} as any;
+        XML.Entities = {};
+        XML.Entities.Users = [{}];
+        XML.Entities.Users[0].User = [];
+        XML.Entities.Groups = [{}];
+        XML.Entities.Groups[0].Group = [];
+
+        for (const user in this.users) {
+            const collectionKind = 'Users';
+            const entityKind = 'User';
+
+            const entity: any = {$: {}};
+    
+            entity.$.name = user;
+            entity.$.locked = 'false';
+            entity.$.enabled = 'true';
+
+            if (this.projectName) entity.$.projectName = this.projectName;
+    
+            // Tags are yet unsupported
+            entity.$.tags = '';
+    
+            if (this.description) entity.$.description = this.users[user].description;
+
+            // Get the user extensions, if specified and convert
+            // them into infotable rows
+            const extensions = this.users[user].extensions;
+            const extensionsRows: unknown[] = [];
+            const updateTime = (new Date).toString();
+            for (const key in extensions) {
+                extensionsRows.push({
+                    lastUpdateTime: updateTime,
+                    name: key,
+                    value: String(extensions[key])
+                });
+            }
+
+            XML.ConfigurationTables = [
+                {
+                    ConfigurationTable: [
+                        {
+                            $: {
+                                description: "UserExtensions",
+                                isMultiRow: "true",
+                                name: "UserExtensions",
+                                ordinal: "1",
+                                dataShapeName: ''
+                            },
+                            DataShape: [
+                                {
+                                    FieldDefinitions: [
+                                        {
+                                            FieldDefinition: [
+                                                {
+                                                    $: {
+                                                        baseType: "DATETIME",
+                                                        description: "Last update time",
+                                                        name: "lastUpdateTime",
+                                                        ordinal: "3"
+                                                    }
+                                                },
+                                                {
+                                                    $: {
+                                                        'aspect.isPrimaryKey': 'true',
+                                                        baseType: "STRING",
+                                                        description: "Name",
+                                                        name: "name",
+                                                        ordinal: "1"
+                                                    }
+                                                },
+                                                {
+                                                    $: {
+                                                        baseType: "STRING",
+                                                        description: "Value",
+                                                        name: "value",
+                                                        ordinal: "2"
+                                                    }
+                                                }
+                                            ]
+                                        }
+                                    ]
+                                }
+                            ],
+                            Rows: [
+                                {
+                                    Row: extensionsRows
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ];
+
+            if (this.runtimePermissions.runtime) {
+                entity.RunTimePermissions = [{Permissions: []}];
+    
+                for (const resource in this.runtimePermissions.runtime) {
+                    // For user lists, the resource name represents the entity to which the permissions apply
+                    if (resource != user) continue;
+
+                    const permissionDefinition = {$: {resourceName: '*'}};
+    
+                    for (const permission in this.runtimePermissions.runtime[resource]) {
+                        const principals = this.runtimePermissions.runtime[resource][permission].map(p => ({$: p}));
+                        permissionDefinition[permission] = [{Principal: principals}];
+                    }
+    
+                    entity.RunTimePermissions[0].Permissions.push(permissionDefinition);
+                }
+            }
+
+        }
+
+        for (const group in this.userGroups) {
+            const collectionKind = 'Groups';
+            const entityKind = 'Group';
+            
+            const entity: any = {$:{}};
+    
+            entity.$.name = group;
+
+            if (this.projectName) entity.$.projectName = this.projectName;
+    
+            // Tags are yet unsupported
+            entity.$.tags = '';
+    
+            if (this.description) entity.$.description = this.userGroups[group].description;
+
+            // Create the memeber list
+            const members: unknown[] = [];
+            for (const member of this.userGroups[group].members) {
+                members.push({$: {name: member.name, type: member.type}});
+            }
+
+            entity.Members = [{}];
+            entity.Members[0].Members = [{}];
+            entity.Members[0].Members[0].Member = members;
+
+            XML.Entities[collectionKind][0][entityKind].push(entity);
+        }
+
+        return (new Builder).buildObject(XML);
     }
 
     /**
