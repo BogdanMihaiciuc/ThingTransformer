@@ -2670,7 +2670,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
             // Tags are yet unsupported
             entity.$.tags = '';
     
-            if (this.description) entity.$.description = this.users[user].description;
+            if (this.users[user].description) entity.$.description = this.users[user].description;
 
             // Get the user extensions, if specified and convert
             // them into infotable rows
@@ -2776,7 +2776,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
             // Tags are yet unsupported
             entity.$.tags = '';
     
-            if (this.description) entity.$.description = this.userGroups[group].description;
+            if (this.userGroups[group].description) entity.$.description = this.userGroups[group].description;
 
             // Create the memeber list
             const members: unknown[] = [];
