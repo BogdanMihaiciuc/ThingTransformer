@@ -318,7 +318,7 @@ export const TWBaseTypes = {
 };
 
 export const enum TWEntityKind {
-    Thing = "Thing", ThingTemplate = "ThingTemplate", ThingShape = "ThingShape", DataShape = "DataShape"
+    Thing = "Thing", ThingTemplate = "ThingTemplate", ThingShape = "ThingShape", DataShape = "DataShape", UserList = "UserList"
 }
 
 export interface TWEntityDefinition {
@@ -383,4 +383,16 @@ export interface TWVisibility {
     isPermitted: boolean;
     name: string;
     type: string;
+}
+
+export interface TWUser {
+    name: string;
+    description?: string;
+    extensions: { [key: string]: any };
+}
+
+export interface TWUserGroup {
+    name: string;
+    description?: string;
+    members: TWPrincipal[];
 }
