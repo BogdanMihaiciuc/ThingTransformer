@@ -1,5 +1,5 @@
 import * as ts from 'typescript';
-import { TWEntityKind, TWPropertyDefinition, TWServiceDefinition, TWEventDefinition, TWSubscriptionDefinition, TWBaseTypes, TWPropertyDataChangeKind, TWFieldBase, TWPropertyRemoteBinding, TWPropertyRemoteFoldKind, TWPropertyRemotePushKind, TWPropertyRemoteStartKind, TWPropertyBinding, TWSubscriptionSourceKind, TWServiceParameter, TWDataShapeField, TWConfigurationTable, TWRuntimePermissionsList, TWVisibility, TWExtractedPermissionLists, TWRuntimePermissionDeclaration, TWPrincipal, TWPermission, TWUser, TWUserGroup } from './TWCoreTypes';
+import { TWEntityKind, TWPropertyDefinition, TWServiceDefinition, TWEventDefinition, TWSubscriptionDefinition, TWBaseTypes, TWPropertyDataChangeKind, TWFieldBase, TWPropertyRemoteBinding, TWPropertyRemoteFoldKind, TWPropertyRemotePushKind, TWPropertyRemoteStartKind, TWPropertyBinding, TWSubscriptionSourceKind, TWServiceParameter, TWDataShapeField, TWConfigurationTable, TWRuntimePermissionsList, TWVisibility, TWExtractedPermissionLists, TWRuntimePermissionDeclaration, TWPrincipal, TWPermission, TWUser, TWUserGroup, TWPrincipalBase } from './TWCoreTypes';
 import {Builder} from 'xml2js';
 import * as fs from 'fs';
 
@@ -293,6 +293,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
         } else if (isThingTemplate) {
             return TWEntityKind.ThingTemplate;
         } else if (isDataShape) {
+            this.throwErrorForNode(classNode, `Data shape inheritance is not yet supported.`);
             return TWEntityKind.DataShape;
         }
 
@@ -874,6 +875,9 @@ Failed parsing at: \n${node.getText()}\n\n`);
                 else if (baseClass.escapedText == 'DataShapeBase') {
                     this.entityKind = TWEntityKind.DataShape;
                 }
+                else if (baseClass.escapedText == 'UserList') {
+                    this.entityKind = TWEntityKind.UserList;
+                }
                 else {
                     this.entityKind = this.entityKindOfClassNode(classNode);
                     this.thingTemplateName = baseClass.text;
@@ -952,7 +956,11 @@ Failed parsing at: \n${node.getText()}\n\n`);
                 }
 
                 this.runtimePermissions = this.mergePermissionListsForNode([this.runtimePermissions].concat(this.permissionsOfNode(classNode)), node);
+            }
 
+            // In watch mode, it is not needed to visit class members since they are not needed for the declaration files,
+            // except for user lists whose members each correspond to an entity.
+            if (!this.watch || this.entityKind == TWEntityKind.UserList) {
                 for (const member of classNode.members) {
                     this.visitClassMember(member);
                 }
@@ -1040,6 +1048,9 @@ Failed parsing at: \n${node.getText()}\n\n`);
             if (this.entityKind == TWEntityKind.DataShape) {
                 this.visitDataShapeField(propertyDeclarationNode);
             }
+            else if (this.entityKind == TWEntityKind.UserList) {
+                this.visitUserListField(propertyDeclarationNode);
+            }
             else {
                 this.visitProperty(propertyDeclarationNode);
             }
@@ -1049,12 +1060,108 @@ Failed parsing at: \n${node.getText()}\n\n`);
             if (this.entityKind == TWEntityKind.DataShape) {
                 this.throwErrorForNode(node, `Data Shapes cannot contain methods.`);
             }
+            if (this.entityKind == TWEntityKind.UserList) {
+                this.throwErrorForNode(node, `User lists cannot contain methods.`);
+            }
             this.visitMethod(node as ts.MethodDeclaration);
         }
     }
 
     /**
      * Visits a data shape property declaration.
+     * @param node      The node to visit.
+     */
+    visitUserListField(node: ts.PropertyDeclaration) {
+        const principal = {} as TWPrincipalBase;
+        if (node.name.kind != ts.SyntaxKind.Identifier) {
+            this.throwErrorForNode(node, `Computed property names are not supported in Thingwrox classes.`);
+        }
+
+        // First obtain the name of the property
+        principal.name = node.name.text;
+
+        principal.description = this.documentationOfNode(node);
+
+        if (node.initializer) {
+            // Only two types of initializers are permitted in user lists
+            // - object literals which describe users
+            if (node.initializer.kind == ts.SyntaxKind.ObjectLiteralExpression) {
+                const user = principal as TWUser;
+                user.extensions = {};
+
+                // Enumerate the members and create the extensions object
+                const objectLiteral = node.initializer as ts.ObjectLiteralExpression;
+                for (const member of objectLiteral.properties) {
+                    if (member.kind == ts.SyntaxKind.MethodDeclaration) {
+                        this.throwErrorForNode(node, `User extensions cannot contain methods`);
+                    }
+                    
+                    if (member.kind != ts.SyntaxKind.PropertyAssignment) {
+                        this.throwErrorForNode(node, `User extensions keys cannot be setters, getters or shorthand assignments.`);
+                    }
+
+                    if (member.name.kind != ts.SyntaxKind.Identifier) {
+                        this.throwErrorForNode(node, `User extension property names must be identifiers.`);
+                    }
+
+                    const assignment = member as ts.PropertyAssignment;
+                    if (assignment.initializer.kind == ts.SyntaxKind.PropertyAccessExpression) {
+                        // Const enums need to be resolved early on
+                        user.extensions[member.name.text] = ((this.context as any).getEmitResolver() as ts.TypeChecker).getConstantValue(node.initializer as ts.PropertyAccessExpression);
+        
+                        // If the value is not a compile time constant, it is not a valid initializer
+                        if (user.extensions[member.name.text] === undefined) {
+                            this.throwErrorForNode(node, `Unknown initializer for property.`);
+                        }
+                    }
+                    else {
+                        user.extensions[member.name.text] = (assignment.initializer as ts.LiteralExpression).text || assignment.initializer.getText();
+                    }
+                }
+
+                this.users[user.name] = user;
+            }
+            // - array literals which describe groups
+            else if (node.initializer.kind == ts.SyntaxKind.ArrayLiteralExpression) {
+                const group = principal as TWUserGroup;
+                group.members = [];
+
+                const arrayLiteral = node.initializer as ts.ArrayLiteralExpression;
+                for (const member of arrayLiteral.elements) {
+                    if (member.kind != ts.SyntaxKind.PropertyAccessExpression) {
+                        this.throwErrorForNode(node, `User group members must be user or group references.`);
+                    }
+
+                    const expression = member as ts.PropertyAccessExpression;
+                    const type = expression.expression.getText();
+                    const name = expression.name;
+
+                    if (type != 'Users' && type != 'Groups') {
+                        this.throwErrorForNode(node, `User group members must be user or group references.`);
+                    }
+
+                    if (name.kind != ts.SyntaxKind.Identifier) {
+                        this.throwErrorForNode(node, `User group member names must be identifiers.`);
+                    }
+
+                    group.members.push({name: name.text, type})
+                }
+
+                this.userGroups[group.name] = group;
+            }
+        } else {
+            // Properties without an initializer default to being treated as users with no extensions
+            const user = principal as TWUser;
+            user.extensions = {};
+            this.users[user.name] = user;
+        }
+
+        // Extract the permissions to be applied per user
+        this.runtimePermissions = this.mergePermissionListsForNode([this.runtimePermissions].concat(this.permissionsOfNode(node, node.name.text)), node);
+    }
+
+    /**
+     * Visits a user list property declaration.
      * @param node      The node to visit.
      */
     visitDataShapeField(node: ts.PropertyDeclaration) {
@@ -2352,7 +2459,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
                 const permissionDefinition = {$: {resourceName: resource}};
 
                 for (const permission in this.runtimePermissions.runtime[resource]) {
-                    const principals = this.runtimePermissions.runtime[resource][permission].map(p => ({$: p}));
+                    const principals = this.runtimePermissions.runtime[resource][permission].map(p => ({$: {name: p.principal, type: p.type, isPermitted: p.isPermitted}}));
                     permissionDefinition[permission] = [{Principal: principals}];
                 }
 
@@ -2367,7 +2474,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
                 const permissionDefinition = {$: {resourceName: resource}};
 
                 for (const permission in this.runtimePermissions.runtimeInstance[resource]) {
-                    const principals = this.runtimePermissions.runtimeInstance[resource][permission].map(p => ({$: p}));
+                    const principals = this.runtimePermissions.runtimeInstance[resource][permission].map(p => ({$: {name: p.principal, type: p.type, isPermitted: p.isPermitted}}));
                     permissionDefinition[permission] = [{Principal: principals}];
                 }
 
@@ -2526,7 +2633,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
                 const permissionDefinition = {$: {resourceName: resource}};
 
                 for (const permission in this.runtimePermissions.runtime[resource]) {
-                    const principals = this.runtimePermissions.runtime[resource][permission].map(p => ({$: p}));
+                    const principals = this.runtimePermissions.runtime[resource][permission].map(p => ({$: {name: p.principal, type: p.type, isPermitted: p.isPermitted}}));
                     permissionDefinition[permission] = [{Principal: principals}];
                 }
 
@@ -2569,7 +2676,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
             // them into infotable rows
             const extensions = this.users[user].extensions;
             const extensionsRows: unknown[] = [];
-            const updateTime = (new Date).toString();
+            const updateTime = (new Date).toISOString();
             for (const key in extensions) {
                 extensionsRows.push({
                     lastUpdateTime: updateTime,
@@ -2578,7 +2685,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
                 });
             }
 
-            XML.ConfigurationTables = [
+            entity.ConfigurationTables = [
                 {
                     ConfigurationTable: [
                         {
@@ -2644,13 +2751,15 @@ Failed parsing at: \n${node.getText()}\n\n`);
                     const permissionDefinition = {$: {resourceName: '*'}};
     
                     for (const permission in this.runtimePermissions.runtime[resource]) {
-                        const principals = this.runtimePermissions.runtime[resource][permission].map(p => ({$: p}));
+                        const principals = this.runtimePermissions.runtime[resource][permission].map(p => ({$: {name: p.principal, type: p.type, isPermitted: p.isPermitted}}));
                         permissionDefinition[permission] = [{Principal: principals}];
                     }
     
                     entity.RunTimePermissions[0].Permissions.push(permissionDefinition);
                 }
             }
+
+            XML.Entities[collectionKind][0][entityKind].push(entity);
 
         }
 
@@ -2672,12 +2781,31 @@ Failed parsing at: \n${node.getText()}\n\n`);
             // Create the memeber list
             const members: unknown[] = [];
             for (const member of this.userGroups[group].members) {
-                members.push({$: {name: member.name, type: member.type}});
+                // Because of the way collections are accessed, the group types will have an extra 's' at the end which must be removed
+                members.push({$: {name: member.name, type: member.type.substring(0, member.type.length - 1)}});
             }
 
             entity.Members = [{}];
             entity.Members[0].Members = [{}];
             entity.Members[0].Members[0].Member = members;
+
+            if (this.runtimePermissions.runtime) {
+                entity.RunTimePermissions = [{Permissions: []}];
+    
+                for (const resource in this.runtimePermissions.runtime) {
+                    // For user lists, the resource name represents the entity to which the permissions apply
+                    if (resource != group) continue;
+
+                    const permissionDefinition = {$: {resourceName: '*'}};
+    
+                    for (const permission in this.runtimePermissions.runtime[resource]) {
+                        const principals = this.runtimePermissions.runtime[resource][permission].map(p => ({$: {name: p.principal, type: p.type, isPermitted: p.isPermitted}}));
+                        permissionDefinition[permission] = [{Principal: principals}];
+                    }
+    
+                    entity.RunTimePermissions[0].Permissions.push(permissionDefinition);
+                }
+            }
 
             XML.Entities[collectionKind][0][entityKind].push(entity);
         }
@@ -2705,6 +2833,11 @@ Failed parsing at: \n${node.getText()}\n\n`);
             if (this.entityKind == TWEntityKind.Thing) {
                 return `declare interface ${this.entityKind}s { ${JSON.stringify(this.exportedName)}: ${this.className} }\n\n`;
             }
+            else if (this.entityKind == TWEntityKind.UserList) {
+                const users = `declare interface Users { ${Object.values(this.users).map(u => `${u.name}: UserEntity;`).join(';')} }\n\n`;
+                const groups = `declare interface Groups { ${Object.values(this.userGroups).map(u => `${u.name}: GroupEntity;`).join(';')} }\n\n`;
+                return users + groups;
+            }
             else {
                 return `declare interface ${this.entityKind}s { ${JSON.stringify(this.exportedName)}: ${this.entityKind}Entity<${this.className}>}`
             }
@@ -2722,9 +2855,16 @@ Failed parsing at: \n${node.getText()}\n\n`);
     write(path: string = this.root): void {
         if (!fs.existsSync(`${path}/build`)) fs.mkdirSync(`${path}/build`);
         if (!fs.existsSync(`${path}/build/Entities`)) fs.mkdirSync(`${path}/build/Entities`);
-        if (!fs.existsSync(`${path}/build/Entities/${this.entityKind}s`)) fs.mkdirSync(`${path}/build/Entities/${this.entityKind}s`);
 
-        fs.writeFileSync(`${path}/build/Entities/${this.entityKind}s/${this.exportedName}.xml`, this.toXML());
+        let entityKind: string = this.entityKind;
+        // User lists are to be saved under a "Users" subfolder.
+        if (this.entityKind == TWEntityKind.UserList) {
+            entityKind = 'User';
+        }
+
+        if (!fs.existsSync(`${path}/build/Entities/${entityKind}s`)) fs.mkdirSync(`${path}/build/Entities/${entityKind}s`);
+
+        fs.writeFileSync(`${path}/build/Entities/${entityKind}s/${this.exportedName}.xml`, this.toXML());
     }
 
 }

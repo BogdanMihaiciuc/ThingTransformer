@@ -385,14 +385,15 @@ export interface TWVisibility {
     type: string;
 }
 
-export interface TWUser {
+export interface TWPrincipalBase {
     name: string;
     description?: string;
+}
+
+export interface TWUser extends TWPrincipalBase {
     extensions: { [key: string]: any };
 }
 
-export interface TWUserGroup {
-    name: string;
-    description?: string;
+export interface TWUserGroup extends TWPrincipalBase {
     members: TWPrincipal[];
 }
