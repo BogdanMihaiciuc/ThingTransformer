@@ -559,14 +559,19 @@ Failed parsing at: \n${node.getText()}\n\n`);
      */
     documentationOfNode(node: ts.Node): string {
         // This method appears to not be included in the type definition
-        const documentation = (ts as any).getJSDocCommentsAndTags(node) as ts.Node[];
+        const documentation = (ts as any).getJSDocCommentsAndTags(node, true) as ts.Node[];
+
         // Get the first documentation node and use it as the description
         if (documentation.length) {
             for (const documentationNode of documentation) {
                 if (documentationNode.kind == ts.SyntaxKind.JSDocComment) {
+
                     const comment = (documentationNode as ts.JSDoc).comment || '';
                     if (typeof comment != 'string') {
                         return comment.reduce((acc, val) => acc + (val.text), "");
+                    }
+                    else {
+                        return comment;
                     }
                 }
             }
