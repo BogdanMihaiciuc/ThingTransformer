@@ -1,3 +1,7 @@
+# 0.11.2-beta.1
+
+Resolves an issue that caused descriptions to be omitted.
+
 # 0.11.1-beta.1
 
 Resolves an issue that caused an issue with transforming service arguments, leading to code that would crash at runtime.

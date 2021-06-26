@@ -527,6 +527,9 @@ Failed parsing at: \n${node.getText()}\n\n`);
                     if (typeof comment != 'string') {
                         return comment.reduce((acc, val) => acc + (val.text), "");
                     }
+                    else {
+                        return comment;
+                    }
                 }
             }
         }
