@@ -301,6 +301,39 @@ Failed parsing at: \n${node.getText()}\n\n`);
     }
 
     /**
+     * Returns the constant value of the given property access expression so that it can be inlined.
+     * A constant value that must be inlined can occur because of a const enum member or because of
+     * an environment variable.
+     * @param expression    The expression whose constant value should be evaluated.
+     * @returns             The constant value if it could be resolved, `undefined` otherwise.
+     */
+    constantValueOfExpression(expression: ts.Expression): unknown {
+        if (expression.kind != ts.SyntaxKind.PropertyAccessExpression) return undefined;
+
+        const propertyAccess = expression as ts.PropertyAccessExpression
+        
+        const sourceObject = propertyAccess.expression;
+        const value = propertyAccess.name.text;
+
+        if (sourceObject.kind == ts.SyntaxKind.PropertyAccessExpression) {
+            // If the source object is itself a property acess expression, it may refer to an env variable
+            const sourceExpression = sourceObject as ts.PropertyAccessExpression;
+            const sourceExpressionSource = sourceExpression.expression.getText();
+            const sourceExpressionValue = sourceExpression.name.text;
+
+            if (sourceExpressionSource == 'process' && sourceExpressionValue == 'env') {
+                // If this is an environment variable, inline it
+                return process.env[value];
+            }
+        } else {
+            // Otherwise it may just be a const enum
+            return ((this.context as any).getEmitResolver() as ts.TypeChecker).getConstantValue(expression as ts.PropertyAccessExpression);
+        }
+
+        return undefined;
+    }
+
+    /**
      * Checks whether the given node has a decorator with the given name.
      * @param name      The name of the decorator to find.
      * @param node      The node in which to search.
@@ -495,9 +528,9 @@ Failed parsing at: \n${node.getText()}\n\n`);
                     return undefined;
                 }
     
-                // All enum constants should be inlined at this step as the printer is not able to inline them later on
+                // All enum constants and environment variables should be inlined at this step as the printer is not able to inline them later on
                 if (node.kind == ts.SyntaxKind.PropertyAccessExpression) {
-                    const constantValue = (<ts.TypeChecker>(this.context as any).getEmitResolver()).getConstantValue(node as ts.PropertyAccessExpression);
+                    const constantValue = this.constantValueOfExpression(node as ts.PropertyAccessExpression);
     
                     if (typeof constantValue == 'string') {
                         return ts.factory.createStringLiteral(constantValue);
@@ -512,7 +545,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
                 }
 
                 if (this.nodeReplacementMap.get(node)) {
-                    // If the node was already processed and marked for replacement, return its replacement\
+                    // If the node was already processed and marked for replacement, return its replacement
                     return this.nodeReplacementMap.get(node);
                 }
                 
@@ -1112,7 +1145,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
                     const assignment = member as ts.PropertyAssignment;
                     if (assignment.initializer.kind == ts.SyntaxKind.PropertyAccessExpression) {
                         // Const enums need to be resolved early on
-                        user.extensions[member.name.text] = ((this.context as any).getEmitResolver() as ts.TypeChecker).getConstantValue(node.initializer as ts.PropertyAccessExpression);
+                        user.extensions[member.name.text] = this.constantValueOfExpression(assignment.initializer as ts.PropertyAccessExpression);
         
                         // If the value is not a compile time constant, it is not a valid initializer
                         if (user.extensions[member.name.text] === undefined) {
@@ -1246,7 +1279,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
         if (node.initializer) {
             if (node.initializer.kind == ts.SyntaxKind.PropertyAccessExpression) {
                 // Const enums need to be resolved early on
-                property.aspects.defaultValue = ((this.context as any).getEmitResolver() as ts.TypeChecker).getConstantValue(node.initializer as ts.PropertyAccessExpression);
+                property.aspects.defaultValue = this.constantValueOfExpression(node.initializer as ts.PropertyAccessExpression);
 
                 // If the value is not a compile time constant, it is not a valod initializer
                 if (property.aspects.defaultValue === undefined) {
@@ -1347,7 +1380,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
         if (node.initializer) {
             if (node.initializer.kind == ts.SyntaxKind.PropertyAccessExpression) {
                 // Const enums need to be resolved early on
-                property.aspects.defaultValue = ((this.context as any).getEmitResolver() as ts.TypeChecker).getConstantValue(node.initializer as ts.PropertyAccessExpression);
+                property.aspects.defaultValue = this.constantValueOfExpression(node.initializer as ts.PropertyAccessExpression);
 
                 // If the value is not a compile time constant, it is not a valod initializer
                 if (property.aspects.defaultValue === undefined) {
@@ -1682,9 +1715,9 @@ Failed parsing at: \n${node.getText()}\n\n`);
                 if (arg.initializer) {
                     if (arg.initializer.kind == ts.SyntaxKind.PropertyAccessExpression) {
                         // Const enums need to be resolved early on
-                        parameter.aspects.defaultValue = ((this.context as any).getEmitResolver() as ts.TypeChecker).getConstantValue(arg.initializer as ts.PropertyAccessExpression);
+                        parameter.aspects.defaultValue = this.constantValueOfExpression(arg.initializer as ts.PropertyAccessExpression);
 
-                        // If the value is not a compile time constant, it is not a valod initializer
+                        // If the value is not a compile time constant, it is not a valid initializer
                         if (parameter.aspects.defaultValue === undefined) {
                             this.throwErrorForNode(arg, `Unknown initializer for argument.`);
                         }
@@ -1732,26 +1765,8 @@ Failed parsing at: \n${node.getText()}\n\n`);
                 service.parameterDefinitions.push(parameter);
             }
 
-            // Replace the destructured parameter with a regular parameter list
-            const plainArgs: ts.ParameterDeclaration[] = [];
-            for (const arg of service.parameterDefinitions) {
-                plainArgs.push(ts.factory.createParameterDeclaration(undefined, undefined, undefined,arg.name))
-            }
-            const regularArgs = ts.factory.createNodeArray([]);
-            node = ts.factory.createMethodDeclaration(
-                node.decorators,
-                node.modifiers,
-                node.asteriskToken,
-                node.name,
-                node.questionToken,
-                node.typeParameters,
-                regularArgs,
-                node.type,
-                node.body
-            );
-
             // Mark this node for replacement
-            this.nodeReplacementMap.set(originalNode, node);
+            this.nodeReplacementMap.set(originalNode.parameters[0], ts.factory.createObjectLiteralExpression());
         }
         else {
             service.parameterDefinitions = [];

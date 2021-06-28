@@ -4,6 +4,8 @@ Adds support for parsing classes that extend from `UserList` and emitting XML fi
 
 Adds support for parsing `@allow`, `@allowInstance`, `@deny` and `@denyInstance` decorators and emitting permissions in XML files.
 
+Adds support for inlining environment variables.
+
 # 0.12.0-beta.1
 
 Adds support for specifying the `baseDataShape` attribute on data shapes and for the `@DataShapeDefinition` decorator. This feature doesn't seem to work yet in Thingworx though, so it is not included in the project template.
