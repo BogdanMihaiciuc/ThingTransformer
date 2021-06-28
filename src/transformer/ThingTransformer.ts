@@ -1403,26 +1403,8 @@ Failed parsing at: \n${node.getText()}\n\n`);
                 service.parameterDefinitions.push(parameter);
             }
 
-            // Replace the destructured parameter with a regular parameter list
-            const plainArgs: ts.ParameterDeclaration[] = [];
-            for (const arg of service.parameterDefinitions) {
-                plainArgs.push(ts.factory.createParameterDeclaration(undefined, undefined, undefined,arg.name))
-            }
-            const regularArgs = ts.factory.createNodeArray([]);
-            node = ts.factory.createMethodDeclaration(
-                node.decorators,
-                node.modifiers,
-                node.asteriskToken,
-                node.name,
-                node.questionToken,
-                node.typeParameters,
-                regularArgs,
-                node.type,
-                node.body
-            );
-
             // Mark this node for replacement
-            this.nodeReplacementMap.set(originalNode, node);
+            this.nodeReplacementMap.set(node.parameters[0], ts.factory.createObjectLiteralExpression());
         }
         else {
             service.parameterDefinitions = [];
