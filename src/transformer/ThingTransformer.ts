@@ -1,9 +1,7 @@
 import * as ts from 'typescript';
-import { TWEntityKind, TWPropertyDefinition, TWServiceDefinition, TWEventDefinition, TWSubscriptionDefinition, TWBaseTypes, TWPropertyDataChangeKind, TWFieldBase, TWPropertyRemoteBinding, TWPropertyRemoteFoldKind, TWPropertyRemotePushKind, TWPropertyRemoteStartKind, TWPropertyBinding, TWSubscriptionSourceKind, TWServiceParameter, TWDataShapeField, TWConfigurationTable } from './TWCoreTypes';
+import { TWEntityKind, TWPropertyDefinition, TWServiceDefinition, TWEventDefinition, TWSubscriptionDefinition, TWBaseTypes, TWPropertyDataChangeKind, TWFieldBase, TWPropertyRemoteBinding, TWPropertyRemoteFoldKind, TWPropertyRemotePushKind, TWPropertyRemoteStartKind, TWPropertyBinding, TWSubscriptionSourceKind, TWServiceParameter, TWDataShapeField, TWConfigurationTable, TWRuntimePermissionsList, TWVisibility, TWExtractedPermissionLists, TWRuntimePermissionDeclaration, TWPrincipal, TWPermission, TWUser, TWUserGroup, TWPrincipalBase, TWOrganizationalUnit, TWConnection } from './TWCoreTypes';
 import {Builder} from 'xml2js';
 import * as fs from 'fs';
-import * as path from 'path';
-import { Readable } from 'stream';
 
 declare global {
     namespace NodeJS {
@@ -27,6 +25,11 @@ const TypeScriptPrimitiveTypes = [ts.SyntaxKind.StringKeyword, ts.SyntaxKind.Num
  * The kinds of nodes that are permitted to express Thingworx types.
  */
 const PermittedTypeNodeKinds = [...TypeScriptPrimitiveTypes, ts.SyntaxKind.TypeReference];
+
+/**
+ * An array of decorator names that are used to specify permissions.
+ */
+const PermissionDecorators = ['allow', 'deny', 'allowInstance', 'denyInstance'];
 
 /**
  * The thing transformer is applied to Thingworx source files to convert them into Thingworx XML entities.
@@ -176,6 +179,41 @@ export class TWThingTransformer {
     fields: TWDataShapeField[] = [];
 
     /**
+     * A dictionary of runtime permissions to apply to this entity.
+     */
+    runtimePermissions: TWExtractedPermissionLists = {};
+
+    /**
+     * An array of visibility permissions to apply to this entity.
+     */
+    visibilityPermissions: TWVisibility[] = [];
+
+    /**
+     * An array of visibility permissions to apply to instances of this entity.
+     */
+    instanceVisibilityPermissions: TWVisibility[] = [];
+
+    /**
+     * A dictionary of users declared in this entity.
+     */
+    users: { [key: string]: TWUser } = {};
+
+    /**
+     * A dictionary of user groups declared in this entity.
+     */
+    userGroups: { [key: string]: TWUserGroup } = {};
+
+    /**
+     * An array of discovered organizational units in this entity.
+     */
+    orgUnits: TWOrganizationalUnit[] = [];
+
+    /**
+     * An array of discovered organizational unit connections in this entity..
+     */
+    orgConnections: TWConnection[] = [];
+
+    /**
      * When enabled, ordinal values will be generated for data shape fields, in the order in which they
      * appear, starting from 0.
      * 
@@ -204,6 +242,11 @@ export class TWThingTransformer {
      * An object containing instances of the transformer.
      */
     store?: {[key: string]: TWThingTransformer};
+
+    /**
+     * An array of endpoints that should be invoked after deployment.
+     */
+    deploymentEndpoints: string[] = [];
 
     /**
      * A weak map that contains a mapping between nodes that have been marked for replacement before
@@ -251,12 +294,58 @@ Failed parsing at: \n${node.getText()}\n\n`);
 
         let isThing = classNode.decorators.some(decorator => decorator.expression.kind == ts.SyntaxKind.Identifier && decorator.expression.getText() == 'ThingDefinition');
         let isThingTemplate = classNode.decorators.some(decorator => decorator.expression.kind == ts.SyntaxKind.Identifier && decorator.expression.getText() == 'ThingTemplateDefinition');
+        let isDataShape = classNode.decorators.some(decorator => decorator.expression.kind == ts.SyntaxKind.Identifier && decorator.expression.getText() == 'DataShapeDefinition');
 
-        if (isThing && isThingTemplate) {
-            this.throwErrorForNode(classNode, `Class ${classNode.name} cannot be both a Thing and a ThingTemplate.`);
+        const kinds = [isThing, isThingTemplate, isDataShape].filter(b => b);
+
+        // Ensure that there is exactly a single kind specified
+        if (kinds.length != 1) {
+            this.throwErrorForNode(classNode, `Class ${classNode.name} must have a single entity kind annotation.`);
         }
 
-        return isThing ? TWEntityKind.Thing : TWEntityKind.ThingTemplate;
+        if (isThing) {
+            return TWEntityKind.Thing;
+        } else if (isThingTemplate) {
+            return TWEntityKind.ThingTemplate;
+        } else if (isDataShape) {
+            this.throwErrorForNode(classNode, `Data shape inheritance is not yet supported.`);
+            return TWEntityKind.DataShape;
+        }
+
+        this.throwErrorForNode(classNode, `Unknown entity kind for class ${classNode.name}`);
+    }
+
+    /**
+     * Returns the constant value of the given property access expression so that it can be inlined.
+     * A constant value that must be inlined can occur because of a const enum member or because of
+     * an environment variable.
+     * @param expression    The expression whose constant value should be evaluated.
+     * @returns             The constant value if it could be resolved, `undefined` otherwise.
+     */
+    constantValueOfExpression(expression: ts.Expression): unknown {
+        if (expression.kind != ts.SyntaxKind.PropertyAccessExpression) return undefined;
+
+        const propertyAccess = expression as ts.PropertyAccessExpression
+        
+        const sourceObject = propertyAccess.expression;
+        const value = propertyAccess.name.text;
+
+        if (sourceObject.kind == ts.SyntaxKind.PropertyAccessExpression) {
+            // If the source object is itself a property acess expression, it may refer to an env variable
+            const sourceExpression = sourceObject as ts.PropertyAccessExpression;
+            const sourceExpressionSource = sourceExpression.expression.getText();
+            const sourceExpressionValue = sourceExpression.name.text;
+
+            if (sourceExpressionSource == 'process' && sourceExpressionValue == 'env') {
+                // If this is an environment variable, inline it
+                return process.env[value];
+            }
+        } else {
+            // Otherwise it may just be a const enum
+            return ((this.context as any).getEmitResolver() as ts.TypeChecker).getConstantValue(expression as ts.PropertyAccessExpression);
+        }
+
+        return undefined;
     }
 
     /**
@@ -454,9 +543,9 @@ Failed parsing at: \n${node.getText()}\n\n`);
                     return undefined;
                 }
     
-                // All enum constants should be inlined at this step as the printer is not able to inline them later on
+                // All enum constants and environment variables should be inlined at this step as the printer is not able to inline them later on
                 if (node.kind == ts.SyntaxKind.PropertyAccessExpression) {
-                    const constantValue = (<ts.TypeChecker>(this.context as any).getEmitResolver()).getConstantValue(node as ts.PropertyAccessExpression);
+                    const constantValue = this.constantValueOfExpression(node as ts.PropertyAccessExpression);
     
                     if (typeof constantValue == 'string') {
                         return ts.factory.createStringLiteral(constantValue);
@@ -471,7 +560,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
                 }
 
                 if (this.nodeReplacementMap.get(node)) {
-                    // If the node was already processed and marked for replacement, return its replacement\
+                    // If the node was already processed and marked for replacement, return its replacement
                     return this.nodeReplacementMap.get(node);
                 }
                 
@@ -502,7 +591,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
             if (parent.kind == ts.SyntaxKind.MethodDeclaration) {
                 const method = parent as ts.MethodDeclaration;
                 if (method.parent == this.classNode) {
-                    return ts.createIdentifier('me');
+                    return ts.factory.createIdentifier('me');
                 }
             }
             parent = parent.parent;
@@ -518,11 +607,13 @@ Failed parsing at: \n${node.getText()}\n\n`);
      */
     documentationOfNode(node: ts.Node): string {
         // This method appears to not be included in the type definition
-        const documentation = (ts as any).getJSDocCommentsAndTags(node) as ts.Node[];
+        const documentation = (ts as any).getJSDocCommentsAndTags(node, true) as ts.Node[];
+
         // Get the first documentation node and use it as the description
         if (documentation.length) {
             for (const documentationNode of documentation) {
                 if (documentationNode.kind == ts.SyntaxKind.JSDocComment) {
+
                     const comment = (documentationNode as ts.JSDoc).comment || '';
                     if (typeof comment != 'string') {
                         return comment.reduce((acc, val) => acc + (val.text), "");
@@ -535,6 +626,234 @@ Failed parsing at: \n${node.getText()}\n\n`);
         }
 
         return '';
+    }
+
+    /**
+     * Constructs and returns a permission declaration object.
+     * @returns     A permission declaration object.
+     */
+    static createPermissionList(): TWRuntimePermissionDeclaration {
+        return {
+            PropertyRead: [],
+            PropertyWrite: [],
+            ServiceInvoke: [],
+            EventInvoke: [],
+            EventSubscribe: []
+        } as TWRuntimePermissionDeclaration;
+    }
+
+    /**
+     * Extracts and returns the visibility permissions of the given kind for the given node.
+     * @param kind      The name of the decorator containing the visibility permissions.
+     * @param node      The node to which the decorator may be applied.
+     * @returns         An array of visibility permissions if any were found, or an empty array otherwise.
+     */
+    visibilityPermissionsOfKindForNode(kind: string, node: ts.Node): TWVisibility[] {
+        const result: TWVisibility[] = [];
+        if (this.hasDecoratorNamed(kind, node)) {
+            const organizations = this.argumentsOfDecoratorNamed(kind, node);
+            if (!organizations || !organizations.length) {
+                this.throwErrorForNode(node, `The @${kind} decorator must specify at least one organization.`);
+            }
+
+            for (const arg of organizations) {
+                if (arg.kind == ts.SyntaxKind.PropertyAccessExpression) {
+                    const expression = arg as ts.PropertyAccessExpression;
+                    const organization = expression.name.text;
+                    if (expression.expression.getText() != 'Organizations') {
+                        this.throwErrorForNode(arg, `Organizations specified in the @${kind} decorator must be accessed from the Organizations collection or via the "Unit" function.`);
+                    }
+
+                    result.push({isPermitted: true, name: organization, type: 'Organization'});
+                }
+                else if (arg.kind == ts.SyntaxKind.CallExpression) {
+                    const callExpression = arg as ts.CallExpression;
+
+                    if (callExpression.expression.getText() != 'Unit') {
+                        this.throwErrorForNode(arg, `Organization units in the @${kind} decorator  must be specified via the "Unit" function.`);
+                    }
+
+                    const unitArguments = callExpression.arguments;
+                    if (unitArguments.length != 2) {
+                        this.throwErrorForNode(arg, `The "Unit" function must take exactly two parameters.`);
+                    }
+
+                    const organizationArg = unitArguments[0];
+                    const unitArg = unitArguments[1] as ts.StringLiteral;
+
+                    if (unitArg.kind != ts.SyntaxKind.StringLiteral) {
+                        this.throwErrorForNode(arg, `The organization unit must be specified as a string literal.`);
+                    }
+
+                    const organizationExpression = organizationArg as ts.PropertyAccessExpression;
+
+                    if (organizationArg.kind != ts.SyntaxKind.PropertyAccessExpression || organizationExpression.expression.getText() != 'Organizations') {
+                        this.throwErrorForNode(arg, `Organizations specified in the "Unit" function must be accessed from the Organizations collection.`);
+                    }
+
+                    const organizationName = organizationExpression.name.text;
+
+                    result.push({isPermitted: true, name: `${organizationName}:${unitArg.text}`, type: 'OrganizationalUnit'})
+                }
+                else {
+                    this.throwErrorForNode(arg, `Organizations specified in the @${kind} decorator must be accessed from the Organizations collection or via the "Unit" function.`);
+                }
+
+            }
+        }
+
+        return result;
+    }
+
+    /**
+     * Returns a list of permissions for the given node.
+     * @param node          The node whose permissions should be retrieved.
+     * @param resource      The resource to which the permissions should refer. If specified and any decorator
+     *                      refers to a different resource, this method will throw.
+     * @returns             A list of permissions
+     */
+    permissionsOfNode(node: ts.Node, resource: string = '*'): TWExtractedPermissionLists {
+        // Filter out the list of decorators to exclude any non-permission decorators
+        const decorators = node.decorators?.filter(d => d.expression.kind == ts.SyntaxKind.CallExpression && PermissionDecorators.includes((d.expression as ts.CallExpression).expression.getText()));
+        const result: TWExtractedPermissionLists = {};
+
+        if (!decorators?.length) return result;
+
+        const permissionLists: TWExtractedPermissionLists[] = [];
+
+        for (const decorator of decorators) {
+            const text = (decorator.expression as ts.CallExpression).expression.getText();
+
+            // Determine the kind of permission based on the decorator name
+            let permissionKind: keyof TWExtractedPermissionLists = 'runtime';
+            let permitted = false;
+            let targetResource = resource;
+
+            switch (text) {
+                case 'allow':
+                    permitted = true;
+                    permissionKind = 'runtime';
+                    break;
+                case 'deny':
+                    permitted = false;
+                    permissionKind = 'runtime';
+                    break;
+                case 'allowInstance':
+                    permitted = true;
+                    permissionKind = 'runtimeInstance';
+                    break;
+                case 'denyInstance':
+                    permitted = false;
+                    permissionKind = 'runtimeInstance';
+                    break;
+                default:
+                    this.throwErrorForNode(node, `Unkown permission decorator '${text}' specified.`)
+            }
+
+            // Determine if this decorator applies to a specific property or to the entire node
+            // and extract the specified permissions and users.
+            const callExpression = decorator.expression as ts.CallExpression;
+
+            if (!callExpression.arguments.length) this.throwErrorForNode(node, `A permission decorator must have at least one user or group and at least one permission`);
+            // The index at which to start looking for users and permissions
+            let argumentsIndex = 0;
+
+            // if this decorator refers to a specific field, set it as the resource and look for users and permissions starting at index 1
+            const firstArgument = callExpression.arguments[0];
+            if (firstArgument.kind == ts.SyntaxKind.StringLiteral) {
+                targetResource = (firstArgument as ts.StringLiteral).text;
+                argumentsIndex = 1;
+
+                // If the specified resource is not a wildcard and this refers to a different resource, throw
+                if (resource != '*' && targetResource != resource) {
+                    this.throwErrorForNode(node, `A permission decorator applied to a member cannot refer to a different member.`);
+                }
+            }
+
+            const permissions: (keyof TWRuntimePermissionDeclaration)[] = [];
+            const principals: TWPrincipal[] = [];
+
+            // Extract the users, groups and permissions referenced by this decorator
+            for (let i = argumentsIndex; i < callExpression.arguments.length; i++) {
+                const argument = callExpression.arguments[i];
+                if (argument.kind != ts.SyntaxKind.PropertyAccessExpression) this.throwErrorForNode(node, `Invalid argument '${argument.getText()}' supplied to ${decorator.getText()}`);
+
+                const expression = argument as ts.PropertyAccessExpression;
+                const kind = expression.expression.getText();
+                const value = expression.name;
+
+                switch (kind) {
+                    case 'Permission':
+                        permissions.push(value.text as keyof TWRuntimePermissionDeclaration);
+                        break;
+                    case 'Users':
+                    case 'Groups':
+                        principals.push({ name: value.text, type: kind.substring(0, kind.length - 1) });
+                        break;
+                    default:
+                        this.throwErrorForNode(node, `Invalid argument '${argument.getText()}' supplied to ${decorator.getText()}`);
+                }
+            }
+
+            // Convert the lists of permissions and principals into an extracted permissions list
+            const permissionList: TWExtractedPermissionLists = {
+                [permissionKind]: {
+                    [targetResource]: TWThingTransformer.createPermissionList()
+                }
+            }
+
+            for (const permission of permissions) {
+                permissionList[permissionKind]![targetResource][permission] = principals.map(p => ({principal: p.name, type: p.type, isPermitted: permitted}));
+            }
+
+            permissionLists.push(permissionList);
+        }
+
+        // Merge the lists together
+        return this.mergePermissionListsForNode(permissionLists, node);
+    }
+
+    /**
+     * Merges the given permission lists into a single permission list.
+     * @param lists     The lists to merge.
+     * @param node      A node to be included in the error message if a validation failure occurs.
+     * @returns         The merged list.
+     */
+    mergePermissionListsForNode(permissionLists: TWExtractedPermissionLists[], node: ts.Node): TWExtractedPermissionLists {
+        return permissionLists.reduce((acc, val) => {
+            for (const kind in val) {
+                // If the given kind isn't specified at all, just copy over from the value
+                if (!acc[kind]) {
+                    if (!val[kind]) continue;
+
+                    acc[kind] = val[kind];
+                    continue;
+                }
+
+                // Otherwise merge the lists
+                for (const resource in val[kind]!) {
+                    // If the given resource isn't specified at all, just copy over from the value
+                    if (!acc[kind]![resource]) {
+                        acc[kind]![resource] = val[kind]![resource];
+                        continue;
+                    }
+    
+                    // If the resource is specified, merge the list of principals
+                    for (const key of Object.keys(val[kind]![resource])) {
+                        const value: TWPermission[] = acc[kind]![resource][key].concat(val[kind]![resource][key]);
+    
+                        // Throw if any duplicates are found
+                        if (value.filter((p, i) => value.find((p2, i2) => i != i2 && p2.type == p.type && p2.principal == p.principal)).length) {
+                            this.throwErrorForNode(node, `Each user or group may only appear a single time per permission in a permissions decorator.`);
+                        }
+    
+                        acc[kind]![resource][key] = value;
+                    }
+                }
+            }
+
+            return acc;
+        }, {});
     }
 
     /**
@@ -672,6 +991,12 @@ Failed parsing at: \n${node.getText()}\n\n`);
                 else if (baseClass.escapedText == 'DataShapeBase') {
                     this.entityKind = TWEntityKind.DataShape;
                 }
+                else if (baseClass.escapedText == 'UserList') {
+                    this.entityKind = TWEntityKind.UserList;
+                }
+                else if (baseClass.escapedText == 'OrganizationBase') {
+                    this.entityKind = TWEntityKind.Organization;
+                }
                 else {
                     this.entityKind = this.entityKindOfClassNode(classNode);
                     this.thingTemplateName = baseClass.text;
@@ -680,6 +1005,10 @@ Failed parsing at: \n${node.getText()}\n\n`);
             else if (heritage.expression.kind == ts.SyntaxKind.CallExpression) {
                 // Call expression base classes can only be things or thing templates
                 this.entityKind = this.entityKindOfClassNode(classNode);
+
+                if (this.entityKind != TWEntityKind.Thing && this.entityKind != TWEntityKind.ThingTemplate) {
+                    this.throwErrorForNode(node, `Extending from expressions is only supported on Things and ThingTemplates.`);
+                }
 
                 const callNode = heritage.expression as ts.CallExpression;
                 // Ensure that the call signature is of the correct type
@@ -745,6 +1074,21 @@ Failed parsing at: \n${node.getText()}\n\n`);
                     this.visitConfigurationTablesDefinition(argument as ts.ClassExpression);
                 }
 
+                this.runtimePermissions = this.mergePermissionListsForNode([this.runtimePermissions].concat(this.permissionsOfNode(classNode)), node);
+
+                this.visibilityPermissions = this.visibilityPermissionsOfKindForNode('visible', classNode);
+                this.instanceVisibilityPermissions = this.visibilityPermissionsOfKindForNode('visibleInstance', classNode);
+
+                // Instance visibility permissions may only be provided on templates and shapes
+                if (this.instanceVisibilityPermissions.length && this.entityKind != TWEntityKind.ThingShape && this.entityKind != TWEntityKind.ThingTemplate) {
+                    this.throwErrorForNode(classNode, `Instance permissions may only be set on thing templates and thing shapes.`);
+                }
+            }
+
+            // In watch mode, it is not needed to visit class members since they are not needed for the declaration files,
+            // except for user lists whose members each correspond to an entity and organizations whose units must be specified
+            // as type arguments
+            if (!this.watch || this.entityKind == TWEntityKind.UserList || this.entityKind == TWEntityKind.Organization) {
                 for (const member of classNode.members) {
                     this.visitClassMember(member);
                 }
@@ -832,6 +1176,20 @@ Failed parsing at: \n${node.getText()}\n\n`);
             if (this.entityKind == TWEntityKind.DataShape) {
                 this.visitDataShapeField(propertyDeclarationNode);
             }
+            else if (this.entityKind == TWEntityKind.UserList) {
+                this.visitUserListField(propertyDeclarationNode);
+            }
+            else if (this.entityKind == TWEntityKind.Organization) {
+                if (node.name?.kind != ts.SyntaxKind.Identifier || (node.name as ts.Identifier)?.text != 'units') {
+                    this.throwErrorForNode(node, `Organization classes may only have a single property called "units".`);
+                }
+
+                if (!(node as ts.PropertyDeclaration).initializer) {
+                    this.throwErrorForNode(node, `The units property must have an initializer.`);
+                }
+
+                this.visitOrganizationalUnit((node as ts.PropertyDeclaration).initializer!);
+            }
             else {
                 this.visitProperty(propertyDeclarationNode);
             }
@@ -841,12 +1199,204 @@ Failed parsing at: \n${node.getText()}\n\n`);
             if (this.entityKind == TWEntityKind.DataShape) {
                 this.throwErrorForNode(node, `Data Shapes cannot contain methods.`);
             }
+            if (this.entityKind == TWEntityKind.UserList) {
+                this.throwErrorForNode(node, `User lists cannot contain methods.`);
+            }
+            if (this.entityKind == TWEntityKind.Organization) {
+                this.throwErrorForNode(node, `Organizations cannot contain methods.`);
+            }
             this.visitMethod(node as ts.MethodDeclaration);
         }
     }
 
     /**
+     * Visits the given organizational unit expression.
+     * @param unit      The unit to visit.
+     * @param parent    If specified, the parent organizational unit, used to create the required
+     *                  connections.
+     */
+    visitOrganizationalUnit(unit: ts.Expression, parentName?: string) {
+        if (unit.kind != ts.SyntaxKind.ObjectLiteralExpression) {
+            this.throwErrorForNode(unit, `Organizational units must be specified as object literals.`);
+        }
+
+        const unitLiteral = unit as ts.ObjectLiteralExpression;
+        const orgUnit = {} as TWOrganizationalUnit;
+
+        for (const member of unitLiteral.properties) {
+            if (!member.name || member.name.kind != ts.SyntaxKind.Identifier) {
+                this.throwErrorForNode(unit, `Organizational unit properties must be identifiers.`);
+            }
+
+            const name = (member.name as ts.Identifier).text;
+
+            if (member.kind != ts.SyntaxKind.PropertyAssignment) {
+                this.throwErrorForNode(unit, `Organizational unit properties cannot be setters, getters or methods.`);
+            }
+
+            const prop = member as ts.PropertyAssignment;
+
+            switch (name) {
+                case 'name':
+                    if (prop.initializer.kind != ts.SyntaxKind.StringLiteral) {
+                        this.throwErrorForNode(unit, `Organizational unit names must be string literals.`);
+                    }
+                    orgUnit.name = (prop.initializer as ts.StringLiteral).text;
+                    if (orgUnit.name.indexOf(':') != -1) {
+                        this.throwErrorForNode(unit, `Organizational unit names cannot contain the ":" character.`);
+                    }
+
+                    const description = this.documentationOfNode(prop);
+                    if (description) {
+                        orgUnit.description = description;
+                    }
+
+                    break;
+                case 'units':
+                    if (!orgUnit.name) {
+                        this.throwErrorForNode(unit, `Subunits must be specified after an organizational unit's name.`);
+                    }
+                    if (prop.initializer.kind != ts.SyntaxKind.ArrayLiteralExpression) {
+                        this.throwErrorForNode(unit, `Organizational unit subunits must be specified in an array literal.`);
+                    }
+
+                    const subunits = prop.initializer as ts.ArrayLiteralExpression;
+                    for (const subunit of subunits.elements) {
+                        this.visitOrganizationalUnit(subunit, orgUnit.name);
+                    }
+
+                    break;
+                case 'members':
+                    if (prop.initializer.kind != ts.SyntaxKind.ArrayLiteralExpression) {
+                        this.throwErrorForNode(unit, `Organizational unit members must be specified in an array literal.`);
+                    }
+                    const members = prop.initializer as ts.ArrayLiteralExpression;
+                    orgUnit.members = members.elements.map(m => {
+                        if (m.kind != ts.SyntaxKind.PropertyAccessExpression) {
+                            this.throwErrorForNode(members, `Organizational unit members must be specified via the "Users" and "Groups" collections.`);
+                        }
+
+                        const expression = m as ts.PropertyAccessExpression;
+                        const kind = expression.expression.getText();
+                        const value = expression.name.text;
+
+                        switch (kind) {
+                            case 'Users':
+                                return {type: 'User', name: value};
+                            case 'Groups':
+                                return {type: 'Group', name: value};
+                            default:
+                                this.throwErrorForNode(members, `Organizational unit members must be specified via the "Users" and "Groups" collections.`);
+                        }
+                    });
+
+                    break;
+            }
+        }
+
+        if (!orgUnit.name) {
+            this.throwErrorForNode(unit, `Organizational units must have a name.`);
+        }
+
+        this.orgUnits.push(orgUnit);
+        this.orgConnections.push({from: parentName || '', to: orgUnit.name});
+    }
+
+    /**
      * Visits a data shape property declaration.
+     * @param node      The node to visit.
+     */
+    visitUserListField(node: ts.PropertyDeclaration) {
+        const principal = {} as TWPrincipalBase;
+        if (node.name.kind != ts.SyntaxKind.Identifier) {
+            this.throwErrorForNode(node, `Computed property names are not supported in Thingwrox classes.`);
+        }
+
+        // First obtain the name of the property
+        principal.name = node.name.text;
+
+        principal.description = this.documentationOfNode(node);
+
+        if (node.initializer) {
+            // Only two types of initializers are permitted in user lists
+            // - object literals which describe users
+            if (node.initializer.kind == ts.SyntaxKind.ObjectLiteralExpression) {
+                const user = principal as TWUser;
+                user.extensions = {};
+
+                // Enumerate the members and create the extensions object
+                const objectLiteral = node.initializer as ts.ObjectLiteralExpression;
+                for (const member of objectLiteral.properties) {
+                    if (member.kind == ts.SyntaxKind.MethodDeclaration) {
+                        this.throwErrorForNode(node, `User extensions cannot contain methods`);
+                    }
+                    
+                    if (member.kind != ts.SyntaxKind.PropertyAssignment) {
+                        this.throwErrorForNode(node, `User extensions keys cannot be setters, getters or shorthand assignments.`);
+                    }
+
+                    if (member.name.kind != ts.SyntaxKind.Identifier) {
+                        this.throwErrorForNode(node, `User extension property names must be identifiers.`);
+                    }
+
+                    const assignment = member as ts.PropertyAssignment;
+                    if (assignment.initializer.kind == ts.SyntaxKind.PropertyAccessExpression) {
+                        // Const enums need to be resolved early on
+                        user.extensions[member.name.text] = this.constantValueOfExpression(assignment.initializer as ts.PropertyAccessExpression);
+        
+                        // If the value is not a compile time constant, it is not a valid initializer
+                        if (user.extensions[member.name.text] === undefined) {
+                            this.throwErrorForNode(node, `Unknown initializer for property.`);
+                        }
+                    }
+                    else {
+                        user.extensions[member.name.text] = (assignment.initializer as ts.LiteralExpression).text || assignment.initializer.getText();
+                    }
+                }
+
+                this.users[user.name] = user;
+            }
+            // - array literals which describe groups
+            else if (node.initializer.kind == ts.SyntaxKind.ArrayLiteralExpression) {
+                const group = principal as TWUserGroup;
+                group.members = [];
+
+                const arrayLiteral = node.initializer as ts.ArrayLiteralExpression;
+                for (const member of arrayLiteral.elements) {
+                    if (member.kind != ts.SyntaxKind.PropertyAccessExpression) {
+                        this.throwErrorForNode(node, `User group members must be user or group references.`);
+                    }
+
+                    const expression = member as ts.PropertyAccessExpression;
+                    const type = expression.expression.getText();
+                    const name = expression.name;
+
+                    if (type != 'Users' && type != 'Groups') {
+                        this.throwErrorForNode(node, `User group members must be user or group references.`);
+                    }
+
+                    if (name.kind != ts.SyntaxKind.Identifier) {
+                        this.throwErrorForNode(node, `User group member names must be identifiers.`);
+                    }
+
+                    group.members.push({name: name.text, type})
+                }
+
+                this.userGroups[group.name] = group;
+            }
+        } else {
+            // Properties without an initializer default to being treated as users with no extensions
+            const user = principal as TWUser;
+            user.extensions = {};
+            this.users[user.name] = user;
+        }
+
+        // Extract the permissions to be applied per user
+        this.runtimePermissions = this.mergePermissionListsForNode([this.runtimePermissions].concat(this.permissionsOfNode(node, node.name.text)), node);
+    }
+
+    /**
+     * Visits a user list property declaration.
      * @param node      The node to visit.
      */
     visitDataShapeField(node: ts.PropertyDeclaration) {
@@ -926,7 +1476,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
         if (node.initializer) {
             if (node.initializer.kind == ts.SyntaxKind.PropertyAccessExpression) {
                 // Const enums need to be resolved early on
-                property.aspects.defaultValue = ((this.context as any).getEmitResolver() as ts.TypeChecker).getConstantValue(node.initializer as ts.PropertyAccessExpression);
+                property.aspects.defaultValue = this.constantValueOfExpression(node.initializer as ts.PropertyAccessExpression);
 
                 // If the value is not a compile time constant, it is not a valod initializer
                 if (property.aspects.defaultValue === undefined) {
@@ -936,6 +1486,11 @@ Failed parsing at: \n${node.getText()}\n\n`);
             else {
                 property.aspects.defaultValue = (node.initializer as ts.LiteralExpression).text || node.initializer.getText();
             }
+        }
+
+        const permissions = this.permissionsOfNode(node);
+        if (Object.keys(permissions).length) {
+            this.throwErrorForNode(node, `Permission decorators are not allowed for data shape members.`);
         }
 
         this.fields.push(property);
@@ -1022,7 +1577,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
         if (node.initializer) {
             if (node.initializer.kind == ts.SyntaxKind.PropertyAccessExpression) {
                 // Const enums need to be resolved early on
-                property.aspects.defaultValue = ((this.context as any).getEmitResolver() as ts.TypeChecker).getConstantValue(node.initializer as ts.PropertyAccessExpression);
+                property.aspects.defaultValue = this.constantValueOfExpression(node.initializer as ts.PropertyAccessExpression);
 
                 // If the value is not a compile time constant, it is not a valod initializer
                 if (property.aspects.defaultValue === undefined) {
@@ -1153,6 +1708,8 @@ Failed parsing at: \n${node.getText()}\n\n`);
             }
         }
 
+        this.runtimePermissions = this.mergePermissionListsForNode([this.runtimePermissions].concat(this.permissionsOfNode(node, node.name.text)), node);
+
         this.properties.push(property);
     }
 
@@ -1193,6 +1750,8 @@ Failed parsing at: \n${node.getText()}\n\n`);
 
             event.remoteBinding.sourceName = (arg as ts.StringLiteral).text;
         }
+
+        this.runtimePermissions = this.mergePermissionListsForNode([this.runtimePermissions].concat(this.permissionsOfNode(node, node.name.text)), node);
 
         this.events.push(event);
     }
@@ -1353,9 +1912,9 @@ Failed parsing at: \n${node.getText()}\n\n`);
                 if (arg.initializer) {
                     if (arg.initializer.kind == ts.SyntaxKind.PropertyAccessExpression) {
                         // Const enums need to be resolved early on
-                        parameter.aspects.defaultValue = ((this.context as any).getEmitResolver() as ts.TypeChecker).getConstantValue(arg.initializer as ts.PropertyAccessExpression);
+                        parameter.aspects.defaultValue = this.constantValueOfExpression(arg.initializer as ts.PropertyAccessExpression);
 
-                        // If the value is not a compile time constant, it is not a valod initializer
+                        // If the value is not a compile time constant, it is not a valid initializer
                         if (parameter.aspects.defaultValue === undefined) {
                             this.throwErrorForNode(arg, `Unknown initializer for argument.`);
                         }
@@ -1403,26 +1962,8 @@ Failed parsing at: \n${node.getText()}\n\n`);
                 service.parameterDefinitions.push(parameter);
             }
 
-            // Replace the destructured parameter with a regular parameter list
-            const plainArgs: ts.ParameterDeclaration[] = [];
-            for (const arg of service.parameterDefinitions) {
-                plainArgs.push(ts.factory.createParameterDeclaration(undefined, undefined, undefined,arg.name))
-            }
-            const regularArgs = ts.factory.createNodeArray([]);
-            node = ts.factory.createMethodDeclaration(
-                node.decorators,
-                node.modifiers,
-                node.asteriskToken,
-                node.name,
-                node.questionToken,
-                node.typeParameters,
-                regularArgs,
-                node.type,
-                node.body
-            );
-
             // Mark this node for replacement
-            this.nodeReplacementMap.set(originalNode, node);
+            this.nodeReplacementMap.set(originalNode.parameters[0], ts.factory.createObjectLiteralExpression());
         }
         else {
             service.parameterDefinitions = [];
@@ -1513,6 +2054,17 @@ Failed parsing at: \n${node.getText()}\n\n`);
             }
         }
 
+        // If this service should be used for deployment, add its endpoint
+        if (this.hasDecoratorNamed('deploy', originalNode)) {
+            if (this.entityKind != TWEntityKind.Thing) {
+                this.throwErrorForNode(originalNode, `The @deploy decorator can only be used on thing services.`);
+            }
+
+            this.deploymentEndpoints.push(`Things/${this.exportedName}/Services/${service.name}`);
+        }
+
+        this.runtimePermissions = this.mergePermissionListsForNode([this.runtimePermissions].concat(this.permissionsOfNode(node, service.name)), node);
+
         this.services.push(service);
         return node;
     }
@@ -1567,6 +2119,15 @@ Failed parsing at: \n${node.getText()}\n\n`);
         }
 
         subscription.code = node.body!.getText();
+
+        const permissions = this.permissionsOfNode(node);
+        if (Object.keys(permissions).length) {
+            this.throwErrorForNode(node, `Permission decorators are not allowed for subscriptions.`);
+        }
+
+        if (this.hasDecoratorNamed('deploy', node)) {
+            this.throwErrorForNode(node, `The @deploy decorator cannot be used on subscriptions.`);
+        }
 
         this.subscriptions.push(subscription);
         return node;
@@ -1787,6 +2348,10 @@ Failed parsing at: \n${node.getText()}\n\n`);
         const XML = {} as any;
 
         if (this.entityKind == TWEntityKind.DataShape) return this.toDataShapeXML();
+
+        if (this.entityKind == TWEntityKind.UserList) return this.toUserListXML();
+
+        if (this.entityKind == TWEntityKind.Organization) return this.toOrganizationXML();
 
         const collectionKind = this.entityKind + 's';
         const entityKind = this.entityKind;
@@ -2118,6 +2683,48 @@ Failed parsing at: \n${node.getText()}\n\n`);
             subscriptions.push(subscriptionDefinition);
         }
 
+        // **********************************  PERMISSIONS  **********************************
+        if (this.runtimePermissions.runtime) {
+            entity.RunTimePermissions = [{Permissions: []}];
+
+            for (const resource in this.runtimePermissions.runtime) {
+                const permissionDefinition = {$: {resourceName: resource}};
+
+                for (const permission in this.runtimePermissions.runtime[resource]) {
+                    const principals = this.runtimePermissions.runtime[resource][permission].map(p => ({$: {name: p.principal, type: p.type, isPermitted: p.isPermitted}}));
+                    permissionDefinition[permission] = [{Principal: principals}];
+                }
+
+                entity.RunTimePermissions[0].Permissions.push(permissionDefinition);
+            }
+        }
+        
+        if (this.runtimePermissions.runtimeInstance) {
+            entity.InstanceRunTimePermissions = [{Permissions: []}];
+
+            for (const resource in this.runtimePermissions.runtimeInstance) {
+                const permissionDefinition = {$: {resourceName: resource}};
+
+                for (const permission in this.runtimePermissions.runtimeInstance[resource]) {
+                    const principals = this.runtimePermissions.runtimeInstance[resource][permission].map(p => ({$: {name: p.principal, type: p.type, isPermitted: p.isPermitted}}));
+                    permissionDefinition[permission] = [{Principal: principals}];
+                }
+
+                entity.InstanceRunTimePermissions[0].Permissions.push(permissionDefinition);
+            }
+        }
+
+        // **********************************  VISIBILITY  **********************************
+        if (this.visibilityPermissions.length) {
+            entity.VisibilityPermissions = [{Visibility: []}];
+            entity.VisibilityPermissions[0].Visibility[0] = {Principal: this.visibilityPermissions.map(p => ({$: p}))};
+        }
+        
+        if (this.instanceVisibilityPermissions.length) {
+            entity.InstanceVisibilityPermissions = [{Visibility: []}];
+            entity.InstanceVisibilityPermissions[0].Visibility[0] = {Principal: this.instanceVisibilityPermissions.map(p => ({$: p}))};
+        }
+
         // **********************************  GLOBAL CODE  *************************************
         for (let i = 0; i < this.globalBlocks.length; i++) {
             const globalBlock = this.globalBlocks[i];
@@ -2220,7 +2827,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
         XML.Entities = {};
         XML.Entities[collectionKind] = [];
         XML.Entities[collectionKind][0] = {};
-        XML.Entities[collectionKind][0][entityKind] = [{$:{baseDataShape: ''}}]; // may explore this base data shape in the future
+        XML.Entities[collectionKind][0][entityKind] = [{$:{baseDataShape: this.thingTemplateName || ''}}];
         
         const entity = XML.Entities[collectionKind][0][entityKind][0];
 
@@ -2262,6 +2869,258 @@ Failed parsing at: \n${node.getText()}\n\n`);
             fieldDefinitions.push(fieldDefinition);
         }
 
+        if (this.runtimePermissions.runtime) {
+            entity.RunTimePermissions = [{Permissions: []}];
+
+            for (const resource in this.runtimePermissions.runtime) {
+                const permissionDefinition = {$: {resourceName: resource}};
+
+                for (const permission in this.runtimePermissions.runtime[resource]) {
+                    const principals = this.runtimePermissions.runtime[resource][permission].map(p => ({$: {name: p.principal, type: p.type, isPermitted: p.isPermitted}}));
+                    permissionDefinition[permission] = [{Principal: principals}];
+                }
+
+                entity.RunTimePermissions[0].Permissions.push(permissionDefinition);
+            }
+        }
+
+        if (this.visibilityPermissions.length) {
+            entity.VisibilityPermissions = [{Visibility: []}];
+            entity.VisibilityPermissions[0].Visibility[0] = {Principal: this.visibilityPermissions.map(p => ({$: p}))};
+        }
+
+        return (new Builder()).buildObject(XML);
+    }
+
+    /**
+     * Returns an array of XML entities containing the users and groups in the file processed by this transformer.
+     */
+    private toUserListXML(): string {
+        const XML = {} as any;
+        XML.Entities = {};
+        XML.Entities.Users = [{}];
+        XML.Entities.Users[0].User = [];
+        XML.Entities.Groups = [{}];
+        XML.Entities.Groups[0].Group = [];
+
+        for (const user in this.users) {
+            const collectionKind = 'Users';
+            const entityKind = 'User';
+
+            const entity: any = {$: {}};
+    
+            entity.$.name = user;
+            entity.$.locked = 'false';
+            entity.$.enabled = 'true';
+
+            if (this.projectName) entity.$.projectName = this.projectName;
+    
+            // Tags are yet unsupported
+            entity.$.tags = '';
+    
+            if (this.users[user].description) entity.$.description = this.users[user].description;
+
+            // Get the user extensions, if specified and convert
+            // them into infotable rows
+            const extensions = this.users[user].extensions;
+            const extensionsRows: unknown[] = [];
+            const updateTime = (new Date).toISOString();
+            for (const key in extensions) {
+                extensionsRows.push({
+                    lastUpdateTime: updateTime,
+                    name: key,
+                    value: String(extensions[key])
+                });
+            }
+
+            entity.ConfigurationTables = [
+                {
+                    ConfigurationTable: [
+                        {
+                            $: {
+                                description: "UserExtensions",
+                                isMultiRow: "true",
+                                name: "UserExtensions",
+                                ordinal: "1",
+                                dataShapeName: ''
+                            },
+                            DataShape: [
+                                {
+                                    FieldDefinitions: [
+                                        {
+                                            FieldDefinition: [
+                                                {
+                                                    $: {
+                                                        baseType: "DATETIME",
+                                                        description: "Last update time",
+                                                        name: "lastUpdateTime",
+                                                        ordinal: "3"
+                                                    }
+                                                },
+                                                {
+                                                    $: {
+                                                        'aspect.isPrimaryKey': 'true',
+                                                        baseType: "STRING",
+                                                        description: "Name",
+                                                        name: "name",
+                                                        ordinal: "1"
+                                                    }
+                                                },
+                                                {
+                                                    $: {
+                                                        baseType: "STRING",
+                                                        description: "Value",
+                                                        name: "value",
+                                                        ordinal: "2"
+                                                    }
+                                                }
+                                            ]
+                                        }
+                                    ]
+                                }
+                            ],
+                            Rows: [
+                                {
+                                    Row: extensionsRows
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ];
+
+            if (this.runtimePermissions.runtime) {
+                entity.RunTimePermissions = [{Permissions: []}];
+    
+                for (const resource in this.runtimePermissions.runtime) {
+                    // For user lists, the resource name represents the entity to which the permissions apply
+                    if (resource != user) continue;
+
+                    const permissionDefinition = {$: {resourceName: '*'}};
+    
+                    for (const permission in this.runtimePermissions.runtime[resource]) {
+                        const principals = this.runtimePermissions.runtime[resource][permission].map(p => ({$: {name: p.principal, type: p.type, isPermitted: p.isPermitted}}));
+                        permissionDefinition[permission] = [{Principal: principals}];
+                    }
+    
+                    entity.RunTimePermissions[0].Permissions.push(permissionDefinition);
+                }
+            }
+
+            XML.Entities[collectionKind][0][entityKind].push(entity);
+
+        }
+
+        for (const group in this.userGroups) {
+            const collectionKind = 'Groups';
+            const entityKind = 'Group';
+            
+            const entity: any = {$:{}};
+    
+            entity.$.name = group;
+
+            if (this.projectName) entity.$.projectName = this.projectName;
+    
+            // Tags are yet unsupported
+            entity.$.tags = '';
+    
+            if (this.userGroups[group].description) entity.$.description = this.userGroups[group].description;
+
+            // Create the memeber list
+            const members: unknown[] = [];
+            for (const member of this.userGroups[group].members) {
+                // Because of the way collections are accessed, the group types will have an extra 's' at the end which must be removed
+                members.push({$: {name: member.name, type: member.type.substring(0, member.type.length - 1)}});
+            }
+
+            entity.Members = [{}];
+            entity.Members[0].Members = [{}];
+            entity.Members[0].Members[0].Member = members;
+
+            if (this.runtimePermissions.runtime) {
+                entity.RunTimePermissions = [{Permissions: []}];
+    
+                for (const resource in this.runtimePermissions.runtime) {
+                    // For user lists, the resource name represents the entity to which the permissions apply
+                    if (resource != group) continue;
+
+                    const permissionDefinition = {$: {resourceName: '*'}};
+    
+                    for (const permission in this.runtimePermissions.runtime[resource]) {
+                        const principals = this.runtimePermissions.runtime[resource][permission].map(p => ({$: {name: p.principal, type: p.type, isPermitted: p.isPermitted}}));
+                        permissionDefinition[permission] = [{Principal: principals}];
+                    }
+    
+                    entity.RunTimePermissions[0].Permissions.push(permissionDefinition);
+                }
+            }
+
+            XML.Entities[collectionKind][0][entityKind].push(entity);
+        }
+
+        return (new Builder).buildObject(XML);
+    }
+
+    /**
+     * Returns the XML organization entity representation of the file processed by this transformer.
+     * @return      An XML.
+     */
+    private toOrganizationXML(): string {
+        const XML = {} as any;
+
+        const collectionKind = this.entityKind + 's';
+        const entityKind = this.entityKind;
+        
+        XML.Entities = {};
+        XML.Entities[collectionKind] = [];
+        XML.Entities[collectionKind][0] = {};
+        XML.Entities[collectionKind][0][entityKind] = [{$:{}}];
+        
+        const entity = XML.Entities[collectionKind][0][entityKind][0];
+
+        entity.$.name = this.exportedName;
+
+        if (this.projectName) entity.$.projectName = this.projectName;
+
+        // Tags are yet unsupported
+        entity.$.tags = '';
+
+        if (this.description) entity.$.description = this.description;
+
+        entity.Connections = [{Connection: this.orgConnections.map(c => ({$: c}))}];
+
+        entity.OrganizationalUnits = [{OrganizationalUnit: []}];
+
+        for (const unit of this.orgUnits) {
+            const orgUnit = {$: {name: unit.name}, Members: [] as unknown[]} as any;
+
+            if (unit.description) orgUnit.$.description = unit.description;
+
+            orgUnit.Members = [{ Members: [{ Member: unit.members?.map(m => ({$: m})) || [] }] }];
+
+            entity.OrganizationalUnits[0].OrganizationalUnit.push(orgUnit);
+        }
+
+        if (this.runtimePermissions.runtime) {
+            entity.RunTimePermissions = [{Permissions: []}];
+
+            for (const resource in this.runtimePermissions.runtime) {
+                const permissionDefinition = {$: {resourceName: resource}};
+
+                for (const permission in this.runtimePermissions.runtime[resource]) {
+                    const principals = this.runtimePermissions.runtime[resource][permission].map(p => ({$: {name: p.principal, type: p.type, isPermitted: p.isPermitted}}));
+                    permissionDefinition[permission] = [{Principal: principals}];
+                }
+
+                entity.RunTimePermissions[0].Permissions.push(permissionDefinition);
+            }
+        }
+
+        if (this.visibilityPermissions.length) {
+            entity.VisibilityPermissions = [{Visibility: []}];
+            entity.VisibilityPermissions[0].Visibility[0] = {Principal: this.visibilityPermissions.map(p => ({$: p}))};
+        }
+
         return (new Builder()).buildObject(XML);
     }
 
@@ -2285,8 +3144,16 @@ Failed parsing at: \n${node.getText()}\n\n`);
             if (this.entityKind == TWEntityKind.Thing) {
                 return `declare interface ${this.entityKind}s { ${JSON.stringify(this.exportedName)}: ${this.className} }\n\n`;
             }
+            else if (this.entityKind == TWEntityKind.UserList) {
+                const users = `declare interface Users { ${Object.values(this.users).map(u => `${u.name}: UserEntity;`).join(';')} }\n\n`;
+                const groups = `declare interface Groups { ${Object.values(this.userGroups).map(u => `${u.name}: GroupEntity;`).join(';')} }\n\n`;
+                return users + groups;
+            }
+            else if (this.entityKind == TWEntityKind.Organization) {
+                return `declare interface ${this.entityKind}s { ${JSON.stringify(this.exportedName)}: ${this.entityKind}Entity<${this.orgUnits.map(u => JSON.stringify(u.name)).join(' | ') || 'string'}>}`;
+            }
             else {
-                return `declare interface ${this.entityKind}s { ${JSON.stringify(this.exportedName)}: ${this.entityKind}Entity<${this.className}>}`
+                return `declare interface ${this.entityKind}s { ${JSON.stringify(this.exportedName)}: ${this.entityKind}Entity<${this.className}>}`;
             }
         }
         else {
@@ -2302,9 +3169,16 @@ Failed parsing at: \n${node.getText()}\n\n`);
     write(path: string = this.root): void {
         if (!fs.existsSync(`${path}/build`)) fs.mkdirSync(`${path}/build`);
         if (!fs.existsSync(`${path}/build/Entities`)) fs.mkdirSync(`${path}/build/Entities`);
-        if (!fs.existsSync(`${path}/build/Entities/${this.entityKind}s`)) fs.mkdirSync(`${path}/build/Entities/${this.entityKind}s`);
 
-        fs.writeFileSync(`${path}/build/Entities/${this.entityKind}s/${this.exportedName}.xml`, this.toXML());
+        let entityKind: string = this.entityKind;
+        // User lists are to be saved under a "Users" subfolder.
+        if (this.entityKind == TWEntityKind.UserList) {
+            entityKind = 'User';
+        }
+
+        if (!fs.existsSync(`${path}/build/Entities/${entityKind}s`)) fs.mkdirSync(`${path}/build/Entities/${entityKind}s`);
+
+        fs.writeFileSync(`${path}/build/Entities/${entityKind}s/${this.exportedName}.xml`, this.toXML());
     }
 
 }
