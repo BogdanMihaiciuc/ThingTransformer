@@ -318,7 +318,12 @@ export const TWBaseTypes = {
 };
 
 export const enum TWEntityKind {
-    Thing = "Thing", ThingTemplate = "ThingTemplate", ThingShape = "ThingShape", DataShape = "DataShape"
+    Thing = "Thing", 
+    ThingTemplate = "ThingTemplate", 
+    ThingShape = "ThingShape", 
+    DataShape = "DataShape", 
+    UserList = "UserList", 
+    Organization = "Organization"
 }
 
 export interface TWEntityDefinition {
@@ -347,6 +352,67 @@ export interface TWThingTemplate extends TWEntityDefinition {
 export interface TWThing extends TWThingTemplate {
     published: boolean;
     enabled: boolean;
-    identifier: string;
-    
+    identifier: string;   
+}
+
+export interface TWPrincipal {
+    name: string;
+    type: string;
+}
+
+export interface TWPermission {
+    isPermitted: boolean;
+    principal: string;
+    type: string;
+}
+
+export interface TWRuntimePermissionDeclaration {
+    PropertyRead: TWPermission[],
+    PropertyWrite: TWPermission[],
+    ServiceInvoke: TWPermission[],
+    EventInvoke: TWPermission[],
+    EventSubscribe: TWPermission[],
+}
+
+export interface TWRuntimePermissionsList {
+    // These are indexed with the resource name
+    [key: string]: TWRuntimePermissionDeclaration
+}
+
+export interface TWExtractedPermissionLists {
+    runtime?: TWRuntimePermissionsList,
+    runtimeInstance?: TWRuntimePermissionsList
+}
+
+export interface TWMemberBase {
+    name: string;
+    type: string;
+}
+
+export interface TWVisibility extends TWMemberBase {
+    isPermitted: boolean;
+}
+
+export interface TWPrincipalBase {
+    name: string;
+    description?: string;
+}
+
+export interface TWUser extends TWPrincipalBase {
+    extensions: { [key: string]: any };
+}
+
+export interface TWUserGroup extends TWPrincipalBase {
+    members: TWPrincipal[];
+}
+
+export interface TWConnection {
+    from: string;
+    to: string;
+}
+
+export interface TWOrganizationalUnit {
+    description?: string;
+    name: string;
+    members: TWMemberBase[];
 }

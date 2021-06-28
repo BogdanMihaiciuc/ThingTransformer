@@ -1,3 +1,25 @@
+# 0.13.0-beta.1
+
+Adds support for parsing classes that extend from `UserList` and emitting XML files that contain users and groups.
+
+Adds support for parsing classes that extend from `OrganizationBase` and emitting XML files that contain organizations.
+
+Adds support for parsing the `@allow`, `@allowInstance`, `@deny` and `@denyInstance` decorators and emitting permissions in XML files.
+
+Adds support for parsing the `@visible` and `@visibleInstance` decorators and emitting visibility permissions in XML files.
+
+Adds support for pasing the `@deploy` decorator and exposing a list of endpoints that match the services with that decorator.
+
+Adds support for inlining environment variables.
+
+# 0.12.0-beta.1
+
+Adds support for specifying the `baseDataShape` attribute on data shapes and for the `@DataShapeDefinition` decorator. This feature doesn't seem to work yet in Thingworx though, so it is not included in the project template.
+
+# 0.11.3-beta.1
+
+Resolves an issue that caused replacement for constants and `this` to fail in service code.
+
 # 0.11.2-beta.1
 
 Resolves an issue that caused descriptions to be omitted.
