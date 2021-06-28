@@ -1,3 +1,7 @@
+# 0.11.3-beta.1
+
+Resolves an issue that caused replacement for constants and `this` to fail in service code.
+
 # 0.11.2-beta.1
 
 Resolves an issue that caused descriptions to be omitted.
