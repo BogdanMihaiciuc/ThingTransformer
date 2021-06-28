@@ -318,7 +318,12 @@ export const TWBaseTypes = {
 };
 
 export const enum TWEntityKind {
-    Thing = "Thing", ThingTemplate = "ThingTemplate", ThingShape = "ThingShape", DataShape = "DataShape", UserList = "UserList"
+    Thing = "Thing", 
+    ThingTemplate = "ThingTemplate", 
+    ThingShape = "ThingShape", 
+    DataShape = "DataShape", 
+    UserList = "UserList", 
+    Organization = "Organization"
 }
 
 export interface TWEntityDefinition {
