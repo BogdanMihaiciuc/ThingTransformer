@@ -384,10 +384,13 @@ export interface TWExtractedPermissionLists {
     runtimeInstance?: TWRuntimePermissionsList
 }
 
-export interface TWVisibility {
-    isPermitted: boolean;
+export interface TWMemberBase {
     name: string;
     type: string;
+}
+
+export interface TWVisibility extends TWMemberBase {
+    isPermitted: boolean;
 }
 
 export interface TWPrincipalBase {
@@ -401,4 +404,15 @@ export interface TWUser extends TWPrincipalBase {
 
 export interface TWUserGroup extends TWPrincipalBase {
     members: TWPrincipal[];
+}
+
+export interface TWConnection {
+    from: string;
+    to: string;
+}
+
+export interface TWOrganizationalUnit {
+    description?: string;
+    name: string;
+    members: TWMemberBase[];
 }

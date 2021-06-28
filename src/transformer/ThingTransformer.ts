@@ -1,5 +1,5 @@
 import * as ts from 'typescript';
-import { TWEntityKind, TWPropertyDefinition, TWServiceDefinition, TWEventDefinition, TWSubscriptionDefinition, TWBaseTypes, TWPropertyDataChangeKind, TWFieldBase, TWPropertyRemoteBinding, TWPropertyRemoteFoldKind, TWPropertyRemotePushKind, TWPropertyRemoteStartKind, TWPropertyBinding, TWSubscriptionSourceKind, TWServiceParameter, TWDataShapeField, TWConfigurationTable, TWRuntimePermissionsList, TWVisibility, TWExtractedPermissionLists, TWRuntimePermissionDeclaration, TWPrincipal, TWPermission, TWUser, TWUserGroup, TWPrincipalBase } from './TWCoreTypes';
+import { TWEntityKind, TWPropertyDefinition, TWServiceDefinition, TWEventDefinition, TWSubscriptionDefinition, TWBaseTypes, TWPropertyDataChangeKind, TWFieldBase, TWPropertyRemoteBinding, TWPropertyRemoteFoldKind, TWPropertyRemotePushKind, TWPropertyRemoteStartKind, TWPropertyBinding, TWSubscriptionSourceKind, TWServiceParameter, TWDataShapeField, TWConfigurationTable, TWRuntimePermissionsList, TWVisibility, TWExtractedPermissionLists, TWRuntimePermissionDeclaration, TWPrincipal, TWPermission, TWUser, TWUserGroup, TWPrincipalBase, TWOrganizationalUnit, TWConnection } from './TWCoreTypes';
 import {Builder} from 'xml2js';
 import * as fs from 'fs';
 
@@ -204,6 +204,16 @@ export class TWThingTransformer {
     userGroups: { [key: string]: TWUserGroup } = {};
 
     /**
+     * An array of discovered organizational units in this entity.
+     */
+    orgUnits: TWOrganizationalUnit[] = [];
+
+    /**
+     * An array of discovered organizational unit connections in this entity..
+     */
+    orgConnections: TWConnection[] = [];
+
+    /**
      * When enabled, ordinal values will be generated for data shape fields, in the order in which they
      * appear, starting from 0.
      * 
@@ -232,6 +242,11 @@ export class TWThingTransformer {
      * An object containing instances of the transformer.
      */
     store?: {[key: string]: TWThingTransformer};
+
+    /**
+     * An array of endpoints that should be invoked after deployment.
+     */
+    deploymentEndpoints: string[] = [];
 
     /**
      * A weak map that contains a mapping between nodes that have been marked for replacement before
@@ -628,6 +643,69 @@ Failed parsing at: \n${node.getText()}\n\n`);
     }
 
     /**
+     * Extracts and returns the visibility permissions of the given kind for the given node.
+     * @param kind      The name of the decorator containing the visibility permissions.
+     * @param node      The node to which the decorator may be applied.
+     * @returns         An array of visibility permissions if any were found, or an empty array otherwise.
+     */
+    visibilityPermissionsOfKindForNode(kind: string, node: ts.Node): TWVisibility[] {
+        const result: TWVisibility[] = [];
+        if (this.hasDecoratorNamed(kind, node)) {
+            const organizations = this.argumentsOfDecoratorNamed(kind, node);
+            if (!organizations || !organizations.length) {
+                this.throwErrorForNode(node, `The @${kind} decorator must specify at least one organization.`);
+            }
+
+            for (const arg of organizations) {
+                if (arg.kind == ts.SyntaxKind.PropertyAccessExpression) {
+                    const expression = arg as ts.PropertyAccessExpression;
+                    const organization = expression.name.text;
+                    if (expression.expression.getText() != 'Organizations') {
+                        this.throwErrorForNode(arg, `Organizations specified in the @${kind} decorator must be accessed from the Organizations collection or via the "Unit" function.`);
+                    }
+
+                    result.push({isPermitted: true, name: organization, type: 'Organization'});
+                }
+                else if (arg.kind == ts.SyntaxKind.CallExpression) {
+                    const callExpression = arg as ts.CallExpression;
+
+                    if (callExpression.expression.getText() != 'Unit') {
+                        this.throwErrorForNode(arg, `Organization units in the @${kind} decorator  must be specified via the "Unit" function.`);
+                    }
+
+                    const unitArguments = callExpression.arguments;
+                    if (unitArguments.length != 2) {
+                        this.throwErrorForNode(arg, `The "Unit" function must take exactly two parameters.`);
+                    }
+
+                    const organizationArg = unitArguments[0];
+                    const unitArg = unitArguments[1] as ts.StringLiteral;
+
+                    if (unitArg.kind != ts.SyntaxKind.StringLiteral) {
+                        this.throwErrorForNode(arg, `The organization unit must be specified as a string literal.`);
+                    }
+
+                    const organizationExpression = organizationArg as ts.PropertyAccessExpression;
+
+                    if (organizationArg.kind != ts.SyntaxKind.PropertyAccessExpression || organizationExpression.expression.getText() != 'Organizations') {
+                        this.throwErrorForNode(arg, `Organizations specified in the "Unit" function must be accessed from the Organizations collection.`);
+                    }
+
+                    const organizationName = organizationExpression.name.text;
+
+                    result.push({isPermitted: true, name: `${organizationName}:${unitArg.text}`, type: 'OrganizationalUnit'})
+                }
+                else {
+                    this.throwErrorForNode(arg, `Organizations specified in the @${kind} decorator must be accessed from the Organizations collection or via the "Unit" function.`);
+                }
+
+            }
+        }
+
+        return result;
+    }
+
+    /**
      * Returns a list of permissions for the given node.
      * @param node          The node whose permissions should be retrieved.
      * @param resource      The resource to which the permissions should refer. If specified and any decorator
@@ -916,6 +994,9 @@ Failed parsing at: \n${node.getText()}\n\n`);
                 else if (baseClass.escapedText == 'UserList') {
                     this.entityKind = TWEntityKind.UserList;
                 }
+                else if (baseClass.escapedText == 'OrganizationBase') {
+                    this.entityKind = TWEntityKind.Organization;
+                }
                 else {
                     this.entityKind = this.entityKindOfClassNode(classNode);
                     this.thingTemplateName = baseClass.text;
@@ -994,11 +1075,20 @@ Failed parsing at: \n${node.getText()}\n\n`);
                 }
 
                 this.runtimePermissions = this.mergePermissionListsForNode([this.runtimePermissions].concat(this.permissionsOfNode(classNode)), node);
+
+                this.visibilityPermissions = this.visibilityPermissionsOfKindForNode('visible', classNode);
+                this.instanceVisibilityPermissions = this.visibilityPermissionsOfKindForNode('visibleInstance', classNode);
+
+                // Instance visibility permissions may only be provided on templates and shapes
+                if (this.instanceVisibilityPermissions.length && this.entityKind != TWEntityKind.ThingShape && this.entityKind != TWEntityKind.ThingTemplate) {
+                    this.throwErrorForNode(classNode, `Instance permissions may only be set on thing templates and thing shapes.`);
+                }
             }
 
             // In watch mode, it is not needed to visit class members since they are not needed for the declaration files,
-            // except for user lists whose members each correspond to an entity.
-            if (!this.watch || this.entityKind == TWEntityKind.UserList) {
+            // except for user lists whose members each correspond to an entity and organizations whose units must be specified
+            // as type arguments
+            if (!this.watch || this.entityKind == TWEntityKind.UserList || this.entityKind == TWEntityKind.Organization) {
                 for (const member of classNode.members) {
                     this.visitClassMember(member);
                 }
@@ -1089,6 +1179,17 @@ Failed parsing at: \n${node.getText()}\n\n`);
             else if (this.entityKind == TWEntityKind.UserList) {
                 this.visitUserListField(propertyDeclarationNode);
             }
+            else if (this.entityKind == TWEntityKind.Organization) {
+                if (node.name?.kind != ts.SyntaxKind.Identifier || (node.name as ts.Identifier)?.text != 'units') {
+                    this.throwErrorForNode(node, `Organization classes may only have a single property called "units".`);
+                }
+
+                if (!(node as ts.PropertyDeclaration).initializer) {
+                    this.throwErrorForNode(node, `The units property must have an initializer.`);
+                }
+
+                this.visitOrganizationalUnit((node as ts.PropertyDeclaration).initializer!);
+            }
             else {
                 this.visitProperty(propertyDeclarationNode);
             }
@@ -1101,8 +1202,104 @@ Failed parsing at: \n${node.getText()}\n\n`);
             if (this.entityKind == TWEntityKind.UserList) {
                 this.throwErrorForNode(node, `User lists cannot contain methods.`);
             }
+            if (this.entityKind == TWEntityKind.Organization) {
+                this.throwErrorForNode(node, `Organizations cannot contain methods.`);
+            }
             this.visitMethod(node as ts.MethodDeclaration);
         }
+    }
+
+    /**
+     * Visits the given organizational unit expression.
+     * @param unit      The unit to visit.
+     * @param parent    If specified, the parent organizational unit, used to create the required
+     *                  connections.
+     */
+    visitOrganizationalUnit(unit: ts.Expression, parentName?: string) {
+        if (unit.kind != ts.SyntaxKind.ObjectLiteralExpression) {
+            this.throwErrorForNode(unit, `Organizational units must be specified as object literals.`);
+        }
+
+        const unitLiteral = unit as ts.ObjectLiteralExpression;
+        const orgUnit = {} as TWOrganizationalUnit;
+
+        for (const member of unitLiteral.properties) {
+            if (!member.name || member.name.kind != ts.SyntaxKind.Identifier) {
+                this.throwErrorForNode(unit, `Organizational unit properties must be identifiers.`);
+            }
+
+            const name = (member.name as ts.Identifier).text;
+
+            if (member.kind != ts.SyntaxKind.PropertyAssignment) {
+                this.throwErrorForNode(unit, `Organizational unit properties cannot be setters, getters or methods.`);
+            }
+
+            const prop = member as ts.PropertyAssignment;
+
+            switch (name) {
+                case 'name':
+                    if (prop.initializer.kind != ts.SyntaxKind.StringLiteral) {
+                        this.throwErrorForNode(unit, `Organizational unit names must be string literals.`);
+                    }
+                    orgUnit.name = (prop.initializer as ts.StringLiteral).text;
+                    if (orgUnit.name.indexOf(':') != -1) {
+                        this.throwErrorForNode(unit, `Organizational unit names cannot contain the ":" character.`);
+                    }
+
+                    const description = this.documentationOfNode(prop);
+                    if (description) {
+                        orgUnit.description = description;
+                    }
+
+                    break;
+                case 'units':
+                    if (!orgUnit.name) {
+                        this.throwErrorForNode(unit, `Subunits must be specified after an organizational unit's name.`);
+                    }
+                    if (prop.initializer.kind != ts.SyntaxKind.ArrayLiteralExpression) {
+                        this.throwErrorForNode(unit, `Organizational unit subunits must be specified in an array literal.`);
+                    }
+
+                    const subunits = prop.initializer as ts.ArrayLiteralExpression;
+                    for (const subunit of subunits.elements) {
+                        this.visitOrganizationalUnit(subunit, orgUnit.name);
+                    }
+
+                    break;
+                case 'members':
+                    if (prop.initializer.kind != ts.SyntaxKind.ArrayLiteralExpression) {
+                        this.throwErrorForNode(unit, `Organizational unit members must be specified in an array literal.`);
+                    }
+                    const members = prop.initializer as ts.ArrayLiteralExpression;
+                    orgUnit.members = members.elements.map(m => {
+                        if (m.kind != ts.SyntaxKind.PropertyAccessExpression) {
+                            this.throwErrorForNode(members, `Organizational unit members must be specified via the "Users" and "Groups" collections.`);
+                        }
+
+                        const expression = m as ts.PropertyAccessExpression;
+                        const kind = expression.expression.getText();
+                        const value = expression.name.text;
+
+                        switch (kind) {
+                            case 'Users':
+                                return {type: 'User', name: value};
+                            case 'Groups':
+                                return {type: 'Group', name: value};
+                            default:
+                                this.throwErrorForNode(members, `Organizational unit members must be specified via the "Users" and "Groups" collections.`);
+                        }
+                    });
+
+                    break;
+            }
+        }
+
+        if (!orgUnit.name) {
+            this.throwErrorForNode(unit, `Organizational units must have a name.`);
+        }
+
+        this.orgUnits.push(orgUnit);
+        this.orgConnections.push({from: parentName || '', to: orgUnit.name});
     }
 
     /**
@@ -1857,6 +2054,15 @@ Failed parsing at: \n${node.getText()}\n\n`);
             }
         }
 
+        // If this service should be used for deployment, add its endpoint
+        if (this.hasDecoratorNamed('deploy', originalNode)) {
+            if (this.entityKind != TWEntityKind.Thing) {
+                this.throwErrorForNode(originalNode, `The @deploy decorator can only be used on thing services.`);
+            }
+
+            this.deploymentEndpoints.push(`Things/${this.exportedName}/Services/${service.name}`);
+        }
+
         this.runtimePermissions = this.mergePermissionListsForNode([this.runtimePermissions].concat(this.permissionsOfNode(node, service.name)), node);
 
         this.services.push(service);
@@ -1917,6 +2123,10 @@ Failed parsing at: \n${node.getText()}\n\n`);
         const permissions = this.permissionsOfNode(node);
         if (Object.keys(permissions).length) {
             this.throwErrorForNode(node, `Permission decorators are not allowed for subscriptions.`);
+        }
+
+        if (this.hasDecoratorNamed('deploy', node)) {
+            this.throwErrorForNode(node, `The @deploy decorator cannot be used on subscriptions.`);
         }
 
         this.subscriptions.push(subscription);
@@ -2140,6 +2350,8 @@ Failed parsing at: \n${node.getText()}\n\n`);
         if (this.entityKind == TWEntityKind.DataShape) return this.toDataShapeXML();
 
         if (this.entityKind == TWEntityKind.UserList) return this.toUserListXML();
+
+        if (this.entityKind == TWEntityKind.Organization) return this.toOrganizationXML();
 
         const collectionKind = this.entityKind + 's';
         const entityKind = this.entityKind;
@@ -2502,6 +2714,17 @@ Failed parsing at: \n${node.getText()}\n\n`);
             }
         }
 
+        // **********************************  VISIBILITY  **********************************
+        if (this.visibilityPermissions.length) {
+            entity.VisibilityPermissions = [{Visibility: []}];
+            entity.VisibilityPermissions[0].Visibility[0] = {Principal: this.visibilityPermissions.map(p => ({$: p}))};
+        }
+        
+        if (this.instanceVisibilityPermissions.length) {
+            entity.InstanceVisibilityPermissions = [{Visibility: []}];
+            entity.InstanceVisibilityPermissions[0].Visibility[0] = {Principal: this.instanceVisibilityPermissions.map(p => ({$: p}))};
+        }
+
         // **********************************  GLOBAL CODE  *************************************
         for (let i = 0; i < this.globalBlocks.length; i++) {
             const globalBlock = this.globalBlocks[i];
@@ -2659,6 +2882,11 @@ Failed parsing at: \n${node.getText()}\n\n`);
 
                 entity.RunTimePermissions[0].Permissions.push(permissionDefinition);
             }
+        }
+
+        if (this.visibilityPermissions.length) {
+            entity.VisibilityPermissions = [{Visibility: []}];
+            entity.VisibilityPermissions[0].Visibility[0] = {Principal: this.visibilityPermissions.map(p => ({$: p}))};
         }
 
         return (new Builder()).buildObject(XML);
@@ -2834,6 +3062,69 @@ Failed parsing at: \n${node.getText()}\n\n`);
     }
 
     /**
+     * Returns the XML organization entity representation of the file processed by this transformer.
+     * @return      An XML.
+     */
+    private toOrganizationXML(): string {
+        const XML = {} as any;
+
+        const collectionKind = this.entityKind + 's';
+        const entityKind = this.entityKind;
+        
+        XML.Entities = {};
+        XML.Entities[collectionKind] = [];
+        XML.Entities[collectionKind][0] = {};
+        XML.Entities[collectionKind][0][entityKind] = [{$:{}}];
+        
+        const entity = XML.Entities[collectionKind][0][entityKind][0];
+
+        entity.$.name = this.exportedName;
+
+        if (this.projectName) entity.$.projectName = this.projectName;
+
+        // Tags are yet unsupported
+        entity.$.tags = '';
+
+        if (this.description) entity.$.description = this.description;
+
+        entity.Connections = [{Connection: this.orgConnections.map(c => ({$: c}))}];
+
+        entity.OrganizationalUnits = [{OrganizationalUnit: []}];
+
+        for (const unit of this.orgUnits) {
+            const orgUnit = {$: {name: unit.name}, Members: [] as unknown[]} as any;
+
+            if (unit.description) orgUnit.$.description = unit.description;
+
+            orgUnit.Members = [{ Members: [{ Member: unit.members?.map(m => ({$: m})) || [] }] }];
+
+            entity.OrganizationalUnits[0].OrganizationalUnit.push(orgUnit);
+        }
+
+        if (this.runtimePermissions.runtime) {
+            entity.RunTimePermissions = [{Permissions: []}];
+
+            for (const resource in this.runtimePermissions.runtime) {
+                const permissionDefinition = {$: {resourceName: resource}};
+
+                for (const permission in this.runtimePermissions.runtime[resource]) {
+                    const principals = this.runtimePermissions.runtime[resource][permission].map(p => ({$: {name: p.principal, type: p.type, isPermitted: p.isPermitted}}));
+                    permissionDefinition[permission] = [{Principal: principals}];
+                }
+
+                entity.RunTimePermissions[0].Permissions.push(permissionDefinition);
+            }
+        }
+
+        if (this.visibilityPermissions.length) {
+            entity.VisibilityPermissions = [{Visibility: []}];
+            entity.VisibilityPermissions[0].Visibility[0] = {Principal: this.visibilityPermissions.map(p => ({$: p}))};
+        }
+
+        return (new Builder()).buildObject(XML);
+    }
+
+    /**
      * @deprecated - Use `toDeclaration` instead.
      * 
      * Returns the Thingworx collection declaration of the entity within the file processed by this transformer.
@@ -2858,8 +3149,11 @@ Failed parsing at: \n${node.getText()}\n\n`);
                 const groups = `declare interface Groups { ${Object.values(this.userGroups).map(u => `${u.name}: GroupEntity;`).join(';')} }\n\n`;
                 return users + groups;
             }
+            else if (this.entityKind == TWEntityKind.Organization) {
+                return `declare interface ${this.entityKind}s { ${JSON.stringify(this.exportedName)}: ${this.entityKind}Entity<${this.orgUnits.map(u => JSON.stringify(u.name)).join(' | ') || 'string'}>}`;
+            }
             else {
-                return `declare interface ${this.entityKind}s { ${JSON.stringify(this.exportedName)}: ${this.entityKind}Entity<${this.className}>}`
+                return `declare interface ${this.entityKind}s { ${JSON.stringify(this.exportedName)}: ${this.entityKind}Entity<${this.className}>}`;
             }
         }
         else {
