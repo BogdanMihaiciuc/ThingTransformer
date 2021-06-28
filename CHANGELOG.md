@@ -10,6 +10,10 @@ Adds support for inlining environment variables.
 
 Adds support for specifying the `baseDataShape` attribute on data shapes and for the `@DataShapeDefinition` decorator. This feature doesn't seem to work yet in Thingworx though, so it is not included in the project template.
 
+# 0.11.3-beta.1
+
+Resolves an issue that caused replacement for constants and `this` to fail in service code.
+
 # 0.11.2-beta.1
 
 Resolves an issue that caused descriptions to be omitted.
