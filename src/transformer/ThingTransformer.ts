@@ -3009,6 +3009,11 @@ Failed parsing at: \n${node.getText()}\n\n`);
                 }
             }
 
+            if (this.visibilityPermissions.length) {
+                entity.VisibilityPermissions = [{Visibility: []}];
+                entity.VisibilityPermissions[0].Visibility[0] = {Principal: this.visibilityPermissions.map(p => ({$: p}))};
+            }
+
             XML.Entities[collectionKind][0][entityKind].push(entity);
 
         }
@@ -3056,6 +3061,11 @@ Failed parsing at: \n${node.getText()}\n\n`);
     
                     entity.RunTimePermissions[0].Permissions.push(permissionDefinition);
                 }
+            }
+
+            if (this.visibilityPermissions.length) {
+                entity.VisibilityPermissions = [{Visibility: []}];
+                entity.VisibilityPermissions[0].Visibility[0] = {Principal: this.visibilityPermissions.map(p => ({$: p}))};
             }
 
             XML.Entities[collectionKind][0][entityKind].push(entity);
