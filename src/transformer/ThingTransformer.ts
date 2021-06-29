@@ -2834,6 +2834,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
         entity.$.name = this.exportedName;
 
         if (this.projectName) entity.$.projectName = this.projectName;
+        if (this.editable) entity.$['aspect.isEditableExtensionObject'] = this.editable;
 
         // Tags are yet unsupported
         entity.$.tags = '';
@@ -2914,6 +2915,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
             entity.$.enabled = 'true';
 
             if (this.projectName) entity.$.projectName = this.projectName;
+            if (this.editable) entity.$['aspect.isEditableExtensionObject'] = this.editable;
     
             // Tags are yet unsupported
             entity.$.tags = '';
@@ -3020,6 +3022,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
             entity.$.name = group;
 
             if (this.projectName) entity.$.projectName = this.projectName;
+            if (this.editable) entity.$['aspect.isEditableExtensionObject'] = this.editable;
     
             // Tags are yet unsupported
             entity.$.tags = '';
@@ -3081,6 +3084,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
         entity.$.name = this.exportedName;
 
         if (this.projectName) entity.$.projectName = this.projectName;
+        if (this.editable) entity.$['aspect.isEditableExtensionObject'] = this.editable;
 
         // Tags are yet unsupported
         entity.$.tags = '';
