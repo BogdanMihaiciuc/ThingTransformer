@@ -1,3 +1,9 @@
+# 0.13.1-beta.1
+
+Resolves an issue that caused the `@editable` decorator to not work for non-thing entities.
+
+Visibility decorators applied to user lists will now apply to all of their members.
+
 # 0.13.0-beta.1
 
 Adds support for parsing classes that extend from `UserList` and emitting XML files that contain users and groups.
