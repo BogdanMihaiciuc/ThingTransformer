@@ -1,5 +1,5 @@
 import * as ts from 'typescript';
-import { TWEntityKind, TWPropertyDefinition, TWServiceDefinition, TWEventDefinition, TWSubscriptionDefinition, TWBaseTypes, TWPropertyDataChangeKind, TWFieldBase, TWPropertyRemoteBinding, TWPropertyRemoteFoldKind, TWPropertyRemotePushKind, TWPropertyRemoteStartKind, TWPropertyBinding, TWSubscriptionSourceKind, TWServiceParameter, TWDataShapeField, TWConfigurationTable, TWRuntimePermissionsList, TWVisibility, TWExtractedPermissionLists, TWRuntimePermissionDeclaration, TWPrincipal, TWPermission, TWUser, TWUserGroup, TWPrincipalBase, TWOrganizationalUnit, TWConnection } from './TWCoreTypes';
+import { TWEntityKind, TWPropertyDefinition, TWServiceDefinition, TWEventDefinition, TWSubscriptionDefinition, TWBaseTypes, TWPropertyDataChangeKind, TWFieldBase, TWPropertyRemoteBinding, TWPropertyRemoteFoldKind, TWPropertyRemotePushKind, TWPropertyRemoteStartKind, TWPropertyBinding, TWSubscriptionSourceKind, TWServiceParameter, TWDataShapeField, TWConfigurationTable, TWRuntimePermissionsList, TWVisibility, TWExtractedPermissionLists, TWRuntimePermissionDeclaration, TWPrincipal, TWPermission, TWUser, TWUserGroup, TWPrincipalBase, TWOrganizationalUnit, TWConnection, TWDataThings, TWInfoTable } from './TWCoreTypes';
 import {Builder} from 'xml2js';
 import * as fs from 'fs';
 
@@ -100,6 +100,11 @@ export class TWThingTransformer {
     thingShapes: string[] = [];
 
     /**
+     * The generic argument specified for the thing template, if any.
+     */
+    genericArgument?: string;
+
+    /**
      * For things, this represents the identifier if it has been set.
      */
     identifier?: string;
@@ -147,7 +152,6 @@ export class TWThingTransformer {
      */
     services: TWServiceDefinition[] = [];
 
-
     /**
      * For model entities, an array of discovered events.
      */
@@ -172,6 +176,11 @@ export class TWThingTransformer {
      * For model entities, an array of discovered configuration table definitions.
      */
     configurationTableDefinitions: TWConfigurationTable[] = [];
+
+    /**
+     * For model entities, a map of discovered configuration table values.
+     */
+    configuration?: Record<string, TWInfoTable>;
 
     /**
      * For data shapes, an array of field definitions.
@@ -1000,6 +1009,18 @@ Failed parsing at: \n${node.getText()}\n\n`);
                 else {
                     this.entityKind = this.entityKindOfClassNode(classNode);
                     this.thingTemplateName = baseClass.text;
+
+                    // Extract the generic argument in case it needs to be used, if the template is
+                    // a data storage type that needs a data shape configuration
+                    // In the future this may be expanded to other use cases
+                    const genericArguments = heritage.typeArguments;
+                    if (genericArguments && genericArguments.length) {
+                        const firstArgument = genericArguments[0];
+
+                        if (firstArgument) {
+                            this.genericArgument = firstArgument.getText();
+                        }
+                    }
                 }
             }
             else if (heritage.expression.kind == ts.SyntaxKind.CallExpression) {
@@ -1021,8 +1042,42 @@ Failed parsing at: \n${node.getText()}\n\n`);
                     if (!callNode.arguments.length) {
                         this.throwErrorForNode(node, `The ThingTemplateWithShapes(...) expression must have at least one ThingTemplate parameter.`);
                     }
+
+                    const thingTemplateNode = callNode.arguments[0];
+                    if (thingTemplateNode.kind == ts.SyntaxKind.CallExpression) {
+                        // A particular case is a data thing that needs a generic which can't be specified directly,
+                        // in this case a utility `DataThing` function can be used to obtain a reference to the correct type
+                        const callExpression = thingTemplateNode as ts.CallExpression;
+
+                        switch (callExpression.expression.getText()) {
+                            case 'DataThing':
+                                const args = callExpression.arguments;
+
+                                if (args.length != 2) {
+                                    this.throwErrorForNode(heritage, `The "DataThing" function must take two arguments.`);
+                                }
+
+                                const templateName = args[0];
+                                const dataShapeName = args[1];
+
+                                if (templateName.kind != ts.SyntaxKind.Identifier || dataShapeName.kind != ts.SyntaxKind.Identifier) {
+                                    this.throwErrorForNode(heritage, `The "DataThing" function arguments must be identifiers.`);
+                                }
+
+                                this.thingTemplateName = templateName.getText();
+                                this.genericArgument = dataShapeName.getText();
+
+                                break;
+                            default:
+                                this.throwErrorForNode(heritage, `Unknown thing template expression "${callExpression.expression.getText()}" used in ThingTemplateWithShapes(...)`);
+                        }
+                    }
+                    else {
+                        this.thingTemplateName = callNode.arguments[0].kind == ts.SyntaxKind.StringLiteral ? 
+                                                    (callNode.arguments[0] as ts.StringLiteral).text : 
+                                                    callNode.arguments[0].getText();
+                    }
     
-                    this.thingTemplateName = callNode.arguments[0].kind == ts.SyntaxKind.StringLiteral ? (callNode.arguments[0] as ts.StringLiteral).text : callNode.arguments[0].getText();
                     this.thingShapes = callNode.arguments.slice(1, callNode.arguments.length).map(node => {
                         if (node.kind == ts.SyntaxKind.StringLiteral) {
                             return (node as ts.StringLiteral).text;
@@ -1038,6 +1093,8 @@ Failed parsing at: \n${node.getText()}\n\n`);
                     if (callNode.arguments[0].kind != ts.SyntaxKind.StringLiteral) this.throwErrorForNode(node, `The ThingTemplateReference(...) expression must have a single string literal parameter.`);
 
                     this.thingTemplateName = (callNode.arguments[0] as ts.StringLiteral).text;
+
+                    // NOTE: The ThingTemplateReference syntax can't use generics yet
                 }
 
 
@@ -1072,6 +1129,21 @@ Failed parsing at: \n${node.getText()}\n\n`);
                     }
 
                     this.visitConfigurationTablesDefinition(argument as ts.ClassExpression);
+                }
+
+                if (this.hasDecoratorNamed('config', classNode)) {
+                    const configurationArgument = this.argumentsOfDecoratorNamed('config', classNode)!;
+
+                    if (configurationArgument.length != 1) {
+                        this.throwErrorForNode(classNode, `The @config decorator must take a single object literal parameter.`);
+                    }
+
+                    const argument = configurationArgument[0];
+                    if (argument.kind != ts.SyntaxKind.ObjectLiteralExpression) {
+                        this.throwErrorForNode(classNode, `The @config decorator must take a single object literal parameter.`);
+                    }
+
+                    this.visitConfiguration(argument as ts.ObjectLiteralExpression);
                 }
 
                 this.runtimePermissions = this.mergePermissionListsForNode([this.runtimePermissions].concat(this.permissionsOfNode(classNode)), node);
@@ -2341,6 +2413,135 @@ Failed parsing at: \n${node.getText()}\n\n`);
     }
 
     /**
+     * Visits an object literal expression that represents a configuration table.
+     * @param node      The node to visit.
+     */
+    visitConfiguration(node: ts.ObjectLiteralExpression) {
+        this.configuration = {};
+
+        for (const member of node.properties) {
+            if (member.kind == ts.SyntaxKind.MethodDeclaration) this.throwErrorForNode(node, `The @config object cannot contain methods.`);
+
+            if (member.kind != ts.SyntaxKind.PropertyAssignment) this.throwErrorForNode(node, `The @config object must contain only property assignments.`);
+
+            if (!member.name || member.name.kind != ts.SyntaxKind.Identifier) this.throwErrorForNode(member, `Configuration table names cannot be computed.`);
+
+            const name = member.name.text;
+
+            const property = member as ts.PropertyAssignment;
+
+            const table: TWInfoTable = {
+                dataShape: {
+                    fieldDefinitions: {}
+                },
+                rows: []
+            };
+
+            switch (property.initializer.kind) {
+                case ts.SyntaxKind.ObjectLiteralExpression:
+                    table.rows.push(this.extractObjectLiteral(property.initializer as ts.ObjectLiteralExpression));
+                    break;
+                case ts.SyntaxKind.ArrayLiteralExpression:
+                    const array = property.initializer as ts.ArrayLiteralExpression;
+                    for (const element of array.elements) {
+                        if (element.kind != ts.SyntaxKind.ObjectLiteralExpression) {
+                            this.throwErrorForNode(array, 'Configuration rows must be object literals.');
+                        }
+                        table.rows.push(this.extractObjectLiteral(element as ts.ObjectLiteralExpression));
+                    }
+                    break;
+                default:
+                    this.throwErrorForNode(property, 'Configuration properties must be array or object literals.');
+            }
+
+            // Extract the data shape from the first row
+            const row = table.rows[0];
+            for (const key of Object.keys(row)) {
+                table.dataShape.fieldDefinitions[key] = {
+                    name: key,
+                    description: '',
+                    aspects: {},
+                    baseType: TWBaseTypes[typeof row[key]],
+                    ordinal: 0
+                }
+            }
+
+            this.configuration[name] = table;
+        }
+    }
+
+    /**
+     * Extracts the given object literal expression to an equivalent object literal.
+     * @param literal   The literal to extract.
+     * @returns         An object.
+     */
+    private extractObjectLiteral(literal: ts.ObjectLiteralExpression): Record<string, unknown> {
+        const result: Record<string, unknown> = {};
+
+        for (const member of literal.properties) {
+            if (member.kind != ts.SyntaxKind.PropertyAssignment) {
+                this.throwErrorForNode(literal, 'Configuration fields must be property assignments');
+            }
+            if (!member.name || member.name.kind != ts.SyntaxKind.Identifier) this.throwErrorForNode(member, `Configuration field names cannot be computed.`);
+
+            const name = member.name.text;
+
+            switch (member.initializer.kind) {
+                case ts.SyntaxKind.TrueKeyword:
+                    result[name] = true;
+                    break;
+                case ts.SyntaxKind.FalseKeyword:
+                    result[name] = false;
+                    break;
+                case ts.SyntaxKind.StringLiteral:
+                    result[name] = (member.initializer as ts.StringLiteral).text;
+                    break;
+                case ts.SyntaxKind.NumericLiteral:
+                    result[name] = parseFloat((member.initializer as ts.NumericLiteral).text);
+                    break;
+                default:
+                    this.throwErrorForNode(member, `Configuration field values can only be literal primitives`);
+            }
+        }
+
+        return result;
+    }
+
+    private XMLRepresentationOfInfotable(infotable: TWInfoTable, withOrdinals = false) {
+        return {
+            $: {} as Record<string, string>,
+            DataShape: [
+                {
+                    FieldDefinitions: [
+                        {
+                            FieldDefinition: Object.values(infotable.dataShape.fieldDefinitions).map(f => {
+                                const fieldDefinition: any = {
+                                    $: {
+                                        baseType: f.baseType,
+                                        description: f.description,
+                                        name: f.name
+                                    }
+                                };
+
+                                if (withOrdinals) {
+                                    fieldDefinition.$.ordinal = f.ordinal
+                                }
+
+                                return fieldDefinition;
+                            })
+                        }
+                    ]
+                }
+            ],
+            Rows: [
+                {
+                    Row: infotable.rows
+                }
+            ]
+        };
+    }
+
+    /**
      * Returns the XML entity representation of the file processed by this transformer.
      * @return      An XML.
      */
@@ -2808,6 +3009,73 @@ Failed parsing at: \n${node.getText()}\n\n`);
                 }
 
                 configurationTableDefinitions.push(configurationTable);
+            }
+        }
+
+        // If a generic argument is specified for a data thing, set up a configuration table specifying it
+        if (this.entityKind == TWEntityKind.Thing && TWDataThings.includes(this.thingTemplateName!)) {
+            entity.ConfigurationTables = [
+                {
+                    ConfigurationTable: [
+                        {
+                            $: {
+                                description: "Data Shape Configuration",
+                                isMultiRow: "false",
+                                name: "Settings",
+                                ordinal: "0"
+                            },
+                            DataShape: [
+                                {
+                                    FieldDefinitions: [
+                                        {
+                                            FieldDefinition: [
+                                                {
+                                                    $: {
+                                                        'aspect.friendlyName': 'Data Shape',
+                                                        baseType: "DATASHAPENAME",
+                                                        description: "Data shape",
+                                                        name: "dataShape",
+                                                        ordinal: "0"
+                                                    }
+                                                }
+                                            ]
+                                        }
+                                    ]
+                                }
+                            ],
+                            Rows: [
+                                {
+                                    Row: [
+                                        {
+                                            dataShape: this.genericArgument
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ];
+        }
+
+        // If any configuration is specified, set up a configuration table for it
+        if (this.configuration) {
+            entity.ConfigurationTables = entity.ConfigurationTables || [
+                {
+                    ConfigurationTable: []
+                }
+            ];
+
+            const configurationTable = entity.ConfigurationTables[0].ConfigurationTable as any[];
+
+            for (const tableName of Object.keys(this.configuration)) {
+                const table = this.XMLRepresentationOfInfotable(this.configuration[tableName]);
+
+                table.$.name = tableName;
+                table.$.description = '';
+                table.$.isMultiRow = String(this.configuration[tableName].rows.length > 1);
+
+                configurationTable.push(table);
             }
         }
 

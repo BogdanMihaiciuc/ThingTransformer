@@ -1,3 +1,12 @@
+export interface TWInfoTable {
+    dataShape: {
+        fieldDefinitions: Record<string, TWFieldBase>;
+    };
+
+    rows: Record<string, unknown>[];
+}
+
+
 export interface TWFieldBase<T = any> {
     name: string;
     baseType: string;
@@ -174,6 +183,8 @@ export interface TWConfigurationTable {
     name: string;
     source?: string;
 }
+
+export const TWDataThings = ['Stream', 'RemoteStream', 'DataTable', 'RemoteDataTable'];
 
 export const TWBaseTypes = {
     NOTHING: "NOTHING",
