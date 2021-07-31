@@ -1,5 +1,5 @@
 import * as ts from 'typescript';
-import { TWEntityKind, TWPropertyDefinition, TWServiceDefinition, TWEventDefinition, TWSubscriptionDefinition, TWBaseTypes, TWPropertyDataChangeKind, TWFieldBase, TWPropertyRemoteBinding, TWPropertyRemoteFoldKind, TWPropertyRemotePushKind, TWPropertyRemoteStartKind, TWPropertyBinding, TWSubscriptionSourceKind, TWServiceParameter, TWDataShapeField, TWConfigurationTable, TWRuntimePermissionsList, TWVisibility, TWExtractedPermissionLists, TWRuntimePermissionDeclaration, TWPrincipal, TWPermission, TWUser, TWUserGroup, TWPrincipalBase, TWOrganizationalUnit, TWConnection, TWDataThings } from './TWCoreTypes';
+import { TWEntityKind, TWPropertyDefinition, TWServiceDefinition, TWEventDefinition, TWSubscriptionDefinition, TWBaseTypes, TWPropertyDataChangeKind, TWFieldBase, TWPropertyRemoteBinding, TWPropertyRemoteFoldKind, TWPropertyRemotePushKind, TWPropertyRemoteStartKind, TWPropertyBinding, TWSubscriptionSourceKind, TWServiceParameter, TWDataShapeField, TWConfigurationTable, TWRuntimePermissionsList, TWVisibility, TWExtractedPermissionLists, TWRuntimePermissionDeclaration, TWPrincipal, TWPermission, TWUser, TWUserGroup, TWPrincipalBase, TWOrganizationalUnit, TWConnection, TWDataThings, TWInfoTable } from './TWCoreTypes';
 import {Builder} from 'xml2js';
 import * as fs from 'fs';
 
@@ -176,6 +176,11 @@ export class TWThingTransformer {
      * For model entities, an array of discovered configuration table definitions.
      */
     configurationTableDefinitions: TWConfigurationTable[] = [];
+
+    /**
+     * For model entities, a map of discovered configuration table values.
+     */
+    configuration?: Record<string, TWInfoTable>;
 
     /**
      * For data shapes, an array of field definitions.
@@ -1124,6 +1129,21 @@ Failed parsing at: \n${node.getText()}\n\n`);
                     }
 
                     this.visitConfigurationTablesDefinition(argument as ts.ClassExpression);
+                }
+
+                if (this.hasDecoratorNamed('config', classNode)) {
+                    const configurationArgument = this.argumentsOfDecoratorNamed('config', classNode)!;
+
+                    if (configurationArgument.length != 1) {
+                        this.throwErrorForNode(classNode, `The @config decorator must take a single object literal parameter.`);
+                    }
+
+                    const argument = configurationArgument[0];
+                    if (argument.kind != ts.SyntaxKind.ObjectLiteralExpression) {
+                        this.throwErrorForNode(classNode, `The @config decorator must take a single object literal parameter.`);
+                    }
+
+                    this.visitConfiguration(argument as ts.ObjectLiteralExpression);
                 }
 
                 this.runtimePermissions = this.mergePermissionListsForNode([this.runtimePermissions].concat(this.permissionsOfNode(classNode)), node);
@@ -2393,6 +2413,135 @@ Failed parsing at: \n${node.getText()}\n\n`);
     }
 
     /**
+     * Visits an object literal expression that represents a configuration table.
+     * @param node      The node to visit.
+     */
+    visitConfiguration(node: ts.ObjectLiteralExpression) {
+        this.configuration = {};
+
+        for (const member of node.properties) {
+            if (member.kind == ts.SyntaxKind.MethodDeclaration) this.throwErrorForNode(node, `The @config object cannot contain methods.`);
+
+            if (member.kind != ts.SyntaxKind.PropertyAssignment) this.throwErrorForNode(node, `The @config object must contain only property assignments.`);
+
+            if (!member.name || member.name.kind != ts.SyntaxKind.Identifier) this.throwErrorForNode(member, `Configuration table names cannot be computed.`);
+
+            const name = member.name.text;
+
+            const property = member as ts.PropertyAssignment;
+
+            const table: TWInfoTable = {
+                dataShape: {
+                    fieldDefinitions: {}
+                },
+                rows: []
+            };
+
+            switch (property.initializer.kind) {
+                case ts.SyntaxKind.ObjectLiteralExpression:
+                    table.rows.push(this.extractObjectLiteral(property.initializer as ts.ObjectLiteralExpression));
+                    break;
+                case ts.SyntaxKind.ArrayLiteralExpression:
+                    const array = property.initializer as ts.ArrayLiteralExpression;
+                    for (const element of array.elements) {
+                        if (element.kind != ts.SyntaxKind.ObjectLiteralExpression) {
+                            this.throwErrorForNode(array, 'Configuration rows must be object literals.');
+                        }
+                        table.rows.push(this.extractObjectLiteral(element as ts.ObjectLiteralExpression));
+                    }
+                    break;
+                default:
+                    this.throwErrorForNode(property, 'Configuration properties must be array or object literals.');
+            }
+
+            // Extract the data shape from the first row
+            const row = table.rows[0];
+            for (const key of Object.keys(row)) {
+                table.dataShape.fieldDefinitions[key] = {
+                    name: key,
+                    description: '',
+                    aspects: {},
+                    baseType: TWBaseTypes[typeof row[key]],
+                    ordinal: 0
+                }
+            }
+
+            this.configuration[name] = table;
+        }
+    }
+
+    /**
+     * Extracts the given object literal expression to an equivalent object literal.
+     * @param literal   The literal to extract.
+     * @returns         An object.
+     */
+    private extractObjectLiteral(literal: ts.ObjectLiteralExpression): Record<string, unknown> {
+        const result: Record<string, unknown> = {};
+
+        for (const member of literal.properties) {
+            if (member.kind != ts.SyntaxKind.PropertyAssignment) {
+                this.throwErrorForNode(literal, 'Configuration fields must be property assignments');
+            }
+            if (!member.name || member.name.kind != ts.SyntaxKind.Identifier) this.throwErrorForNode(member, `Configuration field names cannot be computed.`);
+
+            const name = member.name.text;
+
+            switch (member.initializer.kind) {
+                case ts.SyntaxKind.TrueKeyword:
+                    result[name] = true;
+                    break;
+                case ts.SyntaxKind.FalseKeyword:
+                    result[name] = false;
+                    break;
+                case ts.SyntaxKind.StringLiteral:
+                    result[name] = (member.initializer as ts.StringLiteral).text;
+                    break;
+                case ts.SyntaxKind.NumericLiteral:
+                    result[name] = parseFloat((member.initializer as ts.NumericLiteral).text);
+                    break;
+                default:
+                    this.throwErrorForNode(member, `Configuration field values can only be literal primitives`);
+            }
+        }
+
+        return result;
+    }
+
+    private XMLRepresentationOfInfotable(infotable: TWInfoTable, withOrdinals = false) {
+        return {
+            $: {} as Record<string, string>,
+            DataShape: [
+                {
+                    FieldDefinitions: [
+                        {
+                            FieldDefinition: Object.values(infotable.dataShape.fieldDefinitions).map(f => {
+                                const fieldDefinition: any = {
+                                    $: {
+                                        baseType: f.baseType,
+                                        description: f.description,
+                                        name: f.name
+                                    }
+                                };
+
+                                if (withOrdinals) {
+                                    fieldDefinition.$.ordinal = f.ordinal
+                                }
+
+                                return fieldDefinition;
+                            })
+                        }
+                    ]
+                }
+            ],
+            Rows: [
+                {
+                    Row: infotable.rows
+                }
+            ]
+        };
+    }
+
+    /**
      * Returns the XML entity representation of the file processed by this transformer.
      * @return      An XML.
      */
@@ -2907,6 +3056,27 @@ Failed parsing at: \n${node.getText()}\n\n`);
                     ]
                 }
             ];
+        }
+
+        // If any configuration is specified, set up a configuration table for it
+        if (this.configuration) {
+            entity.ConfigurationTables = entity.ConfigurationTables || [
+                {
+                    ConfigurationTable: []
+                }
+            ];
+
+            const configurationTable = entity.ConfigurationTables[0].ConfigurationTable as any[];
+
+            for (const tableName of Object.keys(this.configuration)) {
+                const table = this.XMLRepresentationOfInfotable(this.configuration[tableName]);
+
+                table.$.name = tableName;
+                table.$.description = '';
+                table.$.isMultiRow = String(this.configuration[tableName].rows.length > 1);
+
+                configurationTable.push(table);
+            }
         }
 
         return (new Builder()).buildObject(XML);
