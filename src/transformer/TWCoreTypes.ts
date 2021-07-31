@@ -1,3 +1,11 @@
+export interface TWInfoTable {
+    dataShape: {
+        fieldDefinitions: Record<string, TWFieldBase>;
+    };
+
+    rows: Record<string, unknown>[];
+}
+
 
 export interface TWFieldBase<T = any> {
     name: string;
