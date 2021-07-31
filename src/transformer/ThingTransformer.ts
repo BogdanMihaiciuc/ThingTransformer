@@ -1,5 +1,5 @@
 import * as ts from 'typescript';
-import { TWEntityKind, TWPropertyDefinition, TWServiceDefinition, TWEventDefinition, TWSubscriptionDefinition, TWBaseTypes, TWPropertyDataChangeKind, TWFieldBase, TWPropertyRemoteBinding, TWPropertyRemoteFoldKind, TWPropertyRemotePushKind, TWPropertyRemoteStartKind, TWPropertyBinding, TWSubscriptionSourceKind, TWServiceParameter, TWDataShapeField, TWConfigurationTable, TWRuntimePermissionsList, TWVisibility, TWExtractedPermissionLists, TWRuntimePermissionDeclaration, TWPrincipal, TWPermission, TWUser, TWUserGroup, TWPrincipalBase, TWOrganizationalUnit, TWConnection } from './TWCoreTypes';
+import { TWEntityKind, TWPropertyDefinition, TWServiceDefinition, TWEventDefinition, TWSubscriptionDefinition, TWBaseTypes, TWPropertyDataChangeKind, TWFieldBase, TWPropertyRemoteBinding, TWPropertyRemoteFoldKind, TWPropertyRemotePushKind, TWPropertyRemoteStartKind, TWPropertyBinding, TWSubscriptionSourceKind, TWServiceParameter, TWDataShapeField, TWConfigurationTable, TWRuntimePermissionsList, TWVisibility, TWExtractedPermissionLists, TWRuntimePermissionDeclaration, TWPrincipal, TWPermission, TWUser, TWUserGroup, TWPrincipalBase, TWOrganizationalUnit, TWConnection, TWDataThings } from './TWCoreTypes';
 import {Builder} from 'xml2js';
 import * as fs from 'fs';
 
@@ -100,6 +100,11 @@ export class TWThingTransformer {
     thingShapes: string[] = [];
 
     /**
+     * The generic argument specified for the thing template, if any.
+     */
+    genericArgument?: string;
+
+    /**
      * For things, this represents the identifier if it has been set.
      */
     identifier?: string;
@@ -146,7 +151,6 @@ export class TWThingTransformer {
      * For model entities, an array of discovered services.
      */
     services: TWServiceDefinition[] = [];
-
 
     /**
      * For model entities, an array of discovered events.
@@ -1000,6 +1004,18 @@ Failed parsing at: \n${node.getText()}\n\n`);
                 else {
                     this.entityKind = this.entityKindOfClassNode(classNode);
                     this.thingTemplateName = baseClass.text;
+
+                    // Extract the generic argument in case it needs to be used, if the template is
+                    // a data storage type that needs a data shape configuration
+                    // In the future this may be expanded to other use cases
+                    const genericArguments = heritage.typeArguments;
+                    if (genericArguments && genericArguments.length) {
+                        const firstArgument = genericArguments[0];
+
+                        if (firstArgument) {
+                            this.genericArgument = firstArgument.getText();
+                        }
+                    }
                 }
             }
             else if (heritage.expression.kind == ts.SyntaxKind.CallExpression) {
@@ -1021,8 +1037,42 @@ Failed parsing at: \n${node.getText()}\n\n`);
                     if (!callNode.arguments.length) {
                         this.throwErrorForNode(node, `The ThingTemplateWithShapes(...) expression must have at least one ThingTemplate parameter.`);
                     }
+
+                    const thingTemplateNode = callNode.arguments[0];
+                    if (thingTemplateNode.kind == ts.SyntaxKind.CallExpression) {
+                        // A particular case is a data thing that needs a generic which can't be specified directly,
+                        // in this case a utility `DataThing` function can be used to obtain a reference to the correct type
+                        const callExpression = thingTemplateNode as ts.CallExpression;
+
+                        switch (callExpression.expression.getText()) {
+                            case 'DataThing':
+                                const args = callExpression.arguments;
+
+                                if (args.length != 2) {
+                                    this.throwErrorForNode(heritage, `The "DataThing" function must take two arguments.`);
+                                }
+
+                                const templateName = args[0];
+                                const dataShapeName = args[1];
+
+                                if (templateName.kind != ts.SyntaxKind.Identifier || dataShapeName.kind != ts.SyntaxKind.Identifier) {
+                                    this.throwErrorForNode(heritage, `The "DataThing" function arguments must be identifiers.`);
+                                }
+
+                                this.thingTemplateName = templateName.getText();
+                                this.genericArgument = dataShapeName.getText();
+
+                                break;
+                            default:
+                                this.throwErrorForNode(heritage, `Unknown thing template expression "${callExpression.expression.getText()}" used in ThingTemplateWithShapes(...)`);
+                        }
+                    }
+                    else {
+                        this.thingTemplateName = callNode.arguments[0].kind == ts.SyntaxKind.StringLiteral ? 
+                                                    (callNode.arguments[0] as ts.StringLiteral).text : 
+                                                    callNode.arguments[0].getText();
+                    }
     
-                    this.thingTemplateName = callNode.arguments[0].kind == ts.SyntaxKind.StringLiteral ? (callNode.arguments[0] as ts.StringLiteral).text : callNode.arguments[0].getText();
                     this.thingShapes = callNode.arguments.slice(1, callNode.arguments.length).map(node => {
                         if (node.kind == ts.SyntaxKind.StringLiteral) {
                             return (node as ts.StringLiteral).text;
@@ -1038,6 +1088,8 @@ Failed parsing at: \n${node.getText()}\n\n`);
                     if (callNode.arguments[0].kind != ts.SyntaxKind.StringLiteral) this.throwErrorForNode(node, `The ThingTemplateReference(...) expression must have a single string literal parameter.`);
 
                     this.thingTemplateName = (callNode.arguments[0] as ts.StringLiteral).text;
+
+                    // NOTE: The ThingTemplateReference syntax can't use generics yet
                 }
 
 
@@ -2809,6 +2861,52 @@ Failed parsing at: \n${node.getText()}\n\n`);
 
                 configurationTableDefinitions.push(configurationTable);
             }
+        }
+
+        // If a generic argument is specified for a data thing, set up a configuration table specifying it
+        if (this.entityKind == TWEntityKind.Thing && TWDataThings.includes(this.thingTemplateName!)) {
+            entity.ConfigurationTables = [
+                {
+                    ConfigurationTable: [
+                        {
+                            $: {
+                                description: "Data Shape Configuration",
+                                isMultiRow: "false",
+                                name: "Settings",
+                                ordinal: "0"
+                            },
+                            DataShape: [
+                                {
+                                    FieldDefinitions: [
+                                        {
+                                            FieldDefinition: [
+                                                {
+                                                    $: {
+                                                        'aspect.friendlyName': 'Data Shape',
+                                                        baseType: "DATASHAPENAME",
+                                                        description: "Data shape",
+                                                        name: "dataShape",
+                                                        ordinal: "0"
+                                                    }
+                                                }
+                                            ]
+                                        }
+                                    ]
+                                }
+                            ],
+                            Rows: [
+                                {
+                                    Row: [
+                                        {
+                                            dataShape: this.genericArgument
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ];
         }
 
         return (new Builder()).buildObject(XML);
