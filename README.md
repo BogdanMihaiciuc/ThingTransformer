@@ -85,6 +85,10 @@ To build the project, run `gulp` in the root of the project. This will generate 
 
 Deployment to Thingworx is part of the build process as explained above. Alternatively, you can manually install the extension that is generated in the zip folder in the root of the project.
 
+### Contributors
+
+ - [dwil618](https://github.com/dwil618): support for min/max aspects and date initializers.
+
 #  License
 
 [MIT License](LICENSE)
