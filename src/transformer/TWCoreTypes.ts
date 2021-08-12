@@ -50,6 +50,8 @@ export interface TWPropertyAspects<T> extends TWFieldAspects<T> {
     // -1 = fetched from remote every read
     // >0 = cached for x seconds
     cacheTime: number;
+    minimumValue?: number;
+    maximumValue?: number;
 }
 
 export const enum TWPropertyDataChangeKind {
