@@ -451,12 +451,12 @@ Failed parsing at: \n${node.getText()}\n\n`);
         else {
             const argument = args[0];
 
-            if (argument.kind != ts.SyntaxKind.NumericLiteral) {
-                this.throwErrorForNode(node, `The argument for the @${name} decorator must be a numeric literal.`);
-            }
-
-            const literalArgument = argument as ts.NumericLiteral;
-            return literalArgument.text;
+            if (ts.isNumericLiteral(argument))
+                return (argument as ts.NumericLiteral).text;
+            else if (ts.isPrefixUnaryExpression(argument) && ts.isNumericLiteral(argument.operand) && argument.operator == ts.SyntaxKind.MinusToken) // check for negative number
+                return '-' + (argument.operand as ts.NumericLiteral).text;
+            else
+                this.throwErrorForNode(node, `The argument for the @${name} decorator must be a number.`);
         }
     }
 
@@ -1555,6 +1555,12 @@ Failed parsing at: \n${node.getText()}\n\n`);
                     this.throwErrorForNode(node, `Unknown initializer for property.`);
                 }
             }
+            else if (ts.isNewExpression(node.initializer) && ts.isIdentifier(node.initializer.expression) && node.initializer.expression.escapedText == 'Date') {
+                if (node.initializer.arguments && node.initializer.arguments.length == 1 && ts.isStringLiteral(node.initializer.arguments[0]))
+                    property.aspects.defaultValue = new Date(node.initializer.arguments[0].text).toISOString();
+                else
+                    this.throwErrorForNode(node, 'Exactly one string literal argument is required when setting Date as default value.');
+            }
             else {
                 property.aspects.defaultValue = (node.initializer as ts.LiteralExpression).text || node.initializer.getText();
             }
@@ -1651,10 +1657,16 @@ Failed parsing at: \n${node.getText()}\n\n`);
                 // Const enums need to be resolved early on
                 property.aspects.defaultValue = this.constantValueOfExpression(node.initializer as ts.PropertyAccessExpression);
 
-                // If the value is not a compile time constant, it is not a valod initializer
+                // If the value is not a compile time constant, it is not a valid initializer
                 if (property.aspects.defaultValue === undefined) {
                     this.throwErrorForNode(node, `Unknown initializer for property.`);
                 }
+            }
+            else if (ts.isNewExpression(node.initializer) && ts.isIdentifier(node.initializer.expression) && node.initializer.expression.escapedText == 'Date') {
+                if (node.initializer.arguments && node.initializer.arguments.length == 1 && ts.isStringLiteral(node.initializer.arguments[0]))
+                    property.aspects.defaultValue = new Date(node.initializer.arguments[0].text).toISOString();
+                else
+                    this.throwErrorForNode(node, 'Exactly one string literal argument is required when setting Date as default value.');
             }
             else {
                 property.aspects.defaultValue = (node.initializer as ts.LiteralExpression).text || node.initializer.getText();
@@ -1763,6 +1775,43 @@ Failed parsing at: \n${node.getText()}\n\n`);
 
             property.localBinding.sourceThingName = (localArguments[0] as ts.StringLiteral).text;
             property.localBinding.sourceName = (localArguments[1] as ts.StringLiteral).text;
+        }
+
+        // Minimum value aspect
+        const minimumValue = this.numericArgumentOfDecoratorNamed('minimumValue', node);
+        if (minimumValue) {
+            if (![TWBaseTypes.INTEGER, TWBaseTypes.LONG, TWBaseTypes.NUMBER, TWBaseTypes.integer, TWBaseTypes.long, TWBaseTypes.number].includes(property.baseType))
+                this.throwErrorForNode(node, 'The minimum value decorator can only be used with numerical type properties.');
+
+            const minimumValueNum = parseFloat(minimumValue);
+
+            if (isNaN(minimumValueNum))
+                this.throwErrorForNode(node, `The minimum value decorator argument must be a number.`);
+
+            if (property.aspects.defaultValue && property.aspects.defaultValue < minimumValueNum)
+                this.throwErrorForNode(node, 'The minimum value decorator argument must be less than the default value.');
+
+            property.aspects.minimumValue = minimumValueNum;
+        }
+
+        // Maximum value aspect
+        const maximumValue = this.numericArgumentOfDecoratorNamed('maximumValue', node);
+        if (maximumValue) {
+            if (![TWBaseTypes.INTEGER, TWBaseTypes.LONG, TWBaseTypes.NUMBER, TWBaseTypes.integer, TWBaseTypes.long, TWBaseTypes.number].includes(property.baseType))
+                this.throwErrorForNode(node, 'The minimum value decorator can only be used with numerical type properties.');
+
+            const maximumValueNum = parseFloat(maximumValue);
+
+            if (isNaN(maximumValueNum))
+                this.throwErrorForNode(node, 'The maximum value decorator argument must be a number.');
+
+            if (property.aspects.defaultValue && property.aspects.defaultValue > maximumValueNum)
+                this.throwErrorForNode(node, 'The maximum value decorator argument must be greater than the default value.');
+
+            if (property.aspects.minimumValue && property.aspects.minimumValue > maximumValueNum)
+                this.throwErrorForNode(node, 'The maximum value for the property must be greater than its minimum value.');
+
+            property.aspects.maximumValue = maximumValueNum;
         }
 
         // Set up the data change aspects if specified
@@ -1990,6 +2039,12 @@ Failed parsing at: \n${node.getText()}\n\n`);
                         if (parameter.aspects.defaultValue === undefined) {
                             this.throwErrorForNode(arg, `Unknown initializer for argument.`);
                         }
+                    }
+                    else if (ts.isNewExpression(arg.initializer) && ts.isIdentifier(arg.initializer.expression) && arg.initializer.expression.escapedText == 'Date') {
+                        if (arg.initializer.arguments && arg.initializer.arguments.length == 1 && ts.isStringLiteral(arg.initializer.arguments[0]))
+                            parameter.aspects.defaultValue = new Date(arg.initializer.arguments[0].text).toISOString();
+                        else
+                            this.throwErrorForNode(node, 'Exactly one string literal argument is required when setting Date as default value.');
                     }
                     else {
                         parameter.aspects.defaultValue = (arg.initializer as ts.LiteralExpression).text || arg.initializer.getText();
