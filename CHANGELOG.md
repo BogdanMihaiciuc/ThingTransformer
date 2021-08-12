@@ -1,3 +1,19 @@
+# 0.15.0-beta.1
+
+Changes by [dwil618](https://github.com/dwil618)
+
+Added support for the `@minimum` and `@maximum` decorator on numeric properties.
+
+Added support for date initializers using the `new Date(string)` constructor.
+
+# 0.14.0-beta.1
+
+Added support for specifying the data shape of a data thing via the generic argument of the template type.
+
+Added support for the `DataThing` utility function.
+
+Added preliminary support for the `@config` decorator.
+
 # 0.13.1-beta.1
 
 Resolves an issue that caused the `@editable` decorator to not work for non-thing entities.
