@@ -115,6 +115,26 @@ export class TWThingTransformer {
     valueStream?: string;
 
     /**
+     * For things and thing templates which inherit from the Scheduler or Timer thing template, this represents the user the scheduler or timer event will use to run.
+     */
+    runAsUser?: string;
+
+    /**
+     * For things and thing templates which inherit from the Scheduler thing template, this represents the CRON schedule for the scheduler event.
+     */
+    schedule?: string;
+
+    /**
+     * For things and thing templates which inherit from the Timer thing template, this represents the time between timer events.
+     */
+    updateRate?: number;
+
+    /**
+     * For things and thing templates which inherit from the Scheduler or Timer thing template, this sets whether the scheduler or timer event will be automatically enabled on startup.
+     */
+    enableOnStartup?: boolean;
+
+    /**
      * For things, this represents the published flag if it has been set.
      */
     published: boolean = false;
@@ -1115,6 +1135,30 @@ Failed parsing at: \n${node.getText()}\n\n`);
             if (this.published && this.entityKind != TWEntityKind.Thing) {
                 this.throwErrorForNode(node, `Only Things may be published.`);
             }
+
+            // Note - not currently checking if class inherits from Timer or Schedule base things - required for runAsUser, schedule, updateRate & enableOnStartup decorators
+            // Can't see a way to check indirect inheritance in ts transformer - Can be specified on decorator definition instead.
+
+            this.runAsUser = this.literalArgumentOfDecoratorNamed('runAsUser', classNode);
+
+            if (this.runAsUser && (this.entityKind != TWEntityKind.Thing && this.entityKind != TWEntityKind.ThingTemplate)) {
+                this.throwErrorForNode(node, `The runAsUser decorator can only be used on Things and ThingTemplates.`);
+            }
+
+            this.schedule = this.literalArgumentOfDecoratorNamed('schedule', classNode);
+
+            if (this.schedule && (this.entityKind != TWEntityKind.Thing && this.entityKind != TWEntityKind.ThingTemplate)) {
+                this.throwErrorForNode(node, `The schedule decorator can only be used on Things and ThingTemplates.`);
+            }
+
+            const updateRateStr = this.numericArgumentOfDecoratorNamed('updateRate', classNode)
+            this.updateRate = updateRateStr ? parseFloat(updateRateStr) : undefined;
+
+            if (this.updateRate && !isNaN(this.updateRate) && (this.entityKind != TWEntityKind.Thing && this.entityKind != TWEntityKind.ThingTemplate)) {
+                this.throwErrorForNode(node, `The updateRate decorator can only be used on Things and ThingTemplates`);
+            }
+
+            this.enableOnStartup = !!classNode.decorators && classNode.decorators.some(decorator => decorator.expression.kind == ts.SyntaxKind.Identifier && decorator.expression.getText() == 'enableOnStartup');
 
             this.editable = !!classNode.decorators && classNode.decorators.some(decorator => decorator.expression.kind == ts.SyntaxKind.Identifier && decorator.expression.getText() == 'editable');
 
@@ -2657,6 +2701,76 @@ Failed parsing at: \n${node.getText()}\n\n`);
         }
 
         entity.Owner = [{$: {name: 'Administrator', type: 'User'}}];
+
+        if (this.runAsUser || this.schedule || this.updateRate || this.enableOnStartup) {
+
+            entity.ConfigurationTables = {};
+            entity.ConfigurationTables.ConfigurationTable = [{ $: {} }];
+
+            const configTable = entity.ConfigurationTables.ConfigurationTable[0];
+            configTable.$.dataShapeName = "";
+            configTable.$.description = "General Settings";
+            configTable.$.isHidden = "true";
+            configTable.$.isMultiRow = "false";
+            configTable.$.name = "Settings";
+            configTable.$.ordinal = "0";
+
+            configTable.DataShape = {};
+            configTable.DataShape.FieldDefinitions = {};
+            configTable.DataShape.FieldDefinitions.FieldDefinition = []
+            configTable.Rows = {};
+            configTable.Rows.Row = [];
+            configTable.Rows.Row[0] = {};
+
+            if (this.enableOnStartup) {
+                configTable.DataShape.FieldDefinitions.FieldDefinition.push({
+                    $: {
+                        "aspect.defaultValue": "true",
+                        "baseType": "BOOLEAN",
+                        "description": "Automatically enable scheduler on startup",
+                        "name": "enabled",
+                        "ordinal": "0"
+                    }
+                });
+                configTable.Rows.Row[0].enabled = true;
+            }
+            if (this.runAsUser) {
+                configTable.DataShape.FieldDefinitions.FieldDefinition.push({
+                    $: {
+                        "baseType": "USERNAME",
+                        "description": "User context in which to run event handlers",
+                        "name": "runAsUser",
+                        "ordinal": "0"
+                    }
+                });
+                configTable.Rows.Row[0].runAsUser = this.runAsUser;
+            }
+            if (this.schedule) {
+                configTable.DataShape.FieldDefinitions.FieldDefinition.push({
+                    $: {
+                        "aspect.defaultValue": "0 0/1 * * * ?",
+                        "baseType": "SCHEDULE",
+                        "description": "Execution Schedule (Cron String)",
+                        "name": "schedule",
+                        "ordinal": "0"
+                    }
+                });
+                configTable.Rows.Row[0].schedule = this.schedule;
+            }
+            if (this.updateRate) {
+                configTable.DataShape.FieldDefinitions.FieldDefinition.push({
+                    $: {
+                        "aspect.defaultValue": "60000.0",
+                        "baseType": "NUMBER",
+                        "description": "Update rate",
+                        "name": "updateRate",
+                        "ordinal": "0"
+                    }
+                });
+                configTable.Rows.Row[0].updateRate = this.updateRate;
+            }
+
+        }
 
         // This level of indirection is only applicable for non-thing shapes
         if (this.entityKind != TWEntityKind.ThingShape) {
