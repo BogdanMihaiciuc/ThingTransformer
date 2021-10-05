@@ -3498,8 +3498,8 @@ Failed parsing at: \n${node.getText()}\n\n`);
                 return `declare interface ${this.entityKind}s { ${JSON.stringify(this.exportedName)}: ${this.className} }\n\n`;
             }
             else if (this.entityKind == TWEntityKind.UserList) {
-                const users = `declare interface Users { ${Object.values(this.users).map(u => `${u.name}: UserEntity;`).join(';')} }\n\n`;
-                const groups = `declare interface Groups { ${Object.values(this.userGroups).map(u => `${u.name}: GroupEntity;`).join(';')} }\n\n`;
+                const users = `declare interface Users { ${Object.values(this.users).map(u => `${u.name}: UserEntity;`).join(' ')} }\n\n`;
+                const groups = `declare interface Groups { ${Object.values(this.userGroups).map(u => `${u.name}: GroupEntity;`).join(' ')} }\n\n`;
                 return users + groups;
             }
             else if (this.entityKind == TWEntityKind.Organization) {
