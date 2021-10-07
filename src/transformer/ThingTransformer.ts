@@ -1828,6 +1828,21 @@ Failed parsing at: \n${node.getText()}\n\n`);
             property.aspects.maximumValue = maximumValueNum;
         }
 
+        // Units aspect
+        if (this.hasDecoratorNamed('unit', node)) {
+            const argument = this.literalArgumentOfDecoratorNamed('unit', node);
+
+            if (!argument) {
+                this.throwErrorForNode(node, 'The unit decorator must have a string literal as its argument');
+            }
+
+            if (![TWBaseTypes.INTEGER, TWBaseTypes.LONG, TWBaseTypes.NUMBER].includes(property.baseType)) {
+                this.throwErrorForNode(node, 'The minimum value decorator can only be used with numeric properties.');
+            }
+
+            property.aspects.units = argument;
+        }
+
         // Set up the data change aspects if specified
         if (this.hasDecoratorNamed('dataChangeType', node)) {
             const dataChangeArguments = this.argumentsOfDecoratorNamed('dataChangeType', node)!;
