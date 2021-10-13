@@ -1,3 +1,9 @@
+# 0.16.0-beta.1
+
+Adds support for the `@unit` decorator.
+
+Resolves an issue that caused an improper declaration to be created when creating a user list with multiple users or groups. ([dwil618](https://github.com/dwil618))
+
 # 0.15.0-beta.1
 
 Changes by [dwil618](https://github.com/dwil618)
