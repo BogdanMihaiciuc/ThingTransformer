@@ -52,6 +52,7 @@ export interface TWPropertyAspects<T> extends TWFieldAspects<T> {
     cacheTime: number;
     minimumValue?: number;
     maximumValue?: number;
+    units?: string;
 }
 
 export const enum TWPropertyDataChangeKind {
