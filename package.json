@@ -34,6 +34,7 @@
         "babel-plugin-remove-import-export": "^1.1.0",
         "del": "^6.0.0",
         "delete-empty": "^3.0.0",
+        "endent": "^2.1.0",
         "eslint": "^8.5.0",
         "eslint-config-prettier": "^8.3.0",
         "eslint-plugin-prettier": "^4.0.0",
