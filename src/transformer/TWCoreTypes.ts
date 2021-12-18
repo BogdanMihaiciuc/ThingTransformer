@@ -9,7 +9,7 @@ export interface TWInfoTable {
 
 export interface TWFieldBase<T = any> {
     name: string;
-    baseType: string;
+    baseType: keyof typeof TWBaseTypes;
     description: string;
     aspects: TWFieldAspects<T>;
     ordinal: number;
@@ -43,13 +43,13 @@ export interface TWPropertyAspects<T> extends TWFieldAspects<T> {
     isLogged?: boolean;
     isReadOnly?: boolean;
     isRemote?: boolean;
-    dataChangeType: TWPropertyDataChangeKind;
+    dataChangeType?: TWPropertyDataChangeKind;
     dataChangeThreshold?: T;
     // NOTE: This appears to control the cache method of remote properties as such:
     // 0 (default) = read from server cache
     // -1 = fetched from remote every read
     // >0 = cached for x seconds
-    cacheTime: number;
+    cacheTime?: number;
     minimumValue?: number;
     maximumValue?: number;
     units?: string;
