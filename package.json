@@ -12,7 +12,9 @@
         "url": "https://github.com/BogdanMihaiciuc/ThingTransformer.git"
     },
     "scripts": {
-        "test": "echo \"Error: no test specified\" && exit 1",
+        "check": "eslint --ext ts,tsx src",
+        "fix": "eslint --ext ts,tsx --fix src",
+        "test": "jest",
         "build": "gulp"
     },
     "main": "dist/ThingTransformer.js",
@@ -23,10 +25,14 @@
         "LICENSE"
     ],
     "devDependencies": {
+        "@microsoft/tsdoc": "^0.13.2",
+        "@types/jest": "^27.0.3",
+        "@types/node": "^17.0.0",
+        "@types/xml2js": "^0.4.9",
         "@typescript-eslint/eslint-plugin": "^5.7.0",
         "@typescript-eslint/parser": "^5.7.0",
         "babel-plugin-remove-import-export": "^1.1.0",
-        "del": "^5.0.0",
+        "del": "^6.0.0",
         "delete-empty": "^3.0.0",
         "eslint": "^8.5.0",
         "eslint-config-prettier": "^8.3.0",
@@ -35,12 +41,14 @@
         "gulp": "^4.0.2",
         "gulp-babel": "^8.0.0",
         "gulp-concat": "^2.6.1",
-        "gulp-terser": "^1.2.0",
+        "gulp-terser": "^2.1.0",
         "gulp-typescript": "^6.0.0-alpha.1",
         "gulp-zip": "^5.0.0",
+        "jest": "^27.4.5",
         "prettier": "^2.0.2",
         "request": "^2.85.0",
-        "typescript": "^4.3.4",
+        "ts-jest": "^27.1.2",
+        "typescript": "^4.5.4",
         "xml2js": "^0.4.23"
     }
 }
