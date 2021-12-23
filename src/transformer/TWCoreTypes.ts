@@ -6,7 +6,6 @@ export interface TWInfoTable {
     rows: Record<string, unknown>[];
 }
 
-
 export interface TWFieldBase<T = any> {
     name: string;
     baseType: keyof typeof TWBaseTypes;
@@ -60,7 +59,7 @@ export const enum TWPropertyDataChangeKind {
     Always = 'ALWAYS',
     Never = 'NEVER',
     On = 'ON',
-    Off = 'OFF'
+    Off = 'OFF',
 }
 
 export interface TWPropertyBinding {
@@ -71,8 +70,8 @@ export interface TWPropertyBinding {
 }
 
 export interface TWPropertyBindingAspects {
-    startType: "null";
-    tagAddresss: "";
+    startType: 'null';
+    tagAddresss: '';
 }
 
 export interface TWPropertyRemoteBinding {
@@ -87,7 +86,7 @@ export interface TWPropertyRemoteBinding {
 
 export interface TWPropertyRemoteBindingAspects {
     // This appears in exports, but weirdly thingworx complains about it when specified
-    source?: "";
+    source?: '';
     startType: TWPropertyRemoteStartKind;
     // This appears in exports, but weirdly thingworx complains about it when specified
     tagAddress?: string;
@@ -96,17 +95,17 @@ export interface TWPropertyRemoteBindingAspects {
 export const enum TWPropertyRemotePushKind {
     Value = 'VALUE',
     Always = 'ALWAYS',
-    Never = 'NEVER'
+    Never = 'NEVER',
 }
 
 export const enum TWPropertyRemoteStartKind {
     DefaultValue = 'useDefaultValue',
-    EdgeValue = 'useEdgeValue'
+    EdgeValue = 'useEdgeValue',
 }
 
 export const enum TWPropertyRemoteFoldKind {
     None = 'NONE',
-    Fold = 'FOLD'
+    Fold = 'FOLD',
 }
 
 export interface TWServiceDefinition {
@@ -174,7 +173,7 @@ export interface TWSubscriptionDefinition {
 export const enum TWSubscriptionSourceKind {
     Thing = 'Thing',
     ThingTemplate = 'ThingTemplate',
-    ThingShape = 'ThingShape'
+    ThingShape = 'ThingShape',
 }
 
 export interface TWConfigurationTable {
@@ -190,154 +189,153 @@ export interface TWConfigurationTable {
 export const TWDataThings = ['Stream', 'RemoteStream', 'DataTable', 'RemoteDataTable'];
 
 export const TWBaseTypes = {
-    NOTHING: "NOTHING",
+    NOTHING: 'NOTHING',
     void: 'NOTHING',
     nothing: 'NOTHING',
 
-    STRING: "STRING",
+    STRING: 'STRING',
     string: 'STRING',
 
-    NUMBER: "NUMBER",
+    NUMBER: 'NUMBER',
     number: 'NUMBER',
 
-    BOOLEAN: "BOOLEAN",
+    BOOLEAN: 'BOOLEAN',
     boolean: 'BOOLEAN',
 
-    DATETIME: "DATETIME",
+    DATETIME: 'DATETIME',
     Date: 'DATETIME',
     datetime: 'DATETIME',
 
-    TIMESPAN: "TIMESPAN",
+    TIMESPAN: 'TIMESPAN',
     timespan: 'TIMESPAN',
 
-    INFOTABLE: "INFOTABLE",
+    INFOTABLE: 'INFOTABLE',
     infotable: 'INFOTABLE',
     InfoTableReference: 'INFOTABLE',
     InfoTable: 'INFOTABLE',
 
-    LOCATION: "LOCATION",
+    LOCATION: 'LOCATION',
     location: 'LOCATION',
 
-    XML: "XML",
+    XML: 'XML',
     xml: 'XML',
 
-    Object: "JSON",
-    JSON: "JSON",
-    TWJSON: "JSON",
+    Object: 'JSON',
+    JSON: 'JSON',
+    TWJSON: 'JSON',
     json: 'JSON',
 
-    QUERY: "QUERY",
+    QUERY: 'QUERY',
     query: 'QUERY',
 
-    IMAGE: "IMAGE",
+    IMAGE: 'IMAGE',
     image: 'IMAGE',
 
-    HYPERLINK: "HYPERLINK",
+    HYPERLINK: 'HYPERLINK',
     hyperlink: 'HYPERLINK',
 
-    IMAGELINK: "IMAGELINK",
+    IMAGELINK: 'IMAGELINK',
     imagelink: 'IMAGELINK',
 
-    PASSWORD: "PASSWORD",
+    PASSWORD: 'PASSWORD',
     password: 'PASSWORD',
 
-    HTML: "HTML",
+    HTML: 'HTML',
     html: 'HTML',
 
-    TEXT: "TEXT",
+    TEXT: 'TEXT',
     text: 'TEXT',
 
-    TAGS: "TAGS",
+    TAGS: 'TAGS',
     tags: 'TAGS',
 
-    SCHEDULE: "SCHEDULE",
+    SCHEDULE: 'SCHEDULE',
     schedule: 'SCHEDULE',
 
-    VARIANT: "VARIANT",
+    VARIANT: 'VARIANT',
     variant: 'variant',
 
-    GUID: "GUID",
+    GUID: 'GUID',
     guid: 'GUILD',
 
-    BLOB: "BLOB",
+    BLOB: 'BLOB',
     blob: 'BLOB',
 
-    INTEGER: "INTEGER",
+    INTEGER: 'INTEGER',
     integer: 'INTEGER',
 
-    LONG: "LONG",
+    LONG: 'LONG',
     long: 'LONG',
 
-    PROPERTYNAME: "PROPERTYNAME",
-    SERVICENAME: "SERVICENAME",
-    EVENTNAME: "EVENTNAME",
-    THINGNAME: "THINGNAME",
-    THINGSHAPENAME: "THINGSHAPENAME",
-    THINGTEMPLATENAME: "THINGTEMPLATENAME",
-    DATASHAPENAME: "DATASHAPENAME",
-    MASHUPNAME: "MASHUPNAME",
-    MENUNAME: "MENUNAME",
-    BASETYPENAME: "BASETYPENAME",
-    USERNAME: "USERNAME",
-    GROUPNAME: "GROUPNAME",
-    CATEGORYNAME: "CATEGORYNAME",
-    STATEDEFINITIONNAME: "STATEDEFINITIONNAME",
-    STYLEDEFINITIONNAME: "STYLEDEFINITIONNAME",
-    MODELTAGVOCABULARYNAME: "MODELTAGVOCABULARYNAME",
-    DATATAGVOCABULARYNAME: "DATATAGVOCABULARYNAME",
-    NETWORKNAME: "NETWORKNAME",
-    MEDIAENTITYNAME: "MEDIAENTITYNAME",
-    APPLICATIONKEYNAME: "APPLICATIONKEYNAME",
-    LOCALIZATIONTABLENAME: "LOCALIZATIONTABLENAME",
-    ORGANIZATIONNAME: "ORGANIZATIONNAME",
-    DASHBOARDNAME: "DASHBOARDNAME",
-    PERSISTENCEPROVIDERPACKAGENAME: "PERSISTENCEPROVIDERPACKAGENAME",
-    PERSISTENCEPROVIDERNAME: "PERSISTENCEPROVIDERNAME",
-    PROJECTNAME: "PROJECTNAME",
+    PROPERTYNAME: 'PROPERTYNAME',
+    SERVICENAME: 'SERVICENAME',
+    EVENTNAME: 'EVENTNAME',
+    THINGNAME: 'THINGNAME',
+    THINGSHAPENAME: 'THINGSHAPENAME',
+    THINGTEMPLATENAME: 'THINGTEMPLATENAME',
+    DATASHAPENAME: 'DATASHAPENAME',
+    MASHUPNAME: 'MASHUPNAME',
+    MENUNAME: 'MENUNAME',
+    BASETYPENAME: 'BASETYPENAME',
+    USERNAME: 'USERNAME',
+    GROUPNAME: 'GROUPNAME',
+    CATEGORYNAME: 'CATEGORYNAME',
+    STATEDEFINITIONNAME: 'STATEDEFINITIONNAME',
+    STYLEDEFINITIONNAME: 'STYLEDEFINITIONNAME',
+    MODELTAGVOCABULARYNAME: 'MODELTAGVOCABULARYNAME',
+    DATATAGVOCABULARYNAME: 'DATATAGVOCABULARYNAME',
+    NETWORKNAME: 'NETWORKNAME',
+    MEDIAENTITYNAME: 'MEDIAENTITYNAME',
+    APPLICATIONKEYNAME: 'APPLICATIONKEYNAME',
+    LOCALIZATIONTABLENAME: 'LOCALIZATIONTABLENAME',
+    ORGANIZATIONNAME: 'ORGANIZATIONNAME',
+    DASHBOARDNAME: 'DASHBOARDNAME',
+    PERSISTENCEPROVIDERPACKAGENAME: 'PERSISTENCEPROVIDERPACKAGENAME',
+    PERSISTENCEPROVIDERNAME: 'PERSISTENCEPROVIDERNAME',
+    PROJECTNAME: 'PROJECTNAME',
 
-    
-    propertyName: "PROPERTYNAME",
-    serviceName: "SERVICENAME",
-    eventName: "EVENTNAME",
-    thingName: "THINGNAME",
-    thingShapeName: "THINGSHAPENAME",
-    thingTemplateName: "THINGTEMPLATENAME",
-    dataShapeName: "DATASHAPENAME",
-    mashupName: "MASHUPNAME",
-    menuName: "MENUNAME",
-    baseTypeName: "BASETYPENAME",
-    userName: "USERNAME",
-    groupName: "GROUPNAME",
-    categoryName: "CATEGORYNAME",
-    stateDefinitionName: "STATEDEFINITIONNAME",
-    styleDefinitionName: "STYLEDEFINITIONNAME",
-    modelTagVocabularyName: "MODELTAGVOCABULARYNAME",
-    dataTagVocabularyName: "DATATAGVOCABULARYNAME",
-    networkName: "NETWORKNAME",
-    mediaEntityName: "MEDIAENTITYNAME",
-    applicationKeyName: "APPLICATIONKEYNAME",
-    localizationTableName: "LOCALIZATIONTABLENAME",
-    organizationName: "ORGANIZATIONNAME",
-    dashboardName: "DASHBOARDNAME",
-    presistenceProviderPackageName: "PERSISTENCEPROVIDERPACKAGENAME",
-    persistenceProviderName: "PERSISTENCEPROVIDERNAME",
-    projectName: "PROJECTNAME",
+    propertyName: 'PROPERTYNAME',
+    serviceName: 'SERVICENAME',
+    eventName: 'EVENTNAME',
+    thingName: 'THINGNAME',
+    thingShapeName: 'THINGSHAPENAME',
+    thingTemplateName: 'THINGTEMPLATENAME',
+    dataShapeName: 'DATASHAPENAME',
+    mashupName: 'MASHUPNAME',
+    menuName: 'MENUNAME',
+    baseTypeName: 'BASETYPENAME',
+    userName: 'USERNAME',
+    groupName: 'GROUPNAME',
+    categoryName: 'CATEGORYNAME',
+    stateDefinitionName: 'STATEDEFINITIONNAME',
+    styleDefinitionName: 'STYLEDEFINITIONNAME',
+    modelTagVocabularyName: 'MODELTAGVOCABULARYNAME',
+    dataTagVocabularyName: 'DATATAGVOCABULARYNAME',
+    networkName: 'NETWORKNAME',
+    mediaEntityName: 'MEDIAENTITYNAME',
+    applicationKeyName: 'APPLICATIONKEYNAME',
+    localizationTableName: 'LOCALIZATIONTABLENAME',
+    organizationName: 'ORGANIZATIONNAME',
+    dashboardName: 'DASHBOARDNAME',
+    presistenceProviderPackageName: 'PERSISTENCEPROVIDERPACKAGENAME',
+    persistenceProviderName: 'PERSISTENCEPROVIDERNAME',
+    projectName: 'PROJECTNAME',
 
-    VEC2: "VEC2",
-    VEC3: "VEC3",
-    VEC4: "VEC4",
+    VEC2: 'VEC2',
+    VEC3: 'VEC3',
+    VEC4: 'VEC4',
 
-    THINGCODE: "THINGCODE",
-    thingcode: 'THINGCODE'
+    THINGCODE: 'THINGCODE',
+    thingcode: 'THINGCODE',
 };
 
 export const enum TWEntityKind {
-    Thing = "Thing", 
-    ThingTemplate = "ThingTemplate", 
-    ThingShape = "ThingShape", 
-    DataShape = "DataShape", 
-    UserList = "UserList", 
-    Organization = "Organization"
+    Thing = 'Thing',
+    ThingTemplate = 'ThingTemplate',
+    ThingShape = 'ThingShape',
+    DataShape = 'DataShape',
+    UserList = 'UserList',
+    Organization = 'Organization',
 }
 
 export interface TWEntityDefinition {
@@ -366,7 +364,7 @@ export interface TWThingTemplate extends TWEntityDefinition {
 export interface TWThing extends TWThingTemplate {
     published: boolean;
     enabled: boolean;
-    identifier: string;   
+    identifier: string;
 }
 
 export interface TWPrincipal {
@@ -381,21 +379,21 @@ export interface TWPermission {
 }
 
 export interface TWRuntimePermissionDeclaration {
-    PropertyRead: TWPermission[],
-    PropertyWrite: TWPermission[],
-    ServiceInvoke: TWPermission[],
-    EventInvoke: TWPermission[],
-    EventSubscribe: TWPermission[],
+    PropertyRead: TWPermission[];
+    PropertyWrite: TWPermission[];
+    ServiceInvoke: TWPermission[];
+    EventInvoke: TWPermission[];
+    EventSubscribe: TWPermission[];
 }
 
 export interface TWRuntimePermissionsList {
     // These are indexed with the resource name
-    [key: string]: TWRuntimePermissionDeclaration
+    [key: string]: TWRuntimePermissionDeclaration;
 }
 
 export interface TWExtractedPermissionLists {
-    runtime?: TWRuntimePermissionsList,
-    runtimeInstance?: TWRuntimePermissionsList
+    runtime?: TWRuntimePermissionsList;
+    runtimeInstance?: TWRuntimePermissionsList;
 }
 
 export interface TWMemberBase {
