@@ -1,5 +1,12 @@
 import * as ts from 'typescript';
-import { TWPropertyDefinition, TWBaseTypes, TWFieldAspects, TWServiceDefinition, TWEventDefinition } from './TWCoreTypes';
+import {
+    TWPropertyDefinition,
+    TWBaseTypes,
+    TWFieldAspects,
+    TWServiceDefinition,
+    TWEventDefinition,
+    TWSubscriptionDefinition,
+} from './TWCoreTypes';
 
 export class JsonThingToTsTransformer {
     /**
@@ -229,6 +236,88 @@ export class JsonThingToTsTransformer {
     }
 
     /**
+     * Transforms a Thingworx subscription definition entity into a typescript class method definition.
+     *
+     * @param subscriptionDefinition subscription definition on the native Thingworx format
+     * @returns Method definition of the subscription
+     */
+    public parseSubscriptionDefinition(subscriptionDefinition: TWSubscriptionDefinition): ts.MethodDeclaration {
+        const decorators: ts.Decorator[] = [];
+
+        if (!subscriptionDefinition.enabled) {
+            throw 'Cannot handle disabled subscription definitions';
+            ``;
+        }
+
+        // if a source is specified, this means that this is a subscription for an event on another thing. If not, it's a local subscription
+        if (subscriptionDefinition.source) {
+            const subscriptionArgs: ts.Expression[] = [
+                ts.factory.createStringLiteral(subscriptionDefinition.source),
+                ts.factory.createStringLiteral(subscriptionDefinition.eventName),
+            ];
+            if (subscriptionDefinition.sourceProperty) {
+                subscriptionArgs.push(ts.factory.createStringLiteral(subscriptionDefinition.sourceProperty));
+            }
+
+            const subscriptionDecorator = ts.factory.createDecorator(
+                ts.factory.createCallExpression(ts.factory.createIdentifier('subscription'), undefined, subscriptionArgs),
+            );
+            decorators.push(subscriptionDecorator);
+        } else {
+            const subscriptionArgs: ts.Expression[] = [ts.factory.createStringLiteral(subscriptionDefinition.eventName)];
+            if (subscriptionDefinition.sourceProperty) {
+                subscriptionArgs.push(ts.factory.createStringLiteral(subscriptionDefinition.sourceProperty));
+            }
+
+            const localSubscriptionDecorator = ts.factory.createDecorator(
+                ts.factory.createCallExpression(ts.factory.createIdentifier('localSubscription'), undefined, subscriptionArgs),
+            );
+            decorators.push(localSubscriptionDecorator);
+        }
+        // remote services should have an empty body
+        const methodBody = ts.factory.createBlock(this.getTypescriptCodeFromBody(subscriptionDefinition.code, 'NOTHING'), true);
+
+        // handle the inputs of the subscription. This parameters are static, with the exception of the event datashape
+        // todo: Figure out a way of determining the event datashape that this subscription is based on, as right now we assume it's the name of the event + the suffix `Event`
+        const genericParams = {
+            alertName: this.getTypeNodeFromBaseType('STRING'),
+            eventData: this.getTypeNodeFromBaseType('INFOTABLE', { dataShape: subscriptionDefinition.eventName + 'Event' }),
+            eventName: this.getTypeNodeFromBaseType('STRING'),
+            eventTime: this.getTypeNodeFromBaseType('DATETIME'),
+            source: this.getTypeNodeFromBaseType('STRING'),
+            sourceProperty: this.getTypeNodeFromBaseType('STRING'),
+        };
+
+        const tsParameters = Object.entries(genericParams).map((p) =>
+            ts.factory.createParameterDeclaration(undefined, undefined, undefined, p[0], undefined, p[1], undefined),
+        );
+
+        // todo: handle permissions
+        const methodDeclaration = ts.factory.createMethodDeclaration(
+            decorators,
+            undefined,
+            undefined,
+            subscriptionDefinition.name,
+            undefined,
+            undefined,
+            tsParameters,
+            ts.factory.createToken(ts.SyntaxKind.VoidKeyword),
+            methodBody,
+        );
+        // only add jsdoc on the property, if description exists
+        if (subscriptionDefinition.description) {
+            return ts.addSyntheticLeadingComment(
+                methodDeclaration,
+                ts.SyntaxKind.MultiLineCommentTrivia,
+                this.commentize(subscriptionDefinition.description),
+                true,
+            );
+        } else {
+            return methodDeclaration;
+        }
+    }
+
+    /**
      * Transforms a Thingworx event definition entity into a typescript class property definition with the type EVENT.
      *
      * @param eventDefinition Event definition on the native Thingworx format
@@ -326,18 +415,18 @@ export class JsonThingToTsTransformer {
      * @param aspects field aspects containing information about used datashapes or thingtemplate
      * @returns A ts type reference
      */
-    private getTypeNodeFromBaseType(baseTypeName: keyof typeof TWBaseTypes, aspects: TWFieldAspects<unknown>): ts.TypeReferenceNode {
+    private getTypeNodeFromBaseType(baseTypeName: keyof typeof TWBaseTypes, aspects?: TWFieldAspects<unknown>): ts.TypeReferenceNode {
         const typeArguments: ts.TypeNode[] = [];
-        if (baseTypeName == TWBaseTypes.INFOTABLE && aspects.dataShape) {
+        if (baseTypeName == TWBaseTypes.INFOTABLE && aspects?.dataShape) {
             typeArguments.push(ts.factory.createTypeReferenceNode(aspects.dataShape));
         }
         if (baseTypeName == TWBaseTypes.THINGNAME || baseTypeName == TWBaseTypes.THINGTEMPLATENAME) {
-            if (aspects.thingTemplate && aspects.thingShape) {
+            if (aspects && aspects.thingTemplate && aspects.thingShape) {
                 typeArguments.push(ts.factory.createTypeReferenceNode(aspects.thingTemplate));
                 typeArguments.push(ts.factory.createTypeReferenceNode(aspects.thingShape));
-            } else if (aspects.thingTemplate) {
+            } else if (aspects?.thingTemplate) {
                 typeArguments.push(ts.factory.createTypeReferenceNode(aspects.thingTemplate));
-            } else if (aspects.thingShape) {
+            } else if (aspects?.thingShape) {
                 typeArguments.push(ts.factory.createToken(ts.SyntaxKind.AnyKeyword));
                 typeArguments.push(ts.factory.createTypeReferenceNode(aspects.thingShape));
             }

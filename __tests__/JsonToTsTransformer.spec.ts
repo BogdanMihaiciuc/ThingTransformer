@@ -7,6 +7,7 @@ import {
     TWPropertyRemoteFoldKind,
     TWPropertyRemotePushKind,
     TWPropertyRemoteStartKind,
+    TWSubscriptionSourceKind,
 } from '../src/transformer/TWCoreTypes';
 
 describe('Verify property definition generation', () => {
@@ -538,5 +539,84 @@ describe('Verify event definition generation', () => {
              */
             @remoteEvent("testRemoteEvent")
             test!: EVENT<GenericStringList>;`);
+    });
+});
+
+describe('Verify subscription definition generation', () => {
+    const transformer = new JsonThingToTsTransformer();
+
+    test('Local subscription on custom event', async () => {
+        const result = transformer.parseSubscriptionDefinition({
+            description: '',
+            enabled: true,
+            name: 'test',
+            source: '',
+            sourceProperty: '',
+            eventName: 'testEvent',
+            sourceType: TWSubscriptionSourceKind.Thing,
+            code: `var result = 3;`,
+        });
+        expect(printNode(result)).toBe(endent`
+            @localSubscription("testEvent")
+            test(alertName: STRING, eventData: INFOTABLE<testEventEvent>, eventName: STRING, eventTime: DATETIME, source: STRING, sourceProperty: STRING): void {
+                var result = 3;
+            }`);
+    });
+    test('Local subscription on datachange event', async () => {
+        const result = transformer.parseSubscriptionDefinition({
+            description: '',
+            enabled: true,
+            name: 'test',
+            source: '',
+            sourceProperty: 'testProperty',
+            eventName: 'DataChange',
+            sourceType: TWSubscriptionSourceKind.Thing,
+            code: `var result = 3;`,
+        });
+        expect(printNode(result)).toBe(endent`
+            @localSubscription("DataChange", "testProperty")
+            test(alertName: STRING, eventData: INFOTABLE<DataChangeEvent>, eventName: STRING, eventTime: DATETIME, source: STRING, sourceProperty: STRING): void {
+                var result = 3;
+            }`);
+    });
+    test('Subscription on AnyDataChange event of another thing', async () => {
+        const result = transformer.parseSubscriptionDefinition({
+            description: '',
+            enabled: true,
+            name: 'test',
+            source: 'AnotherThing',
+            sourceProperty: '',
+            eventName: 'AnyDataChange',
+            sourceType: TWSubscriptionSourceKind.Thing,
+            code: `var result = 3;`,
+        });
+        expect(printNode(result)).toBe(endent`
+            @subscription("AnotherThing", "AnyDataChange")
+            test(alertName: STRING, eventData: INFOTABLE<AnyDataChangeEvent>, eventName: STRING, eventTime: DATETIME, source: STRING, sourceProperty: STRING): void {
+                var result = 3;
+            }`);
+    });
+    test('Subscription with this references and documentation', async () => {
+        const result = transformer.parseSubscriptionDefinition({
+            description: 'Test documentation\nWith multiple\nlines',
+            enabled: true,
+            name: 'test',
+            source: 'AnotherThing',
+            sourceProperty: '',
+            eventName: 'AnyDataChange',
+            sourceType: TWSubscriptionSourceKind.Thing,
+            code: `var result = 3;\nme.test = 1;`,
+        });
+        expect(printNode(result)).toBe(endent`
+            /**
+             * Test documentation
+             * With multiple
+             * lines
+             */
+            @subscription("AnotherThing", "AnyDataChange")
+            test(alertName: STRING, eventData: INFOTABLE<AnyDataChangeEvent>, eventName: STRING, eventTime: DATETIME, source: STRING, sourceProperty: STRING): void {
+                var result = 3;
+                this.test = 1;
+            }`);
     });
 });
