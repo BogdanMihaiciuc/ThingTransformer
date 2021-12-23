@@ -1,5 +1,5 @@
 import * as ts from 'typescript';
-import { TWPropertyDefinition, TWBaseTypes, TWFieldAspects, TWServiceDefinition } from './TWCoreTypes';
+import { TWPropertyDefinition, TWBaseTypes, TWFieldAspects, TWServiceDefinition, TWEventDefinition } from './TWCoreTypes';
 
 export class JsonThingToTsTransformer {
     /**
@@ -63,7 +63,6 @@ export class JsonThingToTsTransformer {
         }
         // handle the `isRemote` aspect that maps directly into an decorator with parameters. A corresponding `remoteBinding` property must exist on the propertyDefinition
         // todo: handle the kepware specific decorators. This are currently not supported in the reverse conversion
-        // todo: On 9.2, there does not seem to a remote binding attribute on the property definition, but rather a special top level `propertyBindings` property
         // an idea would be to inject the remote binding information directly here
         if (propertyDefinition.aspects.isRemote && propertyDefinition.remoteBinding) {
             const remoteArgs: ts.ObjectLiteralElementLike[] = [];
@@ -87,7 +86,6 @@ export class JsonThingToTsTransformer {
             decorators.push(remoteDecorator);
         }
         // handle the local binding metadata. This maps into a decorator with two parameters
-        // todo: On 9.2, there does not seem to a local binding attribute on the property definition, but rather a special top level `propertyBindings` property
         if (propertyDefinition.localBinding) {
             const remoteDecorator = ts.factory.createDecorator(
                 ts.factory.createCallExpression(ts.factory.createIdentifier('local'), undefined, [
@@ -125,6 +123,12 @@ export class JsonThingToTsTransformer {
         }
     }
 
+    /**
+     * Transforms a Thingworx service definition entity into a typescript class method definition.
+     *
+     * @param serviceDefinition Service definition on the native Thingworx format
+     * @returns Method definition of the service
+     */
     public parseServiceDefinition(serviceDefinition: TWServiceDefinition): ts.MethodDeclaration {
         const decorators: ts.Decorator[] = [];
         const modifiers: ts.Modifier[] = [];
@@ -221,6 +225,48 @@ export class JsonThingToTsTransformer {
             );
         } else {
             return methodDeclaration;
+        }
+    }
+
+    /**
+     * Transforms a Thingworx event definition entity into a typescript class property definition with the type EVENT.
+     *
+     * @param eventDefinition Event definition on the native Thingworx format
+     * @returns Property definition of the event
+     */
+    public parseEventDefinition(eventDefinition: TWEventDefinition): ts.PropertyDeclaration {
+        const decorators: ts.Decorator[] = [];
+
+        // remote events have a remoteBinding set that gets converted into a decorator
+        if (eventDefinition.remoteBinding) {
+            const remoteDecorator = ts.factory.createDecorator(
+                ts.factory.createCallExpression(ts.factory.createIdentifier('remoteEvent'), undefined, [
+                    ts.factory.createStringLiteral(eventDefinition.remoteBinding.sourceName),
+                ]),
+            );
+            decorators.push(remoteDecorator);
+        }
+
+        // todo: handle permissions
+        const propertyDeclaration = ts.factory.createPropertyDeclaration(
+            decorators,
+            undefined,
+            eventDefinition.name,
+            ts.factory.createToken(ts.SyntaxKind.ExclamationToken),
+            // the type is an event with the datashape provided as a type argument
+            ts.factory.createTypeReferenceNode('EVENT', [ts.factory.createTypeReferenceNode(eventDefinition.dataShape)]),
+            undefined,
+        );
+        // only add jsdoc on the property, if description exists
+        if (eventDefinition.description) {
+            return ts.addSyntheticLeadingComment(
+                propertyDeclaration,
+                ts.SyntaxKind.MultiLineCommentTrivia,
+                this.commentize(eventDefinition.description),
+                true,
+            );
+        } else {
+            return propertyDeclaration;
         }
     }
 

@@ -493,3 +493,50 @@ describe('Verify service definition generation', () => {
             }`);
     });
 });
+
+describe('Verify event definition generation', () => {
+    const transformer = new JsonThingToTsTransformer();
+
+    test('Local event with name', async () => {
+        const result = transformer.parseEventDefinition({
+            category: '',
+            dataShape: 'GenericStringList',
+            description: '',
+            name: 'test',
+        });
+        expect(printNode(result)).toBe(`test!: EVENT<GenericStringList>;`);
+    });
+    test('Remote event with name', async () => {
+        const result = transformer.parseEventDefinition({
+            category: '',
+            dataShape: 'GenericStringList',
+            description: '',
+            name: 'test',
+            remoteBinding: {
+                name: 'test',
+                sourceName: 'testRemoteEvent',
+            },
+        });
+        expect(printNode(result)).toBe(`@remoteEvent("testRemoteEvent")\ntest!: EVENT<GenericStringList>;`);
+    });
+    test('Remote event with name and documentation', async () => {
+        const result = transformer.parseEventDefinition({
+            category: '',
+            dataShape: 'GenericStringList',
+            description: 'Test documentation\nWith multiple\nlines',
+            name: 'test',
+            remoteBinding: {
+                name: 'test',
+                sourceName: 'testRemoteEvent',
+            },
+        });
+        expect(printNode(result)).toBe(endent`
+            /**
+             * Test documentation
+             * With multiple
+             * lines
+             */
+            @remoteEvent("testRemoteEvent")
+            test!: EVENT<GenericStringList>;`);
+    });
+});
