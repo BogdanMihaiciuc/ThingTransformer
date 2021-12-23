@@ -17,7 +17,7 @@ export function equals(first: string | TokenInfo[], second: string | TokenInfo[]
     return tokensEquals(firstTokens, secondTokens);
 }
 
-function tokensEquals(first: TokenInfo[], second: TokenInfo[]) {
+function tokensEquals(first: TokenInfo[], second: TokenInfo[]): boolean {
     if (first.length !== second.length) {
         return false;
     }
@@ -38,7 +38,7 @@ type TokenInfo = {
     pos: number;
 };
 
-function convertToTokens(text: string) {
+function convertToTokens(text: string): TokenInfo[] {
     const result: TokenInfo[] = [];
 
     const scanner = createScanner(ScriptTarget.Latest, true);
@@ -66,7 +66,7 @@ function convertToTokens(text: string) {
     return result;
 }
 
-export function printNode(node: Node) {
+export function printNode(node: Node): string {
     const resultFile = createSourceFile('someFileName.ts', '', ScriptTarget.Latest, /*setParentNodes*/ false, ScriptKind.TS);
     const printer = createPrinter({
         newLine: NewLineKind.LineFeed,

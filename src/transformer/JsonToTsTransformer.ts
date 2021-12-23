@@ -1,5 +1,5 @@
 import * as ts from 'typescript';
-import { TWPropertyDefinition, TWBaseTypes, TWFieldAspects } from './TWCoreTypes';
+import { TWPropertyDefinition, TWBaseTypes, TWFieldAspects, TWServiceDefinition } from './TWCoreTypes';
 
 export class JsonThingToTsTransformer {
     /**
@@ -105,7 +105,6 @@ export class JsonThingToTsTransformer {
 
         // todo: handle permissions
         const propertyDeclaration = ts.factory.createPropertyDeclaration(
-            // maintain a consistent order of decorators
             decorators,
             modifiers,
             propertyDefinition.name,
@@ -124,6 +123,151 @@ export class JsonThingToTsTransformer {
         } else {
             return propertyDeclaration;
         }
+    }
+
+    public parseServiceDefinition(serviceDefinition: TWServiceDefinition): ts.MethodDeclaration {
+        const decorators: ts.Decorator[] = [];
+        const modifiers: ts.Modifier[] = [];
+
+        // all async services transform into async methods
+        if (serviceDefinition.aspects.isAsync) {
+            modifiers.push(ts.factory.createModifier(ts.SyntaxKind.AsyncKeyword));
+        }
+        // all services that are not overridable get marked as final
+        if (!serviceDefinition.isAllowOverride) {
+            decorators.push(ts.factory.createDecorator(ts.factory.createIdentifier('final')));
+        }
+        // all services that override a parent implementation should have a annotation
+        if (serviceDefinition.isOverriden) {
+            decorators.push(ts.factory.createDecorator(ts.factory.createIdentifier('override')));
+        }
+        // remote services map into methods with empty bodies, and a decorator @remoteService
+        if (serviceDefinition.remoteBinding) {
+            const remoteArgs: ts.ObjectLiteralElementLike[] = [];
+
+            if (serviceDefinition.remoteBinding.enableQueue) {
+                remoteArgs.push(ts.factory.createPropertyAssignment('enableQueue', ts.factory.createTrue()));
+            }
+            if (serviceDefinition.remoteBinding.timeout != undefined) {
+                remoteArgs.push(
+                    ts.factory.createPropertyAssignment(
+                        'timeout',
+                        ts.factory.createNumericLiteral(serviceDefinition.remoteBinding.timeout),
+                    ),
+                );
+            }
+            const remoteSourceName = serviceDefinition.remoteBinding.sourceName || serviceDefinition.name;
+
+            const remoteDecorator = ts.factory.createDecorator(
+                ts.factory.createCallExpression(ts.factory.createIdentifier('remoteService'), undefined, [
+                    ts.factory.createStringLiteral(remoteSourceName),
+                    ts.factory.createObjectLiteralExpression(remoteArgs),
+                ]),
+            );
+            decorators.push(remoteDecorator);
+        }
+        // remote services should have an empty body
+        const methodBody = serviceDefinition.remoteBinding
+            ? ts.factory.createBlock([], false)
+            : ts.factory.createBlock(this.getTypescriptCodeFromBody(serviceDefinition.code, serviceDefinition.resultType.baseType), true);
+
+        // handle the inputs of the service. This requires creating an object as well as an interface that defines it
+        const tsParameters: ts.ParameterDeclaration[] = [];
+        if (serviceDefinition.parameterDefinitions.length > 0) {
+            const parameters: ts.ObjectBindingPattern = ts.factory.createObjectBindingPattern(
+                serviceDefinition.parameterDefinitions.map((p) =>
+                    ts.factory.createBindingElement(
+                        undefined,
+                        undefined,
+                        p.name,
+                        p.aspects.defaultValue && this.createNodeLiteral(p.aspects.defaultValue),
+                    ),
+                ),
+            );
+            const parametersDef: ts.TypeLiteralNode = ts.factory.createTypeLiteralNode(
+                serviceDefinition.parameterDefinitions.map((p) =>
+                    ts.factory.createPropertySignature(
+                        undefined,
+                        p.name,
+                        p.aspects.isRequired ? undefined : ts.factory.createToken(ts.SyntaxKind.QuestionToken),
+                        this.getTypeNodeFromBaseType(p.baseType, p.aspects),
+                    ),
+                ),
+            );
+            tsParameters.push(
+                ts.factory.createParameterDeclaration(undefined, undefined, undefined, parameters, undefined, parametersDef, undefined),
+            );
+        }
+
+        // todo: handle permissions
+        const methodDeclaration = ts.factory.createMethodDeclaration(
+            decorators,
+            modifiers,
+            undefined,
+            serviceDefinition.name,
+            undefined,
+            undefined,
+            tsParameters,
+            this.getTypeNodeFromBaseType(serviceDefinition.resultType.baseType, serviceDefinition.resultType.aspects),
+            methodBody,
+        );
+        // only add jsdoc on the property, if description exists
+        if (serviceDefinition.description) {
+            return ts.addSyntheticLeadingComment(
+                methodDeclaration,
+                ts.SyntaxKind.MultiLineCommentTrivia,
+                this.commentize(serviceDefinition.description),
+                true,
+            );
+        } else {
+            return methodDeclaration;
+        }
+    }
+
+    /**
+     * Converts and adapts the code of a service or subscription in ThingWorx into the body of a typescript method
+     * This handles converting of the `me` references into `this` references, as well making sure the method actually returns
+     *
+     * @param thingworxCode Code declared in thingworx under a service or subscription
+     * @param resultType Result type of the service
+     * @returns Code adapted for use in typescript
+     */
+    private getTypescriptCodeFromBody(thingworxCode: string, resultType: keyof typeof TWBaseTypes): ts.NodeArray<ts.Statement> {
+        const FUNCTION_PREFIX = 'var result = (function () {';
+        const FUNCTION_SUFFIX = '})()';
+        // test if this service is a immediately invoked function, as emitted by the ts->xml transformer
+        if (thingworxCode.startsWith(FUNCTION_PREFIX) && thingworxCode.endsWith(FUNCTION_SUFFIX)) {
+            thingworxCode = thingworxCode.slice(FUNCTION_PREFIX.length, thingworxCode.length - FUNCTION_SUFFIX.length);
+        } else if (resultType != 'NOTHING') {
+            // otherwise, just expect to return the result at the end
+            thingworxCode += '\nreturn result;';
+        }
+        const sourceFile = ts.createSourceFile('code.ts', thingworxCode, ts.ScriptTarget.Latest, false);
+
+        // Typescript transformer that transforms me. or me[''] into this. and this['']
+        const typeMeToThisTransformer: ts.TransformerFactory<ts.Node> = (context) => {
+            const visit: ts.Visitor = (node: ts.Node) => {
+                node = ts.visitEachChild(node, visit, context);
+
+                if (ts.isPropertyAccessExpression(node)) {
+                    if (ts.isIdentifier(node.expression) && node.expression.escapedText == 'me') {
+                        return ts.factory.createPropertyAccessExpression(ts.factory.createThis(), node.name);
+                    }
+                } else if (ts.isElementAccessExpression(node)) {
+                    if (ts.isIdentifier(node.expression) && node.expression.escapedText == 'me') {
+                        return ts.factory.createElementAccessExpression(ts.factory.createThis(), node.argumentExpression);
+                    }
+                }
+                return node;
+            };
+
+            return (node: ts.Node): ts.Node => ts.visitNode(node, visit);
+        };
+
+        // Run code through the transformer
+        const result = ts.transform(sourceFile, [typeMeToThisTransformer]).transformed[0] as ts.SourceFile;
+
+        return result.statements;
     }
 
     /**

@@ -235,3 +235,261 @@ describe('Verify property definition generation', () => {
           mileage: NUMBER = 10;`);
     });
 });
+
+describe('Verify service definition generation', () => {
+    const transformer = new JsonThingToTsTransformer();
+
+    test('Check with name and and no parameters and number result', async () => {
+        const result = transformer.parseServiceDefinition({
+            aspects: {},
+            code: `let result = 3;`,
+            description: '',
+            name: 'test',
+            category: 'Uncategorized',
+            isAllowOverride: false,
+            isLocalOnly: false,
+            isOpen: false,
+            isPrivate: false,
+            resultType: {
+                baseType: 'NUMBER',
+                name: 'result',
+                aspects: {},
+                description: '',
+                ordinal: 0,
+            },
+            parameterDefinitions: [],
+        });
+        expect(printNode(result)).toBe(endent`
+            @final
+            test(): NUMBER {
+                let result = 3;
+                return result;
+            }`);
+    });
+    test('Check with name and and no parameters and immediately invoked function', async () => {
+        const result = transformer.parseServiceDefinition({
+            aspects: {},
+            code: `var result = (function () {let test = 3; return test;})()`,
+            description: '',
+            name: 'test',
+            category: 'Uncategorized',
+            isAllowOverride: false,
+            isLocalOnly: false,
+            isOpen: false,
+            isPrivate: false,
+            resultType: {
+                baseType: 'NUMBER',
+                name: 'result',
+                aspects: {},
+                description: '',
+                ordinal: 0,
+            },
+            parameterDefinitions: [],
+        });
+        expect(printNode(result)).toBe(endent`
+            @final
+            test(): NUMBER {
+                let test = 3;
+                return test;
+            }`);
+    });
+    test('Check with me references replaced with this', async () => {
+        const result = transformer.parseServiceDefinition({
+            aspects: {},
+            code: `var result = (function () {me.test = 3; me['test'] = 3; me['ana' + 'test'] = 3; me.service({t: 3});)})()`,
+            description: '',
+            name: 'test',
+            category: 'Uncategorized',
+            isAllowOverride: false,
+            isLocalOnly: false,
+            isOpen: false,
+            isPrivate: false,
+            resultType: {
+                baseType: 'NUMBER',
+                name: 'result',
+                aspects: {},
+                description: '',
+                ordinal: 0,
+            },
+            parameterDefinitions: [],
+        });
+        expect(printNode(result)).toBe(endent`
+            @final
+            test(): NUMBER {
+                this.test = 3;
+                this["test"] = 3;
+                this["ana" + "test"] = 3;
+                this.service({ t: 3 });
+            }`);
+    });
+
+    test('Check async overriden and overridable', async () => {
+        const result = transformer.parseServiceDefinition({
+            aspects: {
+                isAsync: true,
+            },
+            code: `var result = 3;`,
+            description: '',
+            name: 'test',
+            category: 'Uncategorized',
+            isAllowOverride: true,
+            isOverriden: true,
+            isLocalOnly: false,
+            isOpen: false,
+            isPrivate: false,
+            resultType: {
+                baseType: 'NUMBER',
+                name: 'result',
+                aspects: {},
+                description: '',
+                ordinal: 0,
+            },
+            parameterDefinitions: [],
+        });
+        expect(printNode(result)).toBe(endent`
+            @override
+            async test(): NUMBER {
+                var result = 3;
+                return result;
+            }`);
+    });
+
+    test('Check with parameters', async () => {
+        const result = transformer.parseServiceDefinition({
+            aspects: {},
+            code: `var result = 3;`,
+            description: '',
+            name: 'test',
+            category: 'Uncategorized',
+            isAllowOverride: false,
+            isOverriden: false,
+            isLocalOnly: false,
+            isOpen: false,
+            isPrivate: false,
+            resultType: {
+                baseType: 'NUMBER',
+                name: 'result',
+                aspects: {},
+                description: '',
+                ordinal: 0,
+            },
+            parameterDefinitions: [
+                {
+                    baseType: 'INFOTABLE',
+                    aspects: {
+                        dataShape: 'GenericStringList',
+                    },
+                    description: '',
+                    name: 'param1',
+                    ordinal: 0,
+                },
+                {
+                    baseType: 'THINGNAME',
+                    aspects: {
+                        isRequired: true,
+                        thingTemplate: 'GenericThing',
+                    },
+                    description: '',
+                    name: 'param2',
+                    ordinal: 1,
+                },
+                {
+                    baseType: 'STRING',
+                    aspects: {
+                        defaultValue: 'testValue',
+                    },
+                    description: '',
+                    name: 'param3',
+                    ordinal: 2,
+                },
+            ],
+        });
+        expect(printNode(result)).toBe(endent`
+            @final
+            test({ param1, param2, param3 = "testValue" }: {
+                param1?: INFOTABLE<GenericStringList>;
+                param2: THINGNAME<GenericThing>;
+                param3?: STRING;
+            }): NUMBER {
+                var result = 3;
+                return result;
+            }`);
+    });
+
+    test('Check with remote binding', async () => {
+        const result = transformer.parseServiceDefinition({
+            aspects: {},
+            code: '',
+            description: '',
+            name: 'test',
+            category: 'Uncategorized',
+            isAllowOverride: false,
+            isOverriden: false,
+            isLocalOnly: false,
+            isOpen: false,
+            isPrivate: false,
+            resultType: {
+                baseType: 'NUMBER',
+                name: 'result',
+                aspects: {},
+                description: '',
+                ordinal: 0,
+            },
+            parameterDefinitions: [
+                {
+                    baseType: 'STRING',
+                    aspects: {},
+                    description: '',
+                    name: 'param1',
+                    ordinal: 0,
+                },
+            ],
+            remoteBinding: {
+                enableQueue: true,
+                sourceName: 'targetSource',
+                timeout: 100,
+                name: 'test',
+            },
+        });
+        expect(printNode(result)).toBe(endent`
+            @final
+            @remoteService("targetSource", { enableQueue: true, timeout: 100 })
+            test({ param1 }: {
+                param1?: STRING;
+            }): NUMBER { }`);
+    });
+
+    test('Check with documentation', async () => {
+        const result = transformer.parseServiceDefinition({
+            aspects: {},
+            code: `var result = 3;`,
+            description: 'Test documentation\nWith multiple\nlines',
+            name: 'test',
+            category: 'Uncategorized',
+            isAllowOverride: false,
+            isOverriden: false,
+            isLocalOnly: false,
+            isOpen: false,
+            isPrivate: false,
+            resultType: {
+                baseType: 'NUMBER',
+                name: 'result',
+                aspects: {},
+                description: '',
+                ordinal: 0,
+            },
+            parameterDefinitions: [],
+        });
+        expect(printNode(result)).toBe(endent`
+            /**
+             * Test documentation
+             * With multiple
+             * lines
+             */
+            @final
+            test(): NUMBER {
+                var result = 3;
+                return result;
+            }`);
+    });
+});
