@@ -267,6 +267,38 @@ describe('Verify service definition generation', () => {
                 return result;
             }`);
     });
+    test('Check with code containing comments', async () => {
+        const result = transformer.parseServiceDefinition({
+            aspects: {},
+            code: `let result = 3;\n//test comment\n/**\n * comment\n*/\nlet test = 4;`,
+            description: '',
+            name: 'test',
+            category: 'Uncategorized',
+            isAllowOverride: false,
+            isLocalOnly: false,
+            isOpen: false,
+            isPrivate: false,
+            resultType: {
+                baseType: 'NUMBER',
+                name: 'result',
+                aspects: {},
+                description: '',
+                ordinal: 0,
+            },
+            parameterDefinitions: [],
+        });
+        expect(printNode(result)).toBe(endent`
+            @final
+            test(): NUMBER {
+                let result = 3;
+                //test comment
+                /**
+                 * comment
+                 */
+                let test = 4;
+                return result;
+            }`);
+    });
     test('Check with name and and no parameters and immediately invoked function', async () => {
         const result = transformer.parseServiceDefinition({
             aspects: {},

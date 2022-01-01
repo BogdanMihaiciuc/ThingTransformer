@@ -1,4 +1,5 @@
 import * as ts from 'typescript';
+import { cloneNode } from 'ts-clone-node';
 import {
     TWPropertyDefinition,
     TWBaseTypes,
@@ -180,7 +181,7 @@ export class JsonThingToTsTransformer {
         // remote services should have an empty body
         const methodBody = serviceDefinition.remoteBinding
             ? ts.factory.createBlock([], false)
-            : ts.factory.createBlock(this.getTypescriptCodeFromBody(serviceDefinition.code, serviceDefinition.resultType.baseType), true);
+            : this.getTypescriptCodeFromBody(serviceDefinition.code, serviceDefinition.resultType.baseType);
 
         // handle the inputs of the service. This requires creating an object as well as an interface that defines it
         const tsParameters: ts.ParameterDeclaration[] = [];
@@ -274,8 +275,8 @@ export class JsonThingToTsTransformer {
             );
             decorators.push(localSubscriptionDecorator);
         }
-        // remote services should have an empty body
-        const methodBody = ts.factory.createBlock(this.getTypescriptCodeFromBody(subscriptionDefinition.code, 'NOTHING'), true);
+        // subscriptions always return NOTHING
+        const methodBody = this.getTypescriptCodeFromBody(subscriptionDefinition.code, 'NOTHING');
 
         // handle the inputs of the subscription. This parameters are static, with the exception of the event datashape
         // todo: Figure out a way of determining the event datashape that this subscription is based on, as right now we assume it's the name of the event + the suffix `Event`
@@ -367,7 +368,7 @@ export class JsonThingToTsTransformer {
      * @param resultType Result type of the service
      * @returns Code adapted for use in typescript
      */
-    private getTypescriptCodeFromBody(thingworxCode: string, resultType: keyof typeof TWBaseTypes): ts.NodeArray<ts.Statement> {
+    private getTypescriptCodeFromBody(thingworxCode: string, resultType: keyof typeof TWBaseTypes): ts.FunctionBody {
         const FUNCTION_PREFIX = 'var result = (function () {';
         const FUNCTION_SUFFIX = '})()';
         // test if this service is a immediately invoked function, as emitted by the ts->xml transformer
@@ -377,7 +378,7 @@ export class JsonThingToTsTransformer {
             // otherwise, just expect to return the result at the end
             thingworxCode += '\nreturn result;';
         }
-        const sourceFile = ts.createSourceFile('code.ts', thingworxCode, ts.ScriptTarget.Latest, false);
+        const sourceFile = ts.createSourceFile('code.ts', `${thingworxCode}`, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
 
         // Typescript transformer that transforms me. or me[''] into this. and this['']
         const typeMeToThisTransformer: ts.TransformerFactory<ts.Node> = (context) => {
@@ -399,10 +400,20 @@ export class JsonThingToTsTransformer {
             return (node: ts.Node): ts.Node => ts.visitNode(node, visit);
         };
 
-        // Run code through the transformer
+        // Run code through the transformer above
         const result = ts.transform(sourceFile, [typeMeToThisTransformer]).transformed[0] as ts.SourceFile;
 
-        return result.statements;
+        // create a block using the statements in the parsed source file above.
+        // it's highly important that we clone the statements. That is because typescript doesn't really support merging two different ASTs
+        // (see https://stackoverflow.com/questions/69028643/how-to-merge-two-typescript-asts)
+        // by leveraging the ts-clone-node library, we ensure that the ast of the service is cloned, so the parent links, as well as the
+        // start and end position of each node are reset
+        // additionally the ts-clone-node library also transforms the comment ranges into synthetic comments, ensuring that comments are preserved
+        // (see https://github.com/wessberg/ts-clone-node/blob/master/src/clone-node/util/preserve-comments.ts)
+        return ts.factory.createBlock(
+            result.statements.map((t) => cloneNode(t)),
+            true,
+        );
     }
 
     /**
