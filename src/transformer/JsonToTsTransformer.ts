@@ -129,6 +129,7 @@ export class JsonThingToTsTransformer {
         const modifiers: ts.Modifier[] = [];
         const heritage: ts.HeritageClause[] = [];
         const members: ts.ClassElement[] = [];
+        // set the exportName as the current entity name
         decorators.push(
             ts.factory.createDecorator(
                 ts.factory.createCallExpression(ts.factory.createIdentifier('exportName'), undefined, [
@@ -656,7 +657,12 @@ export class JsonThingToTsTransformer {
                 typeArguments.push(ts.factory.createTypeReferenceNode(aspects.thingShape));
             }
         }
-        return ts.factory.createTypeReferenceNode(baseTypeName, typeArguments);
+        // to avoid confusion between the existing JSON type and the thingworx json, apply a special mapping
+        if (baseTypeName == TWBaseTypes.JSON) {
+            return ts.factory.createTypeReferenceNode('TWJSON');
+        } else {
+            return ts.factory.createTypeReferenceNode(baseTypeName, typeArguments);
+        }
     }
 
     /**

@@ -26,7 +26,7 @@ class ExampleThingShape extends ThingShapeBase {
     /**
      * In addition to specifying the types of each parameter as a literal type, interfaces may also be used.
      */
-    GetStatusResponse(): JSON {
+    GetStatusResponse(): TWJSON {
         return { pressure: pressure, humidity: humidity };
     }
     /**
@@ -142,7 +142,7 @@ class ExampleThingShape extends ThingShapeBase {
      *
      * Any JSDoc tags used will be converted into thingworx descriptions.
      */
-    GetValuesWithFactor(): JSON {
+    GetValuesWithFactor(): TWJSON {
         return { pressure: factor * this.pressure, humidity: factor * this.humidity };
     }
     SetPressure(): NOTHING {
