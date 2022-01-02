@@ -1,7 +1,9 @@
 import { JsonThingToTsTransformer } from '../src/transformer/JsonToTsTransformer';
-import { equals, printNode } from '../src/transformer/tsUtils';
+import { printNode } from '../src/transformer/tsUtils';
 import endent from 'endent';
+import { glob } from 'glob';
 import {
+    TWEntityKind,
     TWPropertyBindingAspects,
     TWPropertyDataChangeKind,
     TWPropertyRemoteFoldKind,
@@ -9,6 +11,8 @@ import {
     TWPropertyRemoteStartKind,
     TWSubscriptionSourceKind,
 } from '../src/transformer/TWCoreTypes';
+import { readFileSync } from 'fs';
+import path from 'path';
 
 describe('Verify property definition generation', () => {
     const transformer = new JsonThingToTsTransformer();
@@ -295,6 +299,38 @@ describe('Verify service definition generation', () => {
                 /**
                  * comment
                  */
+                let test = 4;
+                return result;
+            }`);
+    });
+    // todo: this still does not work since newlines are not preserved in the AST
+    test('Check with code containing newlines', async () => {
+        const result = transformer.parseServiceDefinition({
+            aspects: {},
+            code: `let result = 3;\n\n\nlet test = 4;`,
+            description: '',
+            name: 'test',
+            category: 'Uncategorized',
+            isAllowOverride: false,
+            isLocalOnly: false,
+            isOpen: false,
+            isPrivate: false,
+            resultType: {
+                baseType: 'NUMBER',
+                name: 'result',
+                aspects: {},
+                description: '',
+                ordinal: 0,
+            },
+            parameterDefinitions: [],
+        });
+        expect(printNode(result)).toBe(endent`
+            @final
+            test(): NUMBER {
+                let result = 3;
+
+
+
                 let test = 4;
                 return result;
             }`);
@@ -650,5 +686,32 @@ describe('Verify subscription definition generation', () => {
                 var result = 3;
                 this.test = 1;
             }`);
+    });
+});
+
+describe('Full thing transformations', () => {
+    const transformer = new JsonThingToTsTransformer();
+    const files = glob.sync('./testcases/**/*.json');
+    files.forEach((f) => {
+        const parsedPath = path.parse(f);
+        const parentFolder = path.parse(parsedPath.dir);
+        let entityKind: TWEntityKind | undefined;
+        if (parentFolder.base == TWEntityKind.Thing) {
+            entityKind = TWEntityKind.Thing;
+        } else if (parentFolder.base == TWEntityKind.ThingShape) {
+            entityKind = TWEntityKind.ThingShape;
+        } else if (parentFolder.base == TWEntityKind.ThingTemplate) {
+            entityKind = TWEntityKind.ThingTemplate;
+        }
+        if (!entityKind) {
+            throw `Unrecognized entity type folder with testcases called ${parentFolder.base}`;
+        }
+        it(`Verifying testcase ${f}`, async () => {
+            const inputFile = JSON.parse(readFileSync(f, 'utf-8'));
+            const transformedFile = transformer.convertThingworxEntity(inputFile, entityKind!);
+            const typescriptClass = transformer.transformThingworxEntity(transformedFile);
+            console.log(printNode(typescriptClass, true));
+            expect(printNode(typescriptClass, true)).toBe(readFileSync(path.join(parsedPath.dir, parsedPath.name + '.ts')).toString());
+        });
     });
 });

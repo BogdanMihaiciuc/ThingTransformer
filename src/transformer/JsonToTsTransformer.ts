@@ -7,9 +7,223 @@ import {
     TWServiceDefinition,
     TWEventDefinition,
     TWSubscriptionDefinition,
+    TWThing,
+    TWEntityDefinition,
+    TWEntityKind,
+    TWThingTemplate,
 } from './TWCoreTypes';
 
+export interface TransformerOptions {
+    /**
+     * String to use to replace invalid characters in entity names
+     * For example, in thingworx, a lot of entities have dots as separators.
+     * This are, by default replaced with `_`
+     */
+    entityNameSeparator: string;
+}
+
 export class JsonThingToTsTransformer {
+    private static DEFAULT_OPTIONS: TransformerOptions = {
+        entityNameSeparator: '_',
+    };
+    /**
+     * Constructs a new transformer
+     */
+    constructor(options?: Partial<TransformerOptions>) {
+        this.options = Object.assign({}, options, JsonThingToTsTransformer.DEFAULT_OPTIONS);
+    }
+    private options: TransformerOptions;
+
+    /**
+     * Normalizes the JSON metadata of a entity into an object that the API expects
+     * @param thingworxJson JSON definition of the object, as returned by the metadata endpoint
+     * @param entityType Type of entity to transform
+     * @returns The normalized representation of the Thingworx entity
+     */
+    public convertThingworxEntity(thingworxJson: any, entityType: TWEntityKind): TWEntityDefinition {
+        const definitionsSource =
+            entityType == TWEntityKind.Thing || entityType == TWEntityKind.ThingTemplate ? thingworxJson.thingShape : thingworxJson;
+        const propertyDefinitions: TWPropertyDefinition[] = Object.entries(definitionsSource.propertyDefinitions).map(([k, v]) => {
+            const result: TWPropertyDefinition = Object.assign({}, v as any);
+            // information about the remote and local bindings are stored on separate top level properties
+            // this brings them together into the same object
+            result.remoteBinding = thingworxJson.remotePropertyBindings[k];
+            result.localBinding = thingworxJson.propertyBindings[k];
+            return result;
+        });
+
+        const serviceDefinitions: TWServiceDefinition[] = Object.entries(definitionsSource.serviceDefinitions).map(([k, v]) => {
+            const result: TWServiceDefinition = Object.assign({}, v as any);
+            // the actual service code (implementation) is stored in the serviceImplementation object
+            if (definitionsSource.serviceImplementations[k]) {
+                const handlerName = definitionsSource.serviceImplementations[k].handlerName;
+                if (handlerName != 'Script') {
+                    throw `Service implementation for service "${k}" has the handler set to "${handlerName}". This is not supported.`;
+                }
+                result.code = definitionsSource.serviceImplementations[k].configurationTables.Script.rows[0].code;
+            }
+            result.remoteBinding = thingworxJson.remoteServiceBindings[k];
+            return result;
+        });
+
+        const subscriptionDefinitions: TWSubscriptionDefinition[] = Object.entries(definitionsSource.subscriptions).map(([k, v]) => {
+            const result: TWSubscriptionDefinition = Object.assign({}, v as any);
+            result.code = (v as any).serviceImplementation.configurationTables.Script.rows[0].code;
+            return result;
+        });
+
+        const eventDefinitions: TWEventDefinition[] = Object.entries(definitionsSource.eventDefinitions).map(([k, v]) => {
+            const result: TWEventDefinition = Object.assign({}, v as any);
+            result.remoteBinding = thingworxJson.remoteEventBindings[k];
+            return result;
+        });
+
+        const baseEntity: TWEntityDefinition = {
+            description: thingworxJson.description,
+            documentationContent: thingworxJson.documentationContent,
+            name: thingworxJson.name,
+            project: thingworxJson.projectName,
+            tags: thingworxJson.tags,
+            aspects: thingworxJson.aspects,
+            propertyDefinitions: propertyDefinitions,
+            serviceDefinitions: serviceDefinitions,
+            eventDefinitions: eventDefinitions,
+            subscriptionDefinitions: subscriptionDefinitions,
+            kind: entityType,
+        };
+
+        if (entityType == TWEntityKind.Thing) {
+            return Object.assign(
+                {
+                    enabled: thingworxJson.enabled === 'true' || thingworxJson.enabled === true,
+                    identifier: thingworxJson.identifier,
+                    published: thingworxJson.published,
+                    valueStream: thingworxJson.valueStream,
+                    thingTemplate: thingworxJson.thingTemplate,
+                    implementedShapes: Object.keys(thingworxJson.implementedShapes),
+                },
+                baseEntity,
+            ) as TWThing;
+        } else if (entityType == TWEntityKind.ThingTemplate) {
+            return Object.assign(
+                {
+                    valueStream: thingworxJson.valueStream,
+                    thingTemplate: thingworxJson.baseThingTemplate,
+                    implementedShapes: Object.keys(thingworxJson.implementedShapes),
+                },
+                baseEntity,
+            ) as TWThingTemplate;
+        } else {
+            return baseEntity;
+        }
+    }
+
+    /**
+     * Transforms an entity definition into a typescript class declaration
+     * This function expects a valid thingworx definition
+     * @param entity Entity to transform
+     * @returns the AST of the ClassDeclaration
+     */
+    public transformThingworxEntity(entity: TWEntityDefinition): ts.ClassDeclaration {
+        const decorators: ts.Decorator[] = [];
+        const modifiers: ts.Modifier[] = [];
+        const heritage: ts.HeritageClause[] = [];
+        const members: ts.ClassElement[] = [];
+        decorators.push(
+            ts.factory.createDecorator(
+                ts.factory.createCallExpression(ts.factory.createIdentifier('exportName'), undefined, [
+                    ts.factory.createStringLiteral(entity.name),
+                ]),
+            ),
+        );
+        if (entity.aspects?.isEditableExtensionObject) {
+            decorators.push(ts.factory.createDecorator(ts.factory.createIdentifier('editable')));
+        }
+
+        if (entity.kind == TWEntityKind.ThingTemplate || entity.kind == TWEntityKind.Thing) {
+            const template = entity as TWThingTemplate;
+            if (template.valueStream) {
+                decorators.push(
+                    ts.factory.createDecorator(
+                        ts.factory.createCallExpression(ts.factory.createIdentifier('valueStream'), undefined, [
+                            ts.factory.createStringLiteral(template.valueStream),
+                        ]),
+                    ),
+                );
+            }
+            if (template.implementedShapes.length > 0) {
+                heritage.push(
+                    ts.factory.createHeritageClause(ts.SyntaxKind.ExtendsKeyword, [
+                        ts.factory.createExpressionWithTypeArguments(
+                            ts.factory.createCallExpression(ts.factory.createIdentifier('ThingTemplateWithShapes'), undefined, [
+                                ts.factory.createIdentifier(template.thingTemplate),
+                                ...template.implementedShapes.map((s) => this.createIdentifierFromEntityName(s)),
+                            ]),
+                            undefined,
+                        ),
+                    ]),
+                );
+            } else {
+                heritage.push(
+                    ts.factory.createHeritageClause(ts.SyntaxKind.ExtendsKeyword, [
+                        ts.factory.createExpressionWithTypeArguments(ts.factory.createIdentifier(template.thingTemplate), undefined),
+                    ]),
+                );
+            }
+        }
+        if (entity.kind == TWEntityKind.ThingTemplate) {
+            decorators.push(ts.factory.createDecorator(ts.factory.createIdentifier('ThingTemplateDefinition')));
+        } else if (entity.kind == TWEntityKind.Thing) {
+            const thing = entity as TWThing;
+            decorators.push(ts.factory.createDecorator(ts.factory.createIdentifier('ThingDefinition')));
+
+            if (thing.published) {
+                decorators.push(ts.factory.createDecorator(ts.factory.createIdentifier('published')));
+            }
+            if (thing.identifier) {
+                decorators.push(
+                    ts.factory.createDecorator(
+                        ts.factory.createCallExpression(ts.factory.createIdentifier('identifier'), undefined, [
+                            ts.factory.createNumericLiteral(thing.identifier),
+                        ]),
+                    ),
+                );
+            }
+        } else if (entity.kind == TWEntityKind.ThingShape) {
+            heritage.push(
+                ts.factory.createHeritageClause(ts.SyntaxKind.ExtendsKeyword, [
+                    ts.factory.createExpressionWithTypeArguments(ts.factory.createIdentifier('ThingShapeBase'), undefined),
+                ]),
+            );
+        }
+
+        // handle property, service, events and subscriptions
+        members.push(...entity.propertyDefinitions.map((p) => this.parsePropertyDefinition(p)));
+        members.push(...entity.serviceDefinitions.map((s) => this.parseServiceDefinition(s)));
+        members.push(...entity.eventDefinitions.map((e) => this.parseEventDefinition(e)));
+        members.push(...entity.subscriptionDefinitions.map((s) => this.parseSubscriptionDefinition(s)));
+
+        const classDeclaration = ts.factory.createClassDeclaration(
+            decorators,
+            modifiers,
+            this.createIdentifierFromEntityName(entity.name),
+            undefined,
+            heritage,
+            members,
+        );
+        // only add jsdoc on the property, if description exists
+        if (entity.description) {
+            return ts.addSyntheticLeadingComment(
+                classDeclaration,
+                ts.SyntaxKind.MultiLineCommentTrivia,
+                this.commentize(entity.description),
+                true,
+            );
+        } else {
+            return classDeclaration;
+        }
+    }
+
     /**
      * Transforms a Thingworx property definition entity into a typescript class property definition.
      *
@@ -471,4 +685,15 @@ export class JsonThingToTsTransformer {
         }
         throw `Cannot convert to literal the type with value '${value}'`;
     };
+
+    /**
+     * Creates a valid typescript identifier based on a name
+     * @param name Name of the thingworx entity
+     * @returns a typescript identifier
+     */
+    private createIdentifierFromEntityName(name: string): ts.Identifier {
+        const DISALLOWED_ENTITY_CHARS = /^[^a-zA-Z_]+|[^a-zA-Z_0-9]+/g;
+        const validName = name.replace(DISALLOWED_ENTITY_CHARS, this.options.entityNameSeparator);
+        return ts.factory.createIdentifier(validName);
+    }
 }

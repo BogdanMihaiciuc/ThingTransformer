@@ -349,6 +349,7 @@ export interface TWEntityDefinition {
     eventDefinitions: TWEventDefinition[];
     subscriptionDefinitions: TWSubscriptionDefinition[];
     aspects?: TWEntityDefinitionAspects;
+    kind: TWEntityKind;
 }
 
 export interface TWEntityDefinitionAspects {

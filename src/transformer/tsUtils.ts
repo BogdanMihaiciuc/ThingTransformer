@@ -10,6 +10,8 @@ import {
     NewLineKind,
 } from 'typescript';
 
+import { format } from 'prettier';
+
 export function equals(first: string | TokenInfo[], second: string | TokenInfo[]): boolean {
     const firstTokens = typeof first == 'string' ? convertToTokens(first) : first;
     const secondTokens = typeof second == 'string' ? convertToTokens(second) : second;
@@ -66,12 +68,16 @@ function convertToTokens(text: string): TokenInfo[] {
     return result;
 }
 
-export function printNode(node: Node): string {
-    const resultFile = createSourceFile('someFileName.ts', '', ScriptTarget.Latest, /*setParentNodes*/ false, ScriptKind.TS);
+export function printNode(node: Node, withPrettier = false): string {
+    const resultFile = createSourceFile('someFileName.ts', '', ScriptTarget.Latest, /*setParentNodes*/ true, ScriptKind.TS);
     const printer = createPrinter({
         newLine: NewLineKind.LineFeed,
     });
     const result = printer.printNode(EmitHint.Unspecified, node, resultFile);
 
-    return result;
+    if (withPrettier) {
+        return format(result, { parser: 'typescript', semi: true, trailingComma: 'all', singleQuote: true, printWidth: 140, tabWidth: 4 });
+    } else {
+        return result;
+    }
 }
