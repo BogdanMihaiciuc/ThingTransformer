@@ -19,6 +19,9 @@ export interface TWFieldAspects<T> {
     thingTemplate?: string;
     dataShape?: string;
     defaultValue?: T;
+    minimumValue?: number;
+    maximumValue?: number;
+    units?: string;
 }
 
 export interface TWDataShapeField<T = any> extends TWFieldBase<T> {
@@ -49,9 +52,6 @@ export interface TWPropertyAspects<T> extends TWFieldAspects<T> {
     // -1 = fetched from remote every read
     // >0 = cached for x seconds
     cacheTime?: number;
-    minimumValue?: number;
-    maximumValue?: number;
-    units?: string;
 }
 
 export const enum TWPropertyDataChangeKind {
@@ -360,6 +360,9 @@ export interface TWThingTemplate extends TWEntityDefinition {
     valueStream: string;
     implementedShapes: string[];
     thingTemplate: string;
+}
+export interface TWDataShape extends TWEntityDefinition {
+    fieldDefinitions: TWDataShapeField[];
 }
 
 export interface TWThing extends TWThingTemplate {

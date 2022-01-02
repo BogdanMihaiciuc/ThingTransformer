@@ -11,6 +11,9 @@ import {
     TWEntityDefinition,
     TWEntityKind,
     TWThingTemplate,
+    TWDataShape,
+    TWFieldBase,
+    TWDataShapeField,
 } from './TWCoreTypes';
 
 export interface TransformerOptions {
@@ -43,7 +46,7 @@ export class JsonThingToTsTransformer {
     public convertThingworxEntity(thingworxJson: any, entityType: TWEntityKind): TWEntityDefinition {
         const definitionsSource =
             entityType == TWEntityKind.Thing || entityType == TWEntityKind.ThingTemplate ? thingworxJson.thingShape : thingworxJson;
-        const propertyDefinitions: TWPropertyDefinition[] = Object.entries(definitionsSource.propertyDefinitions).map(([k, v]) => {
+        const propertyDefinitions: TWPropertyDefinition[] = Object.entries(definitionsSource.propertyDefinitions || {}).map(([k, v]) => {
             const result: TWPropertyDefinition = Object.assign({}, v as any);
             // information about the remote and local bindings are stored on separate top level properties
             // this brings them together into the same object
@@ -52,7 +55,7 @@ export class JsonThingToTsTransformer {
             return result;
         });
 
-        const serviceDefinitions: TWServiceDefinition[] = Object.entries(definitionsSource.serviceDefinitions).map(([k, v]) => {
+        const serviceDefinitions: TWServiceDefinition[] = Object.entries(definitionsSource.serviceDefinitions || {}).map(([k, v]) => {
             const result: TWServiceDefinition = Object.assign({}, v as any);
             // the actual service code (implementation) is stored in the serviceImplementation object
             if (definitionsSource.serviceImplementations[k]) {
@@ -66,13 +69,13 @@ export class JsonThingToTsTransformer {
             return result;
         });
 
-        const subscriptionDefinitions: TWSubscriptionDefinition[] = Object.entries(definitionsSource.subscriptions).map(([k, v]) => {
+        const subscriptionDefinitions: TWSubscriptionDefinition[] = Object.entries(definitionsSource.subscriptions || {}).map(([k, v]) => {
             const result: TWSubscriptionDefinition = Object.assign({}, v as any);
             result.code = (v as any).serviceImplementation.configurationTables.Script.rows[0].code;
             return result;
         });
 
-        const eventDefinitions: TWEventDefinition[] = Object.entries(definitionsSource.eventDefinitions).map(([k, v]) => {
+        const eventDefinitions: TWEventDefinition[] = Object.entries(definitionsSource.eventDefinitions || {}).map(([k, v]) => {
             const result: TWEventDefinition = Object.assign({}, v as any);
             result.remoteBinding = thingworxJson.remoteEventBindings[k];
             return result;
@@ -113,6 +116,13 @@ export class JsonThingToTsTransformer {
                 },
                 baseEntity,
             ) as TWThingTemplate;
+        } else if (entityType == TWEntityKind.DataShape) {
+            return Object.assign(
+                {
+                    fieldDefinitions: Object.entries(thingworxJson.fieldDefinitions).map(([k, v]) => v as any),
+                },
+                baseEntity,
+            ) as TWDataShape;
         } else {
             return baseEntity;
         }
@@ -196,6 +206,14 @@ export class JsonThingToTsTransformer {
                     ts.factory.createExpressionWithTypeArguments(ts.factory.createIdentifier('ThingShapeBase'), undefined),
                 ]),
             );
+        } else if (entity.kind == TWEntityKind.DataShape) {
+            const dataShape = entity as TWDataShape;
+            members.push(...dataShape.fieldDefinitions.map((f) => this.parseDataShapeFieldDefinition(f)));
+            heritage.push(
+                ts.factory.createHeritageClause(ts.SyntaxKind.ExtendsKeyword, [
+                    ts.factory.createExpressionWithTypeArguments(ts.factory.createIdentifier('DataShapeBase'), undefined),
+                ]),
+            );
         }
 
         // handle property, service, events and subscriptions
@@ -228,10 +246,11 @@ export class JsonThingToTsTransformer {
     /**
      * Transforms a Thingworx property definition entity into a typescript class property definition.
      *
-     * @param propertyDefinition Parameter definition on the native Thingworx format
-     * @returns Typescript definition of the parameter
+     * @param propertyDefinition Property definition on the native Thingworx format
+     * @returns Typescript definition of the Property
      */
     public parsePropertyDefinition(propertyDefinition: TWPropertyDefinition, currentValue?: any): ts.PropertyDeclaration {
+        const data = this.parseFieldDefinition(propertyDefinition);
         const decorators: ts.Decorator[] = [];
         const modifiers: ts.Modifier[] = [];
         // handle the `isPersistent` aspect that maps directly into an decorator
@@ -241,36 +260,6 @@ export class JsonThingToTsTransformer {
         // handle the `isLogged` aspect that maps directly into an decorator
         if (propertyDefinition.aspects.isLogged) {
             decorators.push(ts.factory.createDecorator(ts.factory.createIdentifier('logged')));
-        }
-        // handle the `minimumValue` aspect that maps directly into an decorator with a single param
-        if (propertyDefinition.aspects.minimumValue) {
-            decorators.push(
-                ts.factory.createDecorator(
-                    ts.factory.createCallExpression(ts.factory.createIdentifier('minimumValue'), undefined, [
-                        ts.factory.createNumericLiteral(propertyDefinition.aspects.minimumValue),
-                    ]),
-                ),
-            );
-        }
-        // handle the `maximumValue` aspect that maps directly into an decorator with a single param
-        if (propertyDefinition.aspects.maximumValue) {
-            decorators.push(
-                ts.factory.createDecorator(
-                    ts.factory.createCallExpression(ts.factory.createIdentifier('maximumValue'), undefined, [
-                        ts.factory.createNumericLiteral(propertyDefinition.aspects.maximumValue),
-                    ]),
-                ),
-            );
-        }
-        // handle the `units` aspect that maps directly into an decorator with a single param
-        if (propertyDefinition.aspects.units) {
-            decorators.push(
-                ts.factory.createDecorator(
-                    ts.factory.createCallExpression(ts.factory.createIdentifier('unit'), undefined, [
-                        ts.factory.createStringLiteral(propertyDefinition.aspects.units),
-                    ]),
-                ),
-            );
         }
         // handle the `dataChangeType` aspect that maps directly into an decorator with two parameters
         if (propertyDefinition.aspects.dataChangeType) {
@@ -318,27 +307,103 @@ export class JsonThingToTsTransformer {
             );
             decorators.push(remoteDecorator);
         }
-        // todo: should default value be used as an aspect or as an property initializer
         if (propertyDefinition.aspects.isReadOnly) {
             modifiers.push(ts.factory.createModifier(ts.SyntaxKind.ReadonlyKeyword));
         }
         const initializerValue = currentValue || propertyDefinition.aspects.defaultValue;
 
         // todo: handle permissions
+        return ts.factory.updatePropertyDeclaration(
+            data,
+            (data.decorators || ([] as ts.Decorator[])).concat(decorators),
+            (data.modifiers || ([] as ts.Modifier[])).concat(modifiers),
+            data.name,
+            initializerValue ? undefined : ts.factory.createToken(ts.SyntaxKind.ExclamationToken),
+            data.type,
+            initializerValue && this.createNodeLiteral(initializerValue),
+        );
+    }
+
+    /**
+     * Transforms a Thingworx datashape field definition entity into a typescript class property definition.
+     *
+     * @param propertyDefinition Parameter definition on the native Thingworx format
+     * @returns Typescript definition of the parameter
+     */
+    public parseDataShapeFieldDefinition(propertyDefinition: TWDataShapeField): ts.PropertyDeclaration {
+        const data = this.parseFieldDefinition(propertyDefinition);
+        const decorators: ts.Decorator[] = [];
+        // handle the `primaryKey` aspect that maps directly into an decorator
+        if (propertyDefinition.aspects.isPrimaryKey) {
+            decorators.push(ts.factory.createDecorator(ts.factory.createIdentifier('primaryKey')));
+        }
+        return ts.factory.updatePropertyDeclaration(
+            data,
+            (data.decorators || ([] as ts.Decorator[])).concat(decorators),
+            data.modifiers,
+            data.name,
+            data.exclamationToken,
+            data.type,
+            data.initializer,
+        );
+    }
+
+    /**
+     * Transforms a Thingworx field base data into a typescript property declaration.
+     * This function contains the common code between thing properties and datashape fields
+     *
+     * @param fieldDefinition Field definition on the native Thingworx format
+     * @returns Typescript definition of the field
+     */
+    private parseFieldDefinition(fieldDefinition: TWFieldBase): ts.PropertyDeclaration {
+        const decorators: ts.Decorator[] = [];
+        const modifiers: ts.Modifier[] = [];
+        // handle the `minimumValue` aspect that maps directly into an decorator with a single param
+        if (fieldDefinition.aspects.minimumValue) {
+            decorators.push(
+                ts.factory.createDecorator(
+                    ts.factory.createCallExpression(ts.factory.createIdentifier('minimumValue'), undefined, [
+                        ts.factory.createNumericLiteral(fieldDefinition.aspects.minimumValue),
+                    ]),
+                ),
+            );
+        }
+        // handle the `maximumValue` aspect that maps directly into an decorator with a single param
+        if (fieldDefinition.aspects.maximumValue) {
+            decorators.push(
+                ts.factory.createDecorator(
+                    ts.factory.createCallExpression(ts.factory.createIdentifier('maximumValue'), undefined, [
+                        ts.factory.createNumericLiteral(fieldDefinition.aspects.maximumValue),
+                    ]),
+                ),
+            );
+        }
+        // handle the `units` aspect that maps directly into an decorator with a single param
+        if (fieldDefinition.aspects.units) {
+            decorators.push(
+                ts.factory.createDecorator(
+                    ts.factory.createCallExpression(ts.factory.createIdentifier('unit'), undefined, [
+                        ts.factory.createStringLiteral(fieldDefinition.aspects.units),
+                    ]),
+                ),
+            );
+        }
+        const initializerValue = fieldDefinition.aspects.defaultValue;
+
         const propertyDeclaration = ts.factory.createPropertyDeclaration(
             decorators,
             modifiers,
-            propertyDefinition.name,
+            fieldDefinition.name,
             initializerValue ? undefined : ts.factory.createToken(ts.SyntaxKind.ExclamationToken),
-            this.getTypeNodeFromBaseType(propertyDefinition.baseType, propertyDefinition.aspects),
+            this.getTypeNodeFromBaseType(fieldDefinition.baseType, fieldDefinition.aspects),
             initializerValue && this.createNodeLiteral(initializerValue),
         );
         // only add jsdoc on the property, if description exists
-        if (propertyDefinition.description) {
+        if (fieldDefinition.description) {
             return ts.addSyntheticLeadingComment(
                 propertyDeclaration,
                 ts.SyntaxKind.MultiLineCommentTrivia,
-                this.commentize(propertyDefinition.description),
+                this.commentize(fieldDefinition.description),
                 true,
             );
         } else {

@@ -1,0 +1,82 @@
+{
+    "owner": {
+        "name": "SuperUser",
+        "type": "User"
+    },
+    "visibilityPermissions": {
+        "Visibility": []
+    },
+    "lastModifiedDate": 1640364526564,
+    "effectiveFieldDefinitions": {
+        "next": {
+            "name": "next",
+            "aspects": {
+                "dataShape": "LinkedList"
+            },
+            "description": "The `@ordinal` decorator can be used to specify ordinal values for data shape fields.",
+            "baseType": "INFOTABLE",
+            "ordinal": 2
+        },
+        "name": {
+            "name": "name",
+            "aspects": {
+                "isPrimaryKey": true
+            },
+            "description": "Data shape fields are specified as properties. The `@primaryKey` decorator\ncan be used to mark fields as primary keys.",
+            "baseType": "STRING",
+            "ordinal": 1
+        }
+    },
+    "aspects": {
+        "isExtension": true
+    },
+    "designTimePermissions": {
+        "Read": [],
+        "Delete": [],
+        "Create": [],
+        "Metadata": [],
+        "Update": []
+    },
+    "description": "This is an example of a data shape. Data shapes are classes that must extend from `DataShapeBase`.",
+    "fieldDefinitions": {
+        "next": {
+            "name": "next",
+            "aspects": {
+                "dataShape": "LinkedList"
+            },
+            "description": "The `@ordinal` decorator can be used to specify ordinal values for data shape fields.",
+            "baseType": "INFOTABLE",
+            "ordinal": 4
+        },
+        "name": {
+            "name": "name",
+            "aspects": {
+                "isPrimaryKey": true
+            },
+            "description": "Data shape fields are specified as properties. The `@primaryKey` decorator\ncan be used to mark fields as primary keys.",
+            "baseType": "STRING",
+            "ordinal": 0
+        }
+    },
+    "homeMashup": "",
+    "avatar": "",
+    "baseDataShape": "",
+    "tags": [],
+    "runTimePermissions": {
+        "permissions": [
+            {
+                "EventSubscribe": [],
+                "PropertyWrite": [],
+                "PropertyRead": [],
+                "ServiceInvoke": [],
+                "resourceName": "*",
+                "EventInvoke": []
+            }
+        ]
+    },
+    "documentationContent": "",
+    "name": "LinkedList",
+    "configurationTableDefinitions": {},
+    "projectName": "ExampleProject",
+    "configurationTables": {}
+}

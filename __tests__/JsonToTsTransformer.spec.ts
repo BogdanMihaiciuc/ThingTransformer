@@ -123,7 +123,7 @@ describe('Verify property definition generation', () => {
             baseType: 'NUMBER',
             ordinal: 0,
         });
-        expect(printNode(result)).toBe('@persistent\n@logged\n@minimumValue(1)\n@maximumValue(2)\n@unit("km")\nreadonly mileage!: NUMBER;');
+        expect(printNode(result)).toBe('@minimumValue(1)\n@maximumValue(2)\n@unit("km")\n@persistent\n@logged\nreadonly mileage!: NUMBER;');
     });
 
     test('Check property data change type', async () => {
@@ -702,6 +702,8 @@ describe('Full thing transformations', () => {
             entityKind = TWEntityKind.ThingShape;
         } else if (parentFolder.base == TWEntityKind.ThingTemplate) {
             entityKind = TWEntityKind.ThingTemplate;
+        } else if (parentFolder.base == TWEntityKind.DataShape) {
+            entityKind = TWEntityKind.DataShape;
         }
         if (!entityKind) {
             throw `Unrecognized entity type folder with testcases called ${parentFolder.base}`;
@@ -710,7 +712,7 @@ describe('Full thing transformations', () => {
             const inputFile = JSON.parse(readFileSync(f, 'utf-8'));
             const transformedFile = transformer.convertThingworxEntity(inputFile, entityKind!);
             const typescriptClass = transformer.transformThingworxEntity(transformedFile);
-            console.log(printNode(typescriptClass, true));
+            if (entityKind == TWEntityKind.DataShape) console.log(printNode(typescriptClass, true));
             expect(printNode(typescriptClass, true)).toBe(readFileSync(path.join(parsedPath.dir, parsedPath.name + '.ts')).toString());
         });
     });
