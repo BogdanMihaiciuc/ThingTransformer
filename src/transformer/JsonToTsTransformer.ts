@@ -16,6 +16,7 @@ import {
     TWDataShapeField,
     TWConfigurationTableDefinition,
     TWConfigurationTableValue,
+    TWVisibility,
 } from './TWCoreTypes';
 
 export interface TransformerOptions {
@@ -113,6 +114,7 @@ export class JsonThingToTsTransformer {
             configurationTableDefinitions: configurationTableDefinitions,
             configurationTables: configurationTables,
             kind: entityType,
+            visibilityPermissions: thingworxJson.visibilityPermissions.Visibility,
         };
 
         if (entityType == TWEntityKind.Thing) {
@@ -133,6 +135,7 @@ export class JsonThingToTsTransformer {
                     valueStream: thingworxJson.valueStream,
                     thingTemplate: thingworxJson.baseThingTemplate,
                     implementedShapes: Object.keys(thingworxJson.implementedShapes),
+                    instanceVisibilityPermissions: thingworxJson.instanceVisibilityPermissions.Visibility,
                 },
                 baseEntity,
             ) as TWThingTemplate;
@@ -171,6 +174,7 @@ export class JsonThingToTsTransformer {
             decorators.push(ts.factory.createDecorator(ts.factory.createIdentifier('editable')));
         }
 
+        // ThingTemplates and things have a couple of things in common, like value streams
         if (entity.kind == TWEntityKind.ThingTemplate || entity.kind == TWEntityKind.Thing) {
             const template = entity as TWThingTemplate;
             if (template.valueStream) {
@@ -202,8 +206,13 @@ export class JsonThingToTsTransformer {
                 );
             }
         }
+        // if it's a template, make sure that the decorator marking it's type is correctly set, as well as the instance visibility
         if (entity.kind == TWEntityKind.ThingTemplate) {
+            const thingTemplate = entity as TWThingTemplate;
             decorators.push(ts.factory.createDecorator(ts.factory.createIdentifier('ThingTemplateDefinition')));
+            if (thingTemplate.instanceVisibilityPermissions.length > 0) {
+                decorators.push(this.convertVisibilityToDecorator(thingTemplate.instanceVisibilityPermissions, 'visibleInstance'));
+            }
         } else if (entity.kind == TWEntityKind.Thing) {
             const thing = entity as TWThing;
             decorators.push(ts.factory.createDecorator(ts.factory.createIdentifier('ThingDefinition')));
@@ -234,6 +243,9 @@ export class JsonThingToTsTransformer {
                     ts.factory.createExpressionWithTypeArguments(ts.factory.createIdentifier('DataShapeBase'), undefined),
                 ]),
             );
+        }
+        if (entity.visibilityPermissions.length > 0) {
+            decorators.push(this.convertVisibilityToDecorator(entity.visibilityPermissions, 'visible'));
         }
         if (entity.configurationTableDefinitions.length > 0) {
             decorators.push(this.createConfigurationTableDefinition(entity.configurationTableDefinitions));
@@ -606,7 +618,6 @@ export class JsonThingToTsTransformer {
 
         if (!subscriptionDefinition.enabled) {
             throw 'Cannot handle disabled subscription definitions';
-            ``;
         }
 
         // if a source is specified, this means that this is a subscription for an event on another thing. If not, it's a local subscription
@@ -789,6 +800,36 @@ export class JsonThingToTsTransformer {
             throw 'Data cannot be parsed as a typescript ObjectLiteralExpression';
         }
         return cloneNode(sourceFile.statements[0].getChildAt(0)) as ts.ObjectLiteralExpression;
+    }
+
+    /**
+     * Converts a list of visibilities of a Thingworx entities into a decorator
+     *
+     * @param visibilities Visibility list to generate
+     * @returns A decorator for the visibility declaration
+     */
+    private convertVisibilityToDecorator(visibilities: TWVisibility[], decoratorName: string): ts.Decorator {
+        const visibilityArguments = visibilities.map((v) => {
+            if (v.type == 'Organization') {
+                return ts.factory.createPropertyAccessExpression(
+                    ts.factory.createIdentifier('Organizations'),
+                    ts.factory.createIdentifier(v.name),
+                );
+            } else if (v.type == 'OrganizationalUnit') {
+                return ts.factory.createCallExpression(ts.factory.createIdentifier('Unit'), undefined, [
+                    ts.factory.createPropertyAccessExpression(
+                        ts.factory.createIdentifier('Organizations'),
+                        ts.factory.createIdentifier(v.name.split(':')[0]),
+                    ),
+                    ts.factory.createStringLiteral(v.name.split(':')[1]),
+                ]);
+            } else {
+                throw `Invalid visibility type '${v.type}'`;
+            }
+        });
+        return ts.factory.createDecorator(
+            ts.factory.createCallExpression(ts.factory.createIdentifier(decoratorName), undefined, visibilityArguments),
+        );
     }
 
     /**

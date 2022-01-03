@@ -352,6 +352,7 @@ export interface TWEntityDefinition {
     kind: TWEntityKind;
     configurationTableDefinitions: TWConfigurationTableDefinition[];
     configurationTables: TWConfigurationTableValue;
+    visibilityPermissions: TWVisibility[];
 }
 
 export type TWConfigurationTableValue = Record<string, unknown[] | unknown>;
@@ -364,6 +365,7 @@ export interface TWThingTemplate extends TWEntityDefinition {
     valueStream: string;
     implementedShapes: string[];
     thingTemplate: string;
+    instanceVisibilityPermissions: TWVisibility[];
 }
 export interface TWDataShape extends TWEntityDefinition {
     fieldDefinitions: TWDataShapeField[];
@@ -406,7 +408,7 @@ export interface TWExtractedPermissionLists {
 
 export interface TWMemberBase {
     name: string;
-    type: string;
+    type: 'Organization' | 'OrganizationalUnit';
 }
 
 export interface TWVisibility extends TWMemberBase {

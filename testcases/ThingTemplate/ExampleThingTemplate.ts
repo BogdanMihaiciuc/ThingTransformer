@@ -15,6 +15,8 @@
  */
 @exportName('ExampleThingTemplate')
 @ThingTemplateDefinition
+@visibleInstance(Unit(Organizations.MyOrganization, 'MyUnit2'))
+@visible(Organizations.Development, Unit(Organizations.MyOrganization, 'MyUnit'))
 @ConfigurationTables(
     class {
         Fields: MultiRowTable<FieldDefinition>;
