@@ -17,6 +17,10 @@ import {
     TWConfigurationTableDefinition,
     TWConfigurationTableValue,
     TWVisibility,
+    TWRuntimePermissionsList,
+    TWRuntimePermissionDeclaration,
+    TWPrincipal,
+    TWThingShape,
 } from './TWCoreTypes';
 
 export interface TransformerOptions {
@@ -74,6 +78,7 @@ export class JsonThingToTsTransformer {
 
         const subscriptionDefinitions: TWSubscriptionDefinition[] = Object.entries(definitionsSource.subscriptions || {}).map(([k, v]) => {
             const result: TWSubscriptionDefinition = Object.assign({}, v as any);
+            // subscription code is actually stored under the service implementation
             result.code = (v as any).serviceImplementation.configurationTables.Script.rows[0].code;
             return result;
         });
@@ -88,6 +93,7 @@ export class JsonThingToTsTransformer {
             thingworxJson.configurationTableDefinitions || {},
         ).map(([k, v]) => v as TWConfigurationTableDefinition);
 
+        // reduce the value of the configuration table by removing the infotable datashape information, and keeping only the rows
         const configurationTables: TWConfigurationTableValue = Object.entries(thingworxJson.configurationTables || {}).reduce(
             (obj, [k, v]) => {
                 const table = v as any;
@@ -97,6 +103,11 @@ export class JsonThingToTsTransformer {
                     return { ...obj, [k]: table.rows[0] };
                 }
             },
+            {},
+        );
+        // runtimePermissions need to be indexed by the resource name
+        const runtimePermissions: TWRuntimePermissionsList = thingworxJson.runTimePermissions.permissions.reduce(
+            (obj, p) => ({ ...obj, [p.resourceName]: p }),
             {},
         );
 
@@ -115,6 +126,7 @@ export class JsonThingToTsTransformer {
             configurationTables: configurationTables,
             kind: entityType,
             visibilityPermissions: thingworxJson.visibilityPermissions.Visibility,
+            runtimePermissions: runtimePermissions,
         };
 
         if (entityType == TWEntityKind.Thing) {
@@ -136,9 +148,23 @@ export class JsonThingToTsTransformer {
                     thingTemplate: thingworxJson.baseThingTemplate,
                     implementedShapes: Object.keys(thingworxJson.implementedShapes),
                     instanceVisibilityPermissions: thingworxJson.instanceVisibilityPermissions.Visibility,
+                    instanceRuntimePermissions: thingworxJson.instanceRunTimePermissions.permissions.reduce(
+                        (obj, p) => ({ ...obj, [p.resourceName]: p }),
+                        {},
+                    ),
                 },
                 baseEntity,
             ) as TWThingTemplate;
+        } else if (entityType == TWEntityKind.ThingShape) {
+            return Object.assign(
+                {
+                    instanceRuntimePermissions: thingworxJson.instanceRunTimePermissions.permissions.reduce(
+                        (obj, p) => ({ ...obj, [p.resourceName]: p }),
+                        {},
+                    ),
+                },
+                baseEntity,
+            );
         } else if (entityType == TWEntityKind.DataShape) {
             return Object.assign(
                 {
@@ -162,6 +188,8 @@ export class JsonThingToTsTransformer {
         const modifiers: ts.Modifier[] = [];
         const heritage: ts.HeritageClause[] = [];
         const members: ts.ClassElement[] = [];
+        // collect the names of properties and services that are defined directly on this entity
+        const locallyDefinedNames = entity.propertyDefinitions.map((p) => p.name).concat(entity.serviceDefinitions.map((s) => s.name));
         // set the exportName as the current entity name
         decorators.push(
             ts.factory.createDecorator(
@@ -206,6 +234,22 @@ export class JsonThingToTsTransformer {
                 );
             }
         }
+        // thingShapes and thingTemplates have runtime permissions in common
+        if (entity.kind == TWEntityKind.ThingShape || entity.kind == TWEntityKind.ThingTemplate) {
+            const entityWithInstancePermissions = entity as TWThingShape;
+            // instance permissions should always apply to services and properties that are defined directly on the entity
+            // otherwise, they'll be directly on the service or property declarations
+            Object.entries(entityWithInstancePermissions.instanceRuntimePermissions)
+                .filter(([k]) => !locallyDefinedNames.includes(k))
+                .forEach(([k, p]) => {
+                    decorators.push(...this.convertRuntimePermissionToDecorator(k, p, true, true));
+                });
+            debugger;
+            // all runtime permissions get set directly on the class
+            Object.entries(entityWithInstancePermissions.runtimePermissions).forEach(([k, p]) => {
+                decorators.push(...this.convertRuntimePermissionToDecorator(k, p, true, false));
+            });
+        }
         // if it's a template, make sure that the decorator marking it's type is correctly set, as well as the instance visibility
         if (entity.kind == TWEntityKind.ThingTemplate) {
             const thingTemplate = entity as TWThingTemplate;
@@ -229,6 +273,13 @@ export class JsonThingToTsTransformer {
                     ),
                 );
             }
+            // runtime permissions should always apply to services and properties that are defined directly on the entity
+            // otherwise, they'll be directly on the service or property declarations
+            Object.entries(thing.runtimePermissions)
+                .filter(([k]) => !locallyDefinedNames.includes(k))
+                .forEach(([k, p]) => {
+                    decorators.push(...this.convertRuntimePermissionToDecorator(k, p, true));
+                });
         } else if (entity.kind == TWEntityKind.ThingShape) {
             heritage.push(
                 ts.factory.createHeritageClause(ts.SyntaxKind.ExtendsKeyword, [
@@ -252,6 +303,12 @@ export class JsonThingToTsTransformer {
         }
         if (Object.keys(entity.configurationTables).length > 0) {
             decorators.push(this.createConfigurationTables(entity.configurationTables));
+        }
+        if (![TWEntityKind.Thing, TWEntityKind.ThingShape, TWEntityKind.ThingTemplate].includes(entity.kind)) {
+            // all runtime permissions get set directly on the class on all entities that are not Things, TS or TT
+            Object.entries(entity.runtimePermissions).forEach(([k, p]) => {
+                decorators.push(...this.convertRuntimePermissionToDecorator(k, p, true));
+            });
         }
 
         // handle property, service, events and subscriptions
@@ -830,6 +887,98 @@ export class JsonThingToTsTransformer {
         return ts.factory.createDecorator(
             ts.factory.createCallExpression(ts.factory.createIdentifier(decoratorName), undefined, visibilityArguments),
         );
+    }
+
+    /**
+     * Converts a runtime permission into a typescript decorator.
+     *
+     * @param resourceName Name of the resource this permission applies to
+     * @param permissions Permissions to apply to this resource
+     * @param isTopLevel Whether this permission applies to the class level, or on a class member
+     * @param instancePermission If this permission applies to an instance of this thingShape/thingTemplate or applies to the entity itself
+     * @returns A decorator for the visibility declaration
+     */
+    private convertRuntimePermissionToDecorator(
+        resourceName: string,
+        permissions: TWRuntimePermissionDeclaration,
+        isTopLevel = false,
+        instancePermission = false,
+    ): ts.Decorator[] {
+        debugger;
+        if (resourceName == '*' && !isTopLevel) {
+            throw `Runtime permissions with resourceName set to '*' can only be applied on the top level class`;
+        }
+        // list of all of the runtime permissions permitted in thingworx. This map directly to keys of the Permission enum
+        const PERMISSION_TYPES = ['PropertyRead', 'PropertyWrite', 'ServiceInvoke', 'EventInvoke', 'EventSubscribe'];
+
+        const allowArguments: ts.Expression[] = [];
+        const denyArguments: ts.Expression[] = [];
+        const convertPrincipalToReference = (p: TWPrincipal): ts.PropertyAccessExpression =>
+            ts.factory.createPropertyAccessExpression(
+                // the only valid values here are 'User' and 'Group', so this just makes them plural
+                ts.factory.createIdentifier(p.type + 's'),
+                ts.factory.createIdentifier(p.name),
+            );
+        for (const permissionType of PERMISSION_TYPES) {
+            if (permissions[permissionType].length > 0) {
+                const allowPermissions = permissions[permissionType].filter((p) => p.isPermitted);
+                const denyPermissions = permissions[permissionType].filter((p) => !p.isPermitted);
+                allowArguments.push(...allowPermissions.map(convertPrincipalToReference));
+                denyArguments.push(...denyPermissions.map(convertPrincipalToReference));
+                // if any allow permissions were detected, then add the permission type to this argument list
+                if (allowPermissions.length > 0) {
+                    // add at the start, to group nicely together all the permissions.
+                    allowArguments.unshift(
+                        ts.factory.createPropertyAccessExpression(
+                            ts.factory.createIdentifier('Permission'),
+                            ts.factory.createIdentifier(permissionType),
+                        ),
+                    );
+                }
+                // if any deny permissions were detected, then add the permission type to this argument list
+                if (denyPermissions.length > 0) {
+                    denyArguments.unshift(
+                        ts.factory.createPropertyAccessExpression(
+                            ts.factory.createIdentifier('Permission'),
+                            ts.factory.createIdentifier(permissionType),
+                        ),
+                    );
+                }
+            }
+        }
+
+        // only include the resource name as the first argument if a value is actually provided (it's not '*')
+        if (resourceName != '*') {
+            allowArguments.unshift(ts.factory.createStringLiteral(resourceName));
+            denyArguments.unshift(ts.factory.createStringLiteral(resourceName));
+        }
+
+        const result: ts.Decorator[] = [];
+        // if at least two arguments are in the allow or deny arguments list (at minimum a permission and a principal), then create a decorator
+        if (allowArguments.length > 1) {
+            result.push(
+                ts.factory.createDecorator(
+                    ts.factory.createCallExpression(
+                        ts.factory.createIdentifier(instancePermission ? 'allowInstance' : 'allow'),
+                        undefined,
+                        allowArguments,
+                    ),
+                ),
+            );
+        }
+        if (denyArguments.length > 1) {
+            result.push(
+                ts.factory.createDecorator(
+                    ts.factory.createCallExpression(
+                        ts.factory.createIdentifier(instancePermission ? 'denyInstance' : 'deny'),
+                        undefined,
+                        denyArguments,
+                    ),
+                ),
+            );
+        }
+
+        return result;
     }
 
     /**
