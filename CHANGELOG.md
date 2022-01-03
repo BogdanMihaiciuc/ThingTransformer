@@ -1,3 +1,7 @@
+# 0.17.0-beta.1
+
+Added the ability to generate "debug" builds, to be used with the `BMDebugger` extension.
+
 # 0.16.0-beta.1
 
 Adds support for the `@unit` decorator.

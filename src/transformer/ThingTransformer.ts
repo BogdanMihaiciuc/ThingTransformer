@@ -32,6 +32,7 @@ import {
     TWInfoTable,
 } from './TWCoreTypes';
 import { Builder } from 'xml2js';
+import { Breakpoint } from './DebugTypes';
 import * as fs from 'fs';
 
 declare global {
@@ -68,6 +69,12 @@ const PermittedTypeNodeKinds = [...TypeScriptPrimitiveTypes, ts.SyntaxKind.TypeR
 const PermissionDecorators = ['allow', 'deny', 'allowInstance', 'denyInstance'];
 
 /**
+ * If set to `true`, the transformer will create a configuration table containing the debug information
+ * for each entity.
+ */
+const USE_DEBUG_CONFIGURATION_TABLE = false;
+
+/**
  * The thing transformer is applied to Thingworx source files to convert them into Thingworx XML entities.
  * It can also be used with global files to export symbols into the shared global scope.
  */
@@ -101,6 +108,11 @@ export class TWThingTransformer {
      * The filename.
      */
     filename?: string;
+
+    /**
+     * The source file being processed.
+     */
+    sourceFile?: ts.SourceFile;
 
     /**
      * The JSDoc description for this entity.
@@ -295,6 +307,26 @@ export class TWThingTransformer {
      * having been visited.
      */
     nodeReplacementMap: WeakMap<ts.Node, ts.Node> = new WeakMap();
+
+    /**
+     * A weak set of the methods that should be visited for adding debug information.
+     */
+    debugMethodNodes: WeakSet<ts.Node> = new WeakSet;
+
+    /**
+     * Set to `true` if this transformer should generate debugging information.
+     */
+    debug?: boolean;
+
+    /**
+     * An array of breakpoint locations that have been added in a debug build.
+     */
+    breakpoints: Breakpoint[] = [];
+
+    /**
+     * A map of existing breakpoint locations.
+     */
+    breakpointLocations: { [key: number]: { [key:number]: boolean } } = {};
 
     constructor(program: ts.Program, context: ts.TransformationContext, root: string, after: boolean, watch: boolean) {
         this.program = program;
@@ -576,6 +608,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
         } else {
             if (node.kind == ts.SyntaxKind.SourceFile) {
                 this.filename = (node as ts.SourceFile).fileName;
+                this.sourceFile = node as ts.SourceFile;
             }
 
             if (node.parent && node.parent.kind == ts.SyntaxKind.SourceFile) {
@@ -617,6 +650,13 @@ Failed parsing at: \n${node.getText()}\n\n`);
                     // If the node was already processed and marked for replacement, return its replacement
                     return this.nodeReplacementMap.get(node);
                 }
+
+                // Upon reaching a method declaration that has been marked for debugging
+                // start processing in reverse.
+                if (this.debugMethodNodes.has(node)) {
+                    return this.visitMethodNode(node);
+                }
+                
             }
         }
 
@@ -2187,6 +2227,9 @@ Failed parsing at: \n${node.getText()}\n\n`);
             }
         } else {
             service.code = node.body!.getText();
+            if (this.debug) {
+                this.debugMethodNodes.add(node);
+            }
         }
 
         // Services must always have a single destructured object argument
@@ -2336,8 +2379,17 @@ Failed parsing at: \n${node.getText()}\n\n`);
             }
 
             // Mark this node for replacement
-            this.nodeReplacementMap.set(originalNode.parameters[0], ts.factory.createObjectLiteralExpression());
-        } else {
+            this.nodeReplacementMap.set(originalNode.parameters[0], ts.factory.createParameterDeclaration(
+                undefined,
+                undefined,
+                undefined,
+                ts.factory.createObjectBindingPattern([]),
+                undefined,
+                undefined,
+                undefined
+            ));
+        }
+        else {
             service.parameterDefinitions = [];
         }
 
@@ -2515,8 +2567,208 @@ Failed parsing at: \n${node.getText()}\n\n`);
             this.throwErrorForNode(node, `The @deploy decorator cannot be used on subscriptions.`);
         }
 
+        if (this.debug) {
+            this.debugMethodNodes.add(node);
+        }
+
         this.subscriptions.push(subscription);
         return node;
+    }
+
+    visitMethodNode(node: ts.Node): ts.Node | undefined {
+        node = ts.visitEachChild(node, n => this.visitMethodNode(n), this.context);
+
+        // If the node has been marked for replacement, return its replacement directly
+        if (this.nodeReplacementMap.get(node)) {
+            return this.nodeReplacementMap.get(node)!;
+        }
+
+        switch (node.kind) {
+            case ts.SyntaxKind.AsyncKeyword:
+                return;
+            case ts.SyntaxKind.PropertyAssignment:
+                const n1 = node as ts.PropertyAssignment;
+                //return n1;
+                return ts.factory.createPropertyAssignment(n1.name, this.commaCheckpointExpression(n1.initializer));
+            case ts.SyntaxKind.VariableDeclaration:
+                const n2 = node as ts.VariableDeclaration;
+                if (n2.initializer) {
+                    return ts.factory.createVariableDeclaration(n2.name, n2.exclamationToken, n2.type, this.commaCheckpointExpression(n2.initializer));
+                }
+                break;
+            case ts.SyntaxKind.IfStatement:
+                const n4 = node as ts.IfStatement;
+                return ts.factory.createIfStatement(this.commaCheckpointExpression(n4.expression), n4.thenStatement, n4.elseStatement);
+            case ts.SyntaxKind.ExpressionStatement:
+                const n5 = node as ts.ExpressionStatement;
+                return ts.factory.createExpressionStatement(this.commaCheckpointExpression(n5.expression, n5));
+            case ts.SyntaxKind.WhileStatement:
+                const n6 = node as ts.WhileStatement;
+                return ts.factory.createWhileStatement(this.commaCheckpointExpression(n6.expression), n6.statement);
+            case ts.SyntaxKind.ForStatement:
+                const n7 = node as ts.ForStatement;
+                return ts.factory.createForStatement(
+                    n7.initializer,
+                    n7.condition ? this.commaCheckpointExpression(n7.condition) : n7.condition,
+                    n7.incrementor ? this.commaCheckpointExpression(n7.incrementor) : n7.incrementor,
+                    n7.statement
+                );
+            case ts.SyntaxKind.DoStatement:
+                const n8 = node as ts.DoStatement;
+                return ts.factory.createDoStatement(n8.statement, this.commaCheckpointExpression(n8.expression));
+            case ts.SyntaxKind.BinaryExpression:
+                const n9 = node as ts.BinaryExpression;
+                if (n9.operatorToken.kind == ts.SyntaxKind.EqualsToken) {
+                    return ts.factory.createBinaryExpression(n9.left, n9.operatorToken, this.commaCheckpointExpression(n9.right));
+                }
+                break;
+            case ts.SyntaxKind.ReturnStatement:
+                const n10 = node as ts.ReturnStatement;
+                return ts.factory.createReturnStatement(n10.expression ? this.commaCheckpointExpression(n10.expression) : this.commaCheckpointExpression(undefined, n10));
+            case ts.SyntaxKind.CallExpression:
+                const n11 = node as ts.CallExpression;
+                if (n11.parent) {
+                    switch (n11.parent.kind) {
+                        case ts.SyntaxKind.PropertyDeclaration:
+                        case ts.SyntaxKind.VariableDeclaration:
+                        case ts.SyntaxKind.ExpressionStatement:
+                            return n11;
+                        case ts.SyntaxKind.BinaryExpression:
+                            const parent = n11.parent as ts.BinaryExpression;
+                            if (parent.right == n11 && parent.operatorToken.kind == ts.SyntaxKind.EqualsToken) {
+                                return n11;
+                            }
+                    }
+                }
+                return this.commaCheckpointExpression(n11);
+            case ts.SyntaxKind.PropertyAccessExpression:
+                // Inline constant values where possible. In debug builds this will skip the regular visit method
+                // TODO: These should be combined into one
+                const constantValue = this.constantValueOfExpression(node as ts.PropertyAccessExpression);
+    
+                if (typeof constantValue == 'string') {
+                    return ts.factory.createStringLiteral(constantValue);
+                }
+                else if (typeof constantValue == 'number') {
+                    return ts.factory.createNumericLiteral(constantValue.toString());
+                }
+                break;
+            case ts.SyntaxKind.Identifier:
+                const n12 = node as ts.Identifier;
+                if (n12.text == '__d') {
+                    this.throwErrorForNode(node, `The "__d" identifier is reserved for the debugger in debug builds.`);
+                }
+        }
+
+        return node;
+    }
+
+    /**
+     * A counter that keeps track of each breakpoint location that was added.
+     */
+    private _debugBreakpointCounter = 0;
+
+    /**
+     * Returns an expression that represents a debug checkpoint.
+     * @param ID            A unique ID that identifies this expression.
+     * @returns             A typescript expression.
+     */
+    debugCheckpointExpression(ID: string): ts.Expression {
+        // Essentially returns __d.checkpoint(ID)
+        return ts.factory.createCallExpression(
+            ts.factory.createPropertyAccessExpression(ts.factory.createIdentifier('__d'), 'checkpoint'),
+            [], 
+            [ts.factory.createStringLiteral(ID, true)]
+        );
+    }
+
+    /**
+     * Creates a comma expression that adds a debug checkpoint to the given expression.
+     * Also stores information about the breakpoint location that was just added.
+     * @param expression        The expression to modify. If `undefined`, a new expression will be returned.
+     * @param targetNode        When `expression` is `undefined`, the node from which to get the position information.
+     * @returns                 A typescript expression.
+     */
+    commaCheckpointExpression(expression: ts.Expression | undefined, targetNode?: ts.Node): ts.Expression {
+        this.initDebugConfiguration();
+
+        this._debugBreakpointCounter++;
+
+        if (!expression && !targetNode) {
+            throw new Error('Unable to create a breakpoint location without a context');
+        }
+
+        let positionNode: ts.Node | undefined = expression;
+
+        if (!positionNode || positionNode.pos == -1 || positionNode.end == -1) {
+            // If the expression is a synthetic node, attempt to use the target node instead
+            if (targetNode) {
+                positionNode = targetNode;
+            }
+        }
+
+        // If the node is a synthetic node, try to position the breakpoint at the closest non-synthetic parent
+        while (positionNode) {
+            if (positionNode.pos == -1 || positionNode.end == -1) {
+                positionNode = positionNode.parent;
+            }
+            else {
+                break;
+            }
+        }
+
+        // Create an ID for this breakpoint location
+        const ID = this.filename + '-' + this._debugBreakpointCounter;
+
+        if (!positionNode) {
+            // If position information cannot be determined, don't add a breakpoint
+            if (expression) {
+                return expression;
+            }
+            else {
+                return ts.factory.createOmittedExpression();
+            }
+        }
+
+        // Store information about the breakpoint's location
+        const startPosition = positionNode.getStart(this.sourceFile, false);
+        const endPosition = positionNode.getEnd();
+
+        const start = ts.getLineAndCharacterOfPosition(this.sourceFile!, startPosition);
+        const end = ts.getLineAndCharacterOfPosition(this.sourceFile!, endPosition);
+
+        // NOTE: Lines and characters are 0-indexed by the compiler, but 1-indexed by the debugger
+        const breakpoint: Breakpoint = {
+            line: start.line + 1,
+            column: start.character + 1,
+            endLine: end.line + 1,
+            endColumn: end.character + 1,
+            locationID: ID
+        };
+
+        // If a breakpoint at this location already exists, don't add a new one
+        if (this.breakpointLocations[breakpoint.line]) {
+            if (this.breakpointLocations[breakpoint.line][breakpoint.column!]) {
+                if (expression) {
+                    return expression;
+                }
+                else {
+                    return ts.factory.createOmittedExpression();
+                }
+            }
+        }
+
+        this.breakpointLocations[breakpoint.line] = this.breakpointLocations[breakpoint.line] || {};
+        this.breakpointLocations[breakpoint.line][breakpoint.column!] = true;
+
+        this.breakpoints.push(breakpoint);
+
+        if (expression) {
+            return ts.factory.createCommaListExpression([this.debugCheckpointExpression(ID), expression]);
+        }
+        else {
+            return this.debugCheckpointExpression(ID);
+        }
     }
 
     /**
@@ -2660,13 +2912,46 @@ Failed parsing at: \n${node.getText()}\n\n`);
             for (const service of entity.services) {
                 if (service.name == name) {
                     //const body = ts.createPrinter().printNode(ts.EmitHint.Unspecified, node.body, (this as any).source);
-                    service.code = `var result = (function () {${this.transpiledBodyOfThingworxMethod(node)}})()`;
+                    service.code = this.transpiledBodyOfThingworxMethod(node);
+
+                    // In debug mode, additional code is added to activate and deactivate the debugger
+                    if (this.debug) {
+                        service.code = `
+const __d = BMDebuggerRuntime.localDebugger(); 
+const __dLogger = __d.getLogger();
+__d.retainForService({name: ${JSON.stringify(service.name)}, filename: ${JSON.stringify(entity.sourceFile?.fileName)}, scopeStack: []}); 
+try { 
+    var result = (function (logger) {${service.code}}).apply(me, [__dLogger]);
+} 
+finally { 
+    __d.release(); 
+}`;
+                    }
+                    else {
+                        service.code = `var result = (function () {${service.code}}).apply(me)`;
+                    }
                 }
             }
             for (const subscription of entity.subscriptions) {
                 if (subscription.name == name) {
-                    //const body = ts.createPrinter().printNode(ts.EmitHint.Unspecified, node.body, (this as any).source);
-                    subscription.code = this.transpiledBodyOfThingworxMethod(node);
+                    if (this.debug) {
+                        // In debug builds, an applied anonymous function is used because this is no longer transformed to me
+                        subscription.code = this.transpiledBodyOfThingworxMethod(node);
+                        subscription.code = `
+const __d = BMDebuggerRuntime.localDebugger(); 
+const __dLogger = __d.getLogger();
+__d.retainForService({name: ${JSON.stringify(subscription.name)}, filename: ${JSON.stringify(entity.sourceFile?.fileName)}, scopeStack: []}); 
+try { 
+    (function (logger) {${subscription.code}}).apply(me, [__dLogger]);
+} 
+finally { 
+    __d.release(); 
+}`;
+                    }
+                    else {
+                        //const body = ts.createPrinter().printNode(ts.EmitHint.Unspecified, node.body, (this as any).source);
+                        subscription.code = this.transpiledBodyOfThingworxMethod(node);
+                    }
                 }
             }
         }
@@ -2690,7 +2975,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
             const table: TWConfigurationTableDefinition = {
                 category: '',
                 description: '',
-                isHidden: false,
+                'isHidden': false,
                 name: member.name.text,
                 dataShapeName: '',
                 isMultiRow: false,
@@ -2733,6 +3018,42 @@ Failed parsing at: \n${node.getText()}\n\n`);
 
             this.configurationTableDefinitions.push(table);
         }
+    }
+
+    /**
+     * Set to `true` when the debug configuration table is created.
+     */
+    _debugConfigurationInitialized = false;
+
+    /**
+     * For debug builds with at least one breakpoint location, creates a configuration table
+     * that stores various debug information.
+     */
+    initDebugConfiguration() {
+        if (!USE_DEBUG_CONFIGURATION_TABLE) return;
+
+        if (this._debugConfigurationInitialized) return;
+        this._debugConfigurationInitialized = true;
+
+        // Add a configuration table for the breakpoint locations
+        this.configurationTableDefinitions.push({
+            isHidden: true,
+            dataShapeName: 'BMDebuggerBreakpointLocation',
+            isMultiRow: true,
+            category: 'debug',
+            description: 'Contains information about the available breakpoint locations in this entity\'s source file',
+            name: '_BMDebuggerBreakpointLocations'
+        });
+
+        // Add a configuration table for additional metadata
+        this.configurationTableDefinitions.push({
+            isHidden: true,
+            dataShapeName: 'BMDebugMetadata',
+            isMultiRow: false,
+            category: 'debug',
+            description: 'Contains information that is useful for debugging',
+            name: '_BMDebugMetadata'
+        })
     }
 
     /**
@@ -2865,6 +3186,89 @@ Failed parsing at: \n${node.getText()}\n\n`);
                 },
             ],
         };
+    }
+
+    /**
+     * Returns the XML entity representation of a thing that is used to initialize the project's
+     * debug information when the project is deployed.
+     * @param entityName    The name to use for the entity.
+     * @param transformers  The transformers from which to obtain debug information.
+     * @param projectName   The name of the project to add to the entity.
+     */
+    static projectDebugThingXML(entityName: string, transformers: TWThingTransformer[], projectName: string = ''): string {
+        // Filter the list to only include transformers with debug information
+        const debugTransformers = transformers.filter(t => t.filename && t.breakpoints.length);
+        const debugData: {[key: string]: Breakpoint[]} = {};
+
+        // Merge the list of breakpoints into a map organized per file
+        debugTransformers.forEach(t => {
+            debugData[t.filename!] = t.breakpoints;
+        });
+
+        // Return the entity
+        return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+        <Entities>
+          <Things>
+            <Thing name="${entityName}" projectName="${projectName}" tags="Debugger:DebugInfo" enabled="true" identifier="" published="false" thingTemplate="GenericThing" valueStream="">
+              <Owner name="Administrator" type="User"/>
+              <ThingShape>
+                <PropertyDefinitions>
+                    <PropertyDefinition
+                    aspect.cacheTime="0.0"
+                    aspect.dataChangeThreshold="0.0"
+                    aspect.dataChangeType="VALUE"
+                    aspect.defaultValue=""
+                    aspect.isLogged="false"
+                    aspect.isPersistent="true"
+                    baseType="STRING"
+                    category=""
+                    description="Contains debug information for the '${projectName}' project."
+                    isLocalOnly="false"
+                    name="debugInformation"
+                    ordinal="0"></PropertyDefinition>
+                </PropertyDefinitions>
+                <ServiceDefinitions/>
+                <ServiceImplementations/>
+                <EventDefinitions/>
+                <Subscriptions>
+                  <Subscription name="__globalBlock__0" description="Global code block generated by TypeScript." enabled="true" eventName="ThingStart" sourceType="Thing">
+                    <ServiceImplementation description="" handlerName="Script" name="__globalBlock__0">
+                      <ConfigurationTables>
+                        <ConfigurationTable description="Script" isMultiRow="false" name="Script" ordinal="0">
+                          <DataShape>
+                            <FieldDefinitions>
+                              <FieldDefinition baseType="STRING" description="code" name="code" ordinal="0"/>
+                            </FieldDefinitions>
+                          </DataShape>
+                          <Rows>
+                            <Row>
+                              <code>
+        BMDebuggerRuntime.registerExtensionPackage(${JSON.stringify(entityName)});
+                              </code>
+                            </Row>
+                          </Rows>
+                        </ConfigurationTable>
+                      </ConfigurationTables>
+                    </ServiceImplementation>
+                  </Subscription>
+                </Subscriptions>
+              </ThingShape>
+              <ThingProperties>
+                <debugInformation>
+                    <Value>
+                        <![CDATA[${JSON.stringify(debugData)}]]>
+                    </Value>
+                    <Timestamp>1970-01-01T02:00:00.000+02:00</Timestamp>
+                    <Quality>UNKNOWN</Quality>
+                </debugInformation>
+              </ThingProperties>
+              <PropertyBindings/>
+              <RemotePropertyBindings/>
+              <RemoteServiceBindings/>
+              <RemoteEventBindings/>
+            </Thing>
+          </Things>
+        </Entities>`;
     }
 
     /**
@@ -3334,6 +3738,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
             subscriptions.push(subscriptionDefinition);
         }
 
+        // **********************************  THING SHAPES  *************************************
         if (this.thingShapes.length) {
             entity.ImplementedShapes = [{ ImplementedShape: [] }];
             const implementedShapes = entity.ImplementedShapes[0].ImplementedShape;
@@ -3342,6 +3747,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
             }
         }
 
+        // **********************************  CONFIGURATION TABLES *************************************
         if (this.configurationTableDefinitions.length) {
             entity.ConfigurationTableDefinitions = [{ ConfigurationTableDefinition: [] }];
             const configurationTableDefinitions = entity.ConfigurationTableDefinitions[0].ConfigurationTableDefinition;
@@ -3400,6 +3806,32 @@ Failed parsing at: \n${node.getText()}\n\n`);
                     ],
                 },
             ];
+        }
+
+        // If this is a debug build and the debug tables have been initialized, add the appropriate rows
+        if (this._debugConfigurationInitialized && USE_DEBUG_CONFIGURATION_TABLE) {
+            this.configuration =  this.configuration || {};
+            this.configuration._BMDebuggerBreakpointLocations = {
+                dataShape: {
+                    fieldDefinitions: {
+                        line: {name: 'line', baseType: 'NUMBER', aspects: {}, description: '', ordinal: 0},
+                        column: {name: 'column', baseType: 'NUMBER', aspects: {}, description: '', ordinal: 1},
+                        endLine: {name: 'endLine', baseType: 'NUMBER', aspects: {}, description: '', ordinal: 2},
+                        endColumn: {name: 'endColumn', baseType: 'NUMBER', aspects: {}, description: '', ordinal: 3},
+                        locationID: {name: 'locationID', baseType: 'STRING', aspects: {}, description: '', ordinal: 4},
+                    }
+                },
+                rows: this.breakpoints as any
+            };
+
+            this.configuration._BMDebugMetadata = {
+                dataShape: {
+                    fieldDefinitions: {
+                        fileName: {name: 'fileName', baseType: 'STRING', aspects: {}, description: '', ordinal: 0},
+                    }
+                },
+                rows: [{fileName: this.filename}]
+            }
         }
 
         // If any configuration is specified, set up a configuration table for it
@@ -3841,7 +4273,12 @@ interface TWConfig {
     autoGenerateDataShapeOrdinals: boolean;
 
     /**
-     * An object holding transformer instances.
+     * When enabled, the transformer will generate a debug build used for debugging.
+     */
+    debug?: boolean;
+
+    /**
+     * An object holding transformer instances. 
      */
     store: { [key: string]: TWThingTransformer };
 }
@@ -3857,6 +4294,7 @@ export function TWThingTransformerFactory(program: ts.Program, root: string, aft
                 transformer.experimentalGlobals = project.experimentalGlobals;
                 transformer.autoGenerateDataShapeOrdinals = project.autoGenerateDataShapeOrdinals;
                 transformer.store = project.store;
+                transformer.debug = project.debug;
             }
         }
 
