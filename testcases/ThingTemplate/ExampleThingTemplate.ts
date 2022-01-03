@@ -16,6 +16,9 @@
 @exportName('ExampleThingTemplate')
 @ThingTemplateDefinition
 @visibleInstance(Unit(Organizations.MyOrganization, 'MyUnit2'))
+@denyInstance(Permission.PropertyRead, Groups.Designers, Users.System)
+@deny('GetImplementingThings', Permission.ServiceInvoke, Groups.Designers)
+@allow(Permission.PropertyRead, Users.Administrator)
 @visible(Organizations.Development, Unit(Organizations.MyOrganization, 'MyUnit'))
 @ConfigurationTables(
     class {
@@ -32,7 +35,9 @@ class ExampleThingTemplate extends GenericThing {
      */
     @persistent
     @dataChangeType('VALUE', 0)
+    @allow(Permission.PropertyRead, Groups.Designers, Users.System)
     exampleProperty!: NUMBER;
+    @allow(Permission.ServiceInvoke, Users.System)
     GetExampleProperty(): NUMBER {
         return this.exampleProperty;
     }

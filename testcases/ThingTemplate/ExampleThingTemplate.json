@@ -20,6 +20,39 @@
                 "ServiceInvoke": [],
                 "resourceName": "*",
                 "EventInvoke": []
+            },
+            {
+                "EventSubscribe": [],
+                "PropertyWrite": [],
+                "PropertyRead": [
+                    {
+                        "isPermitted": true,
+                        "name": "Designers",
+                        "type": "Group"
+                    },
+                    {
+                        "isPermitted": true,
+                        "name": "System",
+                        "type": "User"
+                    }
+                ],
+                "ServiceInvoke": [],
+                "resourceName": "exampleProperty",
+                "EventInvoke": []
+            },
+            {
+                "EventSubscribe": [],
+                "PropertyWrite": [],
+                "PropertyRead": [],
+                "ServiceInvoke": [
+                    {
+                        "isPermitted": true,
+                        "name": "System",
+                        "type": "User"
+                    }
+                ],
+                "resourceName": "GetExampleProperty",
+                "EventInvoke": []
             }
         ]
     },
@@ -1614,7 +1647,7 @@
                         "description": "Script",
                         "rows": [
                             {
-                                "code": "var result = (function () {\n    return me.exampleProperty;\n})()"
+                                "code": "var result = (function () {\n    return me.exampleProperty;\n}).apply(me)"
                             }
                         ],
                         "dataShapeName": "",
@@ -10235,7 +10268,7 @@
             }
         ]
     },
-    "lastModifiedDate": 1640364526654,
+    "lastModifiedDate": 1641250488330,
     "homeMashup": "",
     "avatar": "",
     "effectiveLocalPropertyBindings": {},
@@ -10275,7 +10308,7 @@
                         "description": "Script",
                         "rows": [
                             {
-                                "code": "var result = (function () {\n    return me.exampleProperty;\n})()"
+                                "code": "var result = (function () {\n    return me.exampleProperty;\n}).apply(me)"
                             }
                         ],
                         "dataShapeName": "",
@@ -10347,39 +10380,6 @@
                 ],
                 "ServiceInvoke": [],
                 "resourceName": "*",
-                "EventInvoke": []
-            },
-            {
-                "EventSubscribe": [],
-                "PropertyWrite": [],
-                "PropertyRead": [
-                    {
-                        "isPermitted": true,
-                        "name": "Designers",
-                        "type": "Group"
-                    },
-                    {
-                        "isPermitted": true,
-                        "name": "System",
-                        "type": "User"
-                    }
-                ],
-                "ServiceInvoke": [],
-                "resourceName": "exampleProperty",
-                "EventInvoke": []
-            },
-            {
-                "EventSubscribe": [],
-                "PropertyWrite": [],
-                "PropertyRead": [],
-                "ServiceInvoke": [
-                    {
-                        "isPermitted": true,
-                        "name": "System",
-                        "type": "User"
-                    }
-                ],
-                "resourceName": "GetExampleProperty",
                 "EventInvoke": []
             }
         ]

@@ -234,22 +234,6 @@ export class JsonThingToTsTransformer {
                 );
             }
         }
-        // thingShapes and thingTemplates have runtime permissions in common
-        if (entity.kind == TWEntityKind.ThingShape || entity.kind == TWEntityKind.ThingTemplate) {
-            const entityWithInstancePermissions = entity as TWThingShape;
-            // instance permissions should always apply to services and properties that are defined directly on the entity
-            // otherwise, they'll be directly on the service or property declarations
-            Object.entries(entityWithInstancePermissions.instanceRuntimePermissions)
-                .filter(([k]) => !locallyDefinedNames.includes(k))
-                .forEach(([k, p]) => {
-                    decorators.push(...this.convertRuntimePermissionToDecorator(k, p, true, true));
-                });
-            debugger;
-            // all runtime permissions get set directly on the class
-            Object.entries(entityWithInstancePermissions.runtimePermissions).forEach(([k, p]) => {
-                decorators.push(...this.convertRuntimePermissionToDecorator(k, p, true, false));
-            });
-        }
         // if it's a template, make sure that the decorator marking it's type is correctly set, as well as the instance visibility
         if (entity.kind == TWEntityKind.ThingTemplate) {
             const thingTemplate = entity as TWThingTemplate;
@@ -295,6 +279,21 @@ export class JsonThingToTsTransformer {
                 ]),
             );
         }
+        // thingShapes and thingTemplates have runtime permissions in common
+        if (entity.kind == TWEntityKind.ThingShape || entity.kind == TWEntityKind.ThingTemplate) {
+            const entityWithInstancePermissions = entity as TWThingShape;
+            // instance permissions should always apply to services and properties that are defined directly on the entity
+            // otherwise, they'll be directly on the service or property declarations
+            Object.entries(entityWithInstancePermissions.instanceRuntimePermissions)
+                .filter(([k]) => !locallyDefinedNames.includes(k))
+                .forEach(([k, p]) => {
+                    decorators.push(...this.convertRuntimePermissionToDecorator(k, p, true, true));
+                });
+            // all runtime permissions get set directly on the class
+            Object.entries(entityWithInstancePermissions.runtimePermissions).forEach(([k, p]) => {
+                decorators.push(...this.convertRuntimePermissionToDecorator(k, p, true, false));
+            });
+        }
         if (entity.visibilityPermissions.length > 0) {
             decorators.push(this.convertVisibilityToDecorator(entity.visibilityPermissions, 'visible'));
         }
@@ -310,12 +309,17 @@ export class JsonThingToTsTransformer {
                 decorators.push(...this.convertRuntimePermissionToDecorator(k, p, true));
             });
         }
+        // on templates and shape, permissions are in fact runtime instance permissions, otherwise they are runtime permissions
+        const instancePermissions: TWRuntimePermissionsList =
+            entity.kind == TWEntityKind.ThingShape || entity.kind == TWEntityKind.ThingTemplate
+                ? (entity as any).instanceRuntimePermissions
+                : entity.runtimePermissions;
 
         // handle property, service, events and subscriptions
-        members.push(...entity.propertyDefinitions.map((p) => this.parsePropertyDefinition(p)));
-        members.push(...entity.serviceDefinitions.map((s) => this.parseServiceDefinition(s)));
-        members.push(...entity.eventDefinitions.map((e) => this.parseEventDefinition(e)));
-        members.push(...entity.subscriptionDefinitions.map((s) => this.parseSubscriptionDefinition(s)));
+        members.push(...entity.propertyDefinitions.map((p) => this.convertPropertyDefinition(p, undefined, instancePermissions[p.name])));
+        members.push(...entity.serviceDefinitions.map((s) => this.convertServiceDefinition(s, instancePermissions[s.name])));
+        members.push(...entity.eventDefinitions.map((e) => this.convertEventDefinition(e, instancePermissions[e.name])));
+        members.push(...entity.subscriptionDefinitions.map((s) => this.convertSubscriptionDefinition(s)));
 
         const classDeclaration = ts.factory.createClassDeclaration(
             decorators,
@@ -395,9 +399,15 @@ export class JsonThingToTsTransformer {
      * Transforms a Thingworx property definition entity into a typescript class property definition.
      *
      * @param propertyDefinition Property definition on the native Thingworx format
+     * @param currentValue Current value of the property in Thingworx
+     * @param permission Permission that applies to this property definition
      * @returns Typescript definition of the Property
      */
-    public parsePropertyDefinition(propertyDefinition: TWPropertyDefinition, currentValue?: any): ts.PropertyDeclaration {
+    public convertPropertyDefinition(
+        propertyDefinition: TWPropertyDefinition,
+        currentValue?: any,
+        permissions?: TWRuntimePermissionDeclaration,
+    ): ts.PropertyDeclaration {
         const data = this.parseFieldDefinition(propertyDefinition);
         const decorators: ts.Decorator[] = [];
         const modifiers: ts.Modifier[] = [];
@@ -455,12 +465,14 @@ export class JsonThingToTsTransformer {
             );
             decorators.push(remoteDecorator);
         }
+        if (permissions) {
+            decorators.push(...this.convertRuntimePermissionToDecorator(propertyDefinition.name, permissions, false, false));
+        }
         if (propertyDefinition.aspects.isReadOnly) {
             modifiers.push(ts.factory.createModifier(ts.SyntaxKind.ReadonlyKeyword));
         }
         const initializerValue = currentValue || propertyDefinition.aspects.defaultValue;
 
-        // todo: handle permissions
         return ts.factory.updatePropertyDeclaration(
             data,
             (data.decorators || ([] as ts.Decorator[])).concat(decorators),
@@ -563,9 +575,13 @@ export class JsonThingToTsTransformer {
      * Transforms a Thingworx service definition entity into a typescript class method definition.
      *
      * @param serviceDefinition Service definition on the native Thingworx format
+     * @param permission Permission that applies to this service
      * @returns Method definition of the service
      */
-    public parseServiceDefinition(serviceDefinition: TWServiceDefinition): ts.MethodDeclaration {
+    public convertServiceDefinition(
+        serviceDefinition: TWServiceDefinition,
+        permission?: TWRuntimePermissionDeclaration,
+    ): ts.MethodDeclaration {
         const decorators: ts.Decorator[] = [];
         const modifiers: ts.Modifier[] = [];
 
@@ -638,8 +654,10 @@ export class JsonThingToTsTransformer {
                 ts.factory.createParameterDeclaration(undefined, undefined, undefined, parameters, undefined, parametersDef, undefined),
             );
         }
+        if (permission) {
+            decorators.push(...this.convertRuntimePermissionToDecorator(serviceDefinition.name, permission, false, false));
+        }
 
-        // todo: handle permissions
         const methodDeclaration = ts.factory.createMethodDeclaration(
             decorators,
             modifiers,
@@ -670,7 +688,7 @@ export class JsonThingToTsTransformer {
      * @param subscriptionDefinition subscription definition on the native Thingworx format
      * @returns Method definition of the subscription
      */
-    public parseSubscriptionDefinition(subscriptionDefinition: TWSubscriptionDefinition): ts.MethodDeclaration {
+    public convertSubscriptionDefinition(subscriptionDefinition: TWSubscriptionDefinition): ts.MethodDeclaration {
         const decorators: ts.Decorator[] = [];
 
         if (!subscriptionDefinition.enabled) {
@@ -720,7 +738,6 @@ export class JsonThingToTsTransformer {
             ts.factory.createParameterDeclaration(undefined, undefined, undefined, p[0], undefined, p[1], undefined),
         );
 
-        // todo: handle permissions
         const methodDeclaration = ts.factory.createMethodDeclaration(
             decorators,
             undefined,
@@ -749,9 +766,10 @@ export class JsonThingToTsTransformer {
      * Transforms a Thingworx event definition entity into a typescript class property definition with the type EVENT.
      *
      * @param eventDefinition Event definition on the native Thingworx format
+     * @param permission Permission that applies to this event definition
      * @returns Property definition of the event
      */
-    public parseEventDefinition(eventDefinition: TWEventDefinition): ts.PropertyDeclaration {
+    public convertEventDefinition(eventDefinition: TWEventDefinition, permission?: TWRuntimePermissionDeclaration): ts.PropertyDeclaration {
         const decorators: ts.Decorator[] = [];
 
         // remote events have a remoteBinding set that gets converted into a decorator
@@ -764,7 +782,10 @@ export class JsonThingToTsTransformer {
             decorators.push(remoteDecorator);
         }
 
-        // todo: handle permissions
+        if (permission) {
+            decorators.push(...this.convertRuntimePermissionToDecorator(eventDefinition.name, permission, false, false));
+        }
+
         const propertyDeclaration = ts.factory.createPropertyDeclaration(
             decorators,
             undefined,
@@ -897,20 +918,16 @@ export class JsonThingToTsTransformer {
      *
      * @param resourceName Name of the resource this permission applies to
      * @param permissions Permissions to apply to this resource
-     * @param isTopLevel Whether this permission applies to the class level, or on a class member
+     * @param resourceNameExplicit Whether the resource name should be included in the decorator declaration
      * @param instancePermission If this permission applies to an instance of this thingShape/thingTemplate or applies to the entity itself
      * @returns A decorator for the visibility declaration
      */
     private convertRuntimePermissionToDecorator(
         resourceName: string,
         permissions: TWRuntimePermissionDeclaration,
-        isTopLevel = false,
+        resourceNameExplicit = false,
         instancePermission = false,
     ): ts.Decorator[] {
-        debugger;
-        if (resourceName == '*' && !isTopLevel) {
-            throw `Runtime permissions with resourceName set to '*' can only be applied on the top level class`;
-        }
         // list of all of the runtime permissions permitted in thingworx. This map directly to keys of the Permission enum
         const PERMISSION_TYPES = ['PropertyRead', 'PropertyWrite', 'ServiceInvoke', 'EventInvoke', 'EventSubscribe'];
 
@@ -950,8 +967,8 @@ export class JsonThingToTsTransformer {
             }
         }
 
-        // only include the resource name as the first argument if a value is actually provided (it's not '*')
-        if (resourceName != '*') {
+        // only include the resource name as the first argument if a value is actually provided (it's not '*') or we are on the node directly
+        if (resourceName != '*' && resourceNameExplicit) {
             allowArguments.unshift(ts.factory.createStringLiteral(resourceName));
             denyArguments.unshift(ts.factory.createStringLiteral(resourceName));
         }

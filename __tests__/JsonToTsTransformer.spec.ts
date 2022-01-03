@@ -18,7 +18,7 @@ describe('Verify property definition generation', () => {
     const transformer = new JsonThingToTsTransformer();
 
     test('Check simple with name and basetype', async () => {
-        const result = transformer.parsePropertyDefinition({
+        const result = transformer.convertPropertyDefinition({
             name: 'color',
             aspects: {},
             isLocalOnly: false,
@@ -31,7 +31,7 @@ describe('Verify property definition generation', () => {
     });
 
     test('Check with default value string', async () => {
-        const result = transformer.parsePropertyDefinition({
+        const result = transformer.convertPropertyDefinition({
             name: 'color',
             aspects: {
                 defaultValue: 'test',
@@ -46,7 +46,7 @@ describe('Verify property definition generation', () => {
     });
 
     test('Check with default value number', async () => {
-        const result = transformer.parsePropertyDefinition({
+        const result = transformer.convertPropertyDefinition({
             name: 'color',
             aspects: {
                 defaultValue: 10,
@@ -61,7 +61,7 @@ describe('Verify property definition generation', () => {
     });
 
     test('Check infotable with datashape', async () => {
-        const result = transformer.parsePropertyDefinition({
+        const result = transformer.convertPropertyDefinition({
             name: 'color',
             aspects: {
                 dataShape: 'GenericStringList',
@@ -76,7 +76,7 @@ describe('Verify property definition generation', () => {
     });
 
     test('Check THINGNAME with TT and TS', async () => {
-        const result = transformer.parsePropertyDefinition({
+        const result = transformer.convertPropertyDefinition({
             name: 'color',
             aspects: {
                 thingShape: 'Test_TS',
@@ -92,7 +92,7 @@ describe('Verify property definition generation', () => {
     });
 
     test('Check THINGTEMPLATENAME with TS and no TS', async () => {
-        const result = transformer.parsePropertyDefinition({
+        const result = transformer.convertPropertyDefinition({
             name: 'color',
             aspects: {
                 thingShape: 'Test_TS',
@@ -107,7 +107,7 @@ describe('Verify property definition generation', () => {
     });
 
     test('Check property persistent, logged and units, min, max', async () => {
-        const result = transformer.parsePropertyDefinition({
+        const result = transformer.convertPropertyDefinition({
             name: 'mileage',
             aspects: {
                 isLogged: true,
@@ -127,7 +127,7 @@ describe('Verify property definition generation', () => {
     });
 
     test('Check property data change type', async () => {
-        const result = transformer.parsePropertyDefinition({
+        const result = transformer.convertPropertyDefinition({
             name: 'mileage',
             aspects: {
                 dataChangeThreshold: 30,
@@ -143,7 +143,7 @@ describe('Verify property definition generation', () => {
     });
 
     test('Check property with local binding', async () => {
-        const result = transformer.parsePropertyDefinition({
+        const result = transformer.convertPropertyDefinition({
             name: 'mileage',
             aspects: {},
             localBinding: {
@@ -161,7 +161,7 @@ describe('Verify property definition generation', () => {
         expect(printNode(result)).toBe(`@local("Test", "prop")\nmileage!: NUMBER;`);
     });
     test('Check property with remote binding', async () => {
-        const result = transformer.parsePropertyDefinition({
+        const result = transformer.convertPropertyDefinition({
             name: 'mileage',
             aspects: {
                 isRemote: true,
@@ -188,7 +188,7 @@ describe('Verify property definition generation', () => {
     });
 
     test('Check property with default value', async () => {
-        const result = transformer.parsePropertyDefinition({
+        const result = transformer.convertPropertyDefinition({
             name: 'mileage',
             aspects: {
                 defaultValue: 10,
@@ -202,7 +202,7 @@ describe('Verify property definition generation', () => {
         expect(printNode(result)).toBe('mileage: NUMBER = 10;');
     });
     test('Check property with property value and default value', async () => {
-        const result = transformer.parsePropertyDefinition(
+        const result = transformer.convertPropertyDefinition(
             {
                 name: 'mileage',
                 aspects: {
@@ -219,7 +219,7 @@ describe('Verify property definition generation', () => {
         expect(printNode(result)).toBe('mileage: NUMBER = 10;');
     });
     test('Check property with documentation', async () => {
-        const result = transformer.parsePropertyDefinition(
+        const result = transformer.convertPropertyDefinition(
             {
                 name: 'mileage',
                 aspects: {},
@@ -245,7 +245,7 @@ describe('Verify service definition generation', () => {
     const transformer = new JsonThingToTsTransformer();
 
     test('Check with name and and no parameters and number result', async () => {
-        const result = transformer.parseServiceDefinition({
+        const result = transformer.convertServiceDefinition({
             aspects: {},
             code: `let result = 3;`,
             description: '',
@@ -272,7 +272,7 @@ describe('Verify service definition generation', () => {
             }`);
     });
     test('Check with code containing comments', async () => {
-        const result = transformer.parseServiceDefinition({
+        const result = transformer.convertServiceDefinition({
             aspects: {},
             code: `let result = 3;\n//test comment\n/**\n * comment\n*/\nlet test = 4;`,
             description: '',
@@ -305,7 +305,7 @@ describe('Verify service definition generation', () => {
     });
     // todo: this still does not work since newlines are not preserved in the AST
     test('Check with code containing newlines', async () => {
-        const result = transformer.parseServiceDefinition({
+        const result = transformer.convertServiceDefinition({
             aspects: {},
             code: `let result = 3;\n\n\nlet test = 4;`,
             description: '',
@@ -336,7 +336,7 @@ describe('Verify service definition generation', () => {
             }`);
     });
     test('Check with name and and no parameters and immediately invoked function', async () => {
-        const result = transformer.parseServiceDefinition({
+        const result = transformer.convertServiceDefinition({
             aspects: {},
             code: `var result = (function () {let test = 3; return test;})()`,
             description: '',
@@ -363,7 +363,7 @@ describe('Verify service definition generation', () => {
             }`);
     });
     test('Check with name and immediately invoked with apply', async () => {
-        const result = transformer.parseServiceDefinition({
+        const result = transformer.convertServiceDefinition({
             aspects: {},
             code: `var result = (function () {let test = 3; return test;}).apply(me)`,
             description: '',
@@ -390,7 +390,7 @@ describe('Verify service definition generation', () => {
             }`);
     });
     test('Check with me references replaced with this', async () => {
-        const result = transformer.parseServiceDefinition({
+        const result = transformer.convertServiceDefinition({
             aspects: {},
             code: `var result = (function () {me.test = 3; me['test'] = 3; me['ana' + 'test'] = 3; me.service({t: 3});)})()`,
             description: '',
@@ -420,7 +420,7 @@ describe('Verify service definition generation', () => {
     });
 
     test('Check async overriden and overridable', async () => {
-        const result = transformer.parseServiceDefinition({
+        const result = transformer.convertServiceDefinition({
             aspects: {
                 isAsync: true,
             },
@@ -451,7 +451,7 @@ describe('Verify service definition generation', () => {
     });
 
     test('Check with parameters', async () => {
-        const result = transformer.parseServiceDefinition({
+        const result = transformer.convertServiceDefinition({
             aspects: {},
             code: `var result = 3;`,
             description: '',
@@ -513,7 +513,7 @@ describe('Verify service definition generation', () => {
     });
 
     test('Check with remote binding', async () => {
-        const result = transformer.parseServiceDefinition({
+        const result = transformer.convertServiceDefinition({
             aspects: {},
             code: '',
             description: '',
@@ -556,7 +556,7 @@ describe('Verify service definition generation', () => {
     });
 
     test('Check with documentation', async () => {
-        const result = transformer.parseServiceDefinition({
+        const result = transformer.convertServiceDefinition({
             aspects: {},
             code: `var result = 3;`,
             description: 'Test documentation\nWith multiple\nlines',
@@ -594,7 +594,7 @@ describe('Verify event definition generation', () => {
     const transformer = new JsonThingToTsTransformer();
 
     test('Local event with name', async () => {
-        const result = transformer.parseEventDefinition({
+        const result = transformer.convertEventDefinition({
             category: '',
             dataShape: 'GenericStringList',
             description: '',
@@ -603,7 +603,7 @@ describe('Verify event definition generation', () => {
         expect(printNode(result)).toBe(`test!: EVENT<GenericStringList>;`);
     });
     test('Remote event with name', async () => {
-        const result = transformer.parseEventDefinition({
+        const result = transformer.convertEventDefinition({
             category: '',
             dataShape: 'GenericStringList',
             description: '',
@@ -616,7 +616,7 @@ describe('Verify event definition generation', () => {
         expect(printNode(result)).toBe(`@remoteEvent("testRemoteEvent")\ntest!: EVENT<GenericStringList>;`);
     });
     test('Remote event with name and documentation', async () => {
-        const result = transformer.parseEventDefinition({
+        const result = transformer.convertEventDefinition({
             category: '',
             dataShape: 'GenericStringList',
             description: 'Test documentation\nWith multiple\nlines',
@@ -641,7 +641,7 @@ describe('Verify subscription definition generation', () => {
     const transformer = new JsonThingToTsTransformer();
 
     test('Local subscription on custom event', async () => {
-        const result = transformer.parseSubscriptionDefinition({
+        const result = transformer.convertSubscriptionDefinition({
             description: '',
             enabled: true,
             name: 'test',
@@ -658,7 +658,7 @@ describe('Verify subscription definition generation', () => {
             }`);
     });
     test('Local subscription on datachange event', async () => {
-        const result = transformer.parseSubscriptionDefinition({
+        const result = transformer.convertSubscriptionDefinition({
             description: '',
             enabled: true,
             name: 'test',
@@ -675,7 +675,7 @@ describe('Verify subscription definition generation', () => {
             }`);
     });
     test('Subscription on AnyDataChange event of another thing', async () => {
-        const result = transformer.parseSubscriptionDefinition({
+        const result = transformer.convertSubscriptionDefinition({
             description: '',
             enabled: true,
             name: 'test',
@@ -692,7 +692,7 @@ describe('Verify subscription definition generation', () => {
             }`);
     });
     test('Subscription with this references and documentation', async () => {
-        const result = transformer.parseSubscriptionDefinition({
+        const result = transformer.convertSubscriptionDefinition({
             description: 'Test documentation\nWith multiple\nlines',
             enabled: true,
             name: 'test',
