@@ -771,12 +771,16 @@ Failed parsing at: \n${node.getText()}\n\n`);
 
     /**
      * Returns a list of permissions for the given node.
-     * @param node          The node whose permissions should be retrieved.
-     * @param resource      The resource to which the permissions should refer. If specified and any decorator
-     *                      refers to a different resource, this method will throw.
+     * @param node                  The node whose permissions should be retrieved.
+     * @param resource              The resource to which the permissions should refer. If specified and any decorator
+     *                              refers to a different resource, this method will throw.
+     * @param forceRuntimeInstance  Force setting the permissions on the runtime instance, instead on the entity level.
+     *                              Useful for permissions on properties, services and event specified directly on the method declarations
+     *                              or property declarations where both `@allow`/`@deny` and `@allowInstance`/`@denyInstance` can be used
+     *                              and result in the same runtime instance declaration.`
      * @returns             A list of permissions
      */
-    permissionsOfNode(node: ts.Node, resource = '*'): TWExtractedPermissionLists {
+    permissionsOfNode(node: ts.Node, resource = '*', forceRuntimeInstance = false): TWExtractedPermissionLists {
         // Filter out the list of decorators to exclude any non-permission decorators
         const decorators = node.decorators?.filter(
             (d) =>
@@ -815,7 +819,11 @@ Failed parsing at: \n${node.getText()}\n\n`);
                     permissionKind = 'runtimeInstance';
                     break;
                 default:
-                    this.throwErrorForNode(node, `Unkown permission decorator '${text}' specified.`);
+                    this.throwErrorForNode(node, `Unknown permission decorator '${text}' specified.`);
+            }
+
+            if (forceRuntimeInstance) {
+                permissionKind = 'runtimeInstance';
             }
 
             // Determine if this decorator applies to a specific property or to the entire node
@@ -2031,7 +2039,13 @@ Failed parsing at: \n${node.getText()}\n\n`);
         }
 
         this.runtimePermissions = this.mergePermissionListsForNode(
-            [this.runtimePermissions].concat(this.permissionsOfNode(node, node.name.text)),
+            [this.runtimePermissions].concat(
+                this.permissionsOfNode(
+                    node,
+                    node.name.text,
+                    this.entityKind == TWEntityKind.ThingShape || this.entityKind == TWEntityKind.ThingTemplate,
+                ),
+            ),
             node,
         );
 
@@ -2077,7 +2091,13 @@ Failed parsing at: \n${node.getText()}\n\n`);
         }
 
         this.runtimePermissions = this.mergePermissionListsForNode(
-            [this.runtimePermissions].concat(this.permissionsOfNode(node, node.name.text)),
+            [this.runtimePermissions].concat(
+                this.permissionsOfNode(
+                    node,
+                    node.name.text,
+                    this.entityKind == TWEntityKind.ThingShape || this.entityKind == TWEntityKind.ThingTemplate,
+                ),
+            ),
             node,
         );
 
@@ -2420,7 +2440,13 @@ Failed parsing at: \n${node.getText()}\n\n`);
         }
 
         this.runtimePermissions = this.mergePermissionListsForNode(
-            [this.runtimePermissions].concat(this.permissionsOfNode(node, service.name)),
+            [this.runtimePermissions].concat(
+                this.permissionsOfNode(
+                    node,
+                    service.name,
+                    this.entityKind == TWEntityKind.ThingShape || this.entityKind == TWEntityKind.ThingTemplate,
+                ),
+            ),
             node,
         );
 
