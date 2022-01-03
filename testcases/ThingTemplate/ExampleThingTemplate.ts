@@ -15,6 +15,13 @@
  */
 @exportName('ExampleThingTemplate')
 @ThingTemplateDefinition
+@ConfigurationTables(
+    class {
+        Fields: MultiRowTable<FieldDefinition>;
+        ConnectionInfo: Table<PortInfo>;
+    },
+)
+@config({ Fields: [], ConnectionInfo: { server: 'localhost', port: 80, useSSL: false } })
 class ExampleThingTemplate extends GenericThing {
     /**
      * In thing templates and thing shapes, `@deny` and `@allow` decorators specified on memebers

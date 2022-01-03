@@ -15,6 +15,7 @@
 @exportName('MyThing')
 @ThingDefinition
 @published
+@config({ ReportingConfiguration: { reportingStrategy: 'AlwaysOnReporting' } })
 class MyThing extends ThingTemplateWithShapes(RemoteThing, Tunneling) {
     /**
      * Thing properties are specified as regular class properties.

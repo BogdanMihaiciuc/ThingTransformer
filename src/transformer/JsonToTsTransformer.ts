@@ -14,6 +14,8 @@ import {
     TWDataShape,
     TWFieldBase,
     TWDataShapeField,
+    TWConfigurationTableDefinition,
+    TWConfigurationTableValue,
 } from './TWCoreTypes';
 
 export interface TransformerOptions {
@@ -81,6 +83,22 @@ export class JsonThingToTsTransformer {
             return result;
         });
 
+        const configurationTableDefinitions: TWConfigurationTableDefinition[] = Object.entries(
+            thingworxJson.configurationTableDefinitions || {},
+        ).map(([k, v]) => v as TWConfigurationTableDefinition);
+
+        const configurationTables: TWConfigurationTableValue = Object.entries(thingworxJson.configurationTables || {}).reduce(
+            (obj, [k, v]) => {
+                const table = v as any;
+                if (table.isMultiRow) {
+                    return { ...obj, [k]: table.rows };
+                } else {
+                    return { ...obj, [k]: table.rows[0] };
+                }
+            },
+            {},
+        );
+
         const baseEntity: TWEntityDefinition = {
             description: thingworxJson.description,
             documentationContent: thingworxJson.documentationContent,
@@ -92,6 +110,8 @@ export class JsonThingToTsTransformer {
             serviceDefinitions: serviceDefinitions,
             eventDefinitions: eventDefinitions,
             subscriptionDefinitions: subscriptionDefinitions,
+            configurationTableDefinitions: configurationTableDefinitions,
+            configurationTables: configurationTables,
             kind: entityType,
         };
 
@@ -215,6 +235,12 @@ export class JsonThingToTsTransformer {
                 ]),
             );
         }
+        if (entity.configurationTableDefinitions.length > 0) {
+            decorators.push(this.createConfigurationTableDefinition(entity.configurationTableDefinitions));
+        }
+        if (Object.keys(entity.configurationTables).length > 0) {
+            decorators.push(this.createConfigurationTables(entity.configurationTables));
+        }
 
         // handle property, service, events and subscriptions
         members.push(...entity.propertyDefinitions.map((p) => this.parsePropertyDefinition(p)));
@@ -241,6 +267,59 @@ export class JsonThingToTsTransformer {
         } else {
             return classDeclaration;
         }
+    }
+
+    /**
+     * Constructs an decorator that can be applied to a thingworx class entity to describe the configuration table definitions
+     * @param configurationTables List of configuration table definitions to be included
+     * @returns typescript decorator describing the configuration table
+     */
+    public createConfigurationTableDefinition(configurationTables: TWConfigurationTableDefinition[]): ts.Decorator {
+        return ts.factory.createDecorator(
+            ts.factory.createCallExpression(ts.factory.createIdentifier('ConfigurationTables'), undefined, [
+                ts.factory.createClassExpression(
+                    undefined,
+                    undefined,
+                    undefined,
+                    undefined,
+                    undefined,
+                    configurationTables.map((t) => {
+                        const memberDeclaration = ts.factory.createPropertyDeclaration(
+                            undefined,
+                            undefined,
+                            ts.factory.createIdentifier(t.name),
+                            undefined,
+                            ts.factory.createTypeReferenceNode(ts.factory.createIdentifier(t.isMultiRow ? 'MultiRowTable' : 'Table'), [
+                                ts.factory.createTypeReferenceNode(ts.factory.createIdentifier(t.dataShapeName)),
+                            ]),
+                            undefined,
+                        );
+                        if (t.description) {
+                            return ts.addSyntheticLeadingComment(
+                                memberDeclaration,
+                                ts.SyntaxKind.MultiLineCommentTrivia,
+                                this.commentize(t.description),
+                                true,
+                            );
+                        } else {
+                            return memberDeclaration;
+                        }
+                    }),
+                ),
+            ]),
+        );
+    }
+    /**
+     * Constructs an decorator that can be applied to a thingworx class entity to describe the configuration table values
+     * @param configurationTables List of configuration table values
+     * @returns typescript decorator describing the configuration table values
+     */
+    public createConfigurationTables(configurationTables: TWConfigurationTableValue): ts.Decorator {
+        return ts.factory.createDecorator(
+            ts.factory.createCallExpression(ts.factory.createIdentifier('config'), undefined, [
+                this.getTypescriptAstFromJson(configurationTables),
+            ]),
+        );
     }
 
     /**
@@ -694,6 +773,22 @@ export class JsonThingToTsTransformer {
             result.statements.map((t) => cloneNode(t)),
             true,
         );
+    }
+
+    /**
+     * Converts an json object into typescript AST
+     *
+     * @param object Object to be converted. This is treated as a JSON object, so it should only represent data
+     * @returns Typescript AST represented as a ObjectLiteralExpression
+     */
+    private getTypescriptAstFromJson(object: unknown): ts.ObjectLiteralExpression {
+        const sourceFile = ts.createSourceFile('code.json', JSON.stringify(object), ts.ScriptTarget.Latest, true, ts.ScriptKind.JSON);
+
+        // the source file will contain one statement, and inside it, an ObjectLiteralExpression
+        if (!ts.isObjectLiteralExpression(sourceFile.statements[0].getChildAt(0))) {
+            throw 'Data cannot be parsed as a typescript ObjectLiteralExpression';
+        }
+        return cloneNode(sourceFile.statements[0].getChildAt(0)) as ts.ObjectLiteralExpression;
     }
 
     /**

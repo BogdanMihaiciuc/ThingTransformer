@@ -16,7 +16,7 @@ import {
     TWSubscriptionSourceKind,
     TWServiceParameter,
     TWDataShapeField,
-    TWConfigurationTable,
+    TWConfigurationTableDefinition,
     TWRuntimePermissionsList,
     TWVisibility,
     TWExtractedPermissionLists,
@@ -208,7 +208,7 @@ export class TWThingTransformer {
     /**
      * For model entities, an array of discovered configuration table definitions.
      */
-    configurationTableDefinitions: TWConfigurationTable[] = [];
+    configurationTableDefinitions: TWConfigurationTableDefinition[] = [];
 
     /**
      * For model entities, a map of discovered configuration table values.
@@ -2661,7 +2661,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
             if (!member.name || member.name.kind != ts.SyntaxKind.Identifier)
                 this.throwErrorForNode(member, `Configuration table names cannot be computed.`);
 
-            const table: TWConfigurationTable = {
+            const table: TWConfigurationTableDefinition = {
                 category: '',
                 description: '',
                 isHidden: false,

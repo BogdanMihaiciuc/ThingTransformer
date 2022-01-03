@@ -176,7 +176,7 @@ export const enum TWSubscriptionSourceKind {
     ThingShape = 'ThingShape',
 }
 
-export interface TWConfigurationTable {
+export interface TWConfigurationTableDefinition {
     category: string;
     dataShapeName: string;
     description: string;
@@ -350,7 +350,11 @@ export interface TWEntityDefinition {
     subscriptionDefinitions: TWSubscriptionDefinition[];
     aspects?: TWEntityDefinitionAspects;
     kind: TWEntityKind;
+    configurationTableDefinitions: TWConfigurationTableDefinition[];
+    configurationTables: TWConfigurationTableValue;
 }
+
+export type TWConfigurationTableValue = Record<string, unknown[] | unknown>;
 
 export interface TWEntityDefinitionAspects {
     isEditableExtensionObject?: boolean;

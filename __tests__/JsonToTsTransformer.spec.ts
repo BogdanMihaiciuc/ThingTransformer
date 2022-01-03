@@ -712,7 +712,6 @@ describe('Full thing transformations', () => {
             const inputFile = JSON.parse(readFileSync(f, 'utf-8'));
             const transformedFile = transformer.convertThingworxEntity(inputFile, entityKind!);
             const typescriptClass = transformer.transformThingworxEntity(transformedFile);
-            if (entityKind == TWEntityKind.DataShape) console.log(printNode(typescriptClass, true));
             expect(printNode(typescriptClass, true)).toBe(readFileSync(path.join(parsedPath.dir, parsedPath.name + '.ts')).toString());
         });
     });
