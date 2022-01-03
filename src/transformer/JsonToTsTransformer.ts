@@ -798,9 +798,12 @@ export class JsonThingToTsTransformer {
     private getTypescriptCodeFromBody(thingworxCode: string, resultType: keyof typeof TWBaseTypes): ts.FunctionBody {
         const FUNCTION_PREFIX = 'var result = (function () {';
         const FUNCTION_SUFFIX = '})()';
+        const FUNCTION_SUFFIX_WITH_APPLY = '}).apply(me)';
         // test if this service is a immediately invoked function, as emitted by the ts->xml transformer
         if (thingworxCode.startsWith(FUNCTION_PREFIX) && thingworxCode.endsWith(FUNCTION_SUFFIX)) {
             thingworxCode = thingworxCode.slice(FUNCTION_PREFIX.length, thingworxCode.length - FUNCTION_SUFFIX.length);
+        } else if (thingworxCode.startsWith(FUNCTION_PREFIX) && thingworxCode.endsWith(FUNCTION_SUFFIX_WITH_APPLY)) {
+            thingworxCode = thingworxCode.slice(FUNCTION_PREFIX.length, thingworxCode.length - FUNCTION_SUFFIX_WITH_APPLY.length);
         } else if (resultType != 'NOTHING') {
             // otherwise, just expect to return the result at the end
             thingworxCode += '\nreturn result;';

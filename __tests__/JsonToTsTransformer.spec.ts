@@ -362,6 +362,33 @@ describe('Verify service definition generation', () => {
                 return test;
             }`);
     });
+    test('Check with name and immediately invoked with apply', async () => {
+        const result = transformer.parseServiceDefinition({
+            aspects: {},
+            code: `var result = (function () {let test = 3; return test;}).apply(me)`,
+            description: '',
+            name: 'test',
+            category: 'Uncategorized',
+            isAllowOverride: false,
+            isLocalOnly: false,
+            isOpen: false,
+            isPrivate: false,
+            resultType: {
+                baseType: 'NUMBER',
+                name: 'result',
+                aspects: {},
+                description: '',
+                ordinal: 0,
+            },
+            parameterDefinitions: [],
+        });
+        expect(printNode(result)).toBe(endent`
+            @final
+            test(): NUMBER {
+                let test = 3;
+                return test;
+            }`);
+    });
     test('Check with me references replaced with this', async () => {
         const result = transformer.parseServiceDefinition({
             aspects: {},
