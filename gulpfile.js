@@ -12,7 +12,7 @@ async function clean() {
 }
 
 async function build(cb) {
-    return project.src().pipe(project()).js.pipe(dest('dist'))
+    return project.src().pipe(project()).js.pipe(dest('dist'));
 }
 
 exports.default = series(clean, build);

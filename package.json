@@ -18,6 +18,11 @@
         "build": "gulp"
     },
     "main": "dist/ThingTransformer.js",
+    "exports": {
+        ".": "./dist/ThingTransformer.js",
+        "./dist/JsonToTsTransformer": "./dist/JsonToTsTransformer.js",
+        "./dist/tsUtils": "./dist/tsUtils.js"
+    },
     "license": "MIT",
     "files": [
         "dist",
@@ -50,11 +55,9 @@
         "jest": "^27.4.5",
         "prettier": "^2.0.2",
         "request": "^2.85.0",
+        "ts-clone-node": "^0.3.29",
         "ts-jest": "^27.1.2",
         "typescript": "^4.5.4",
         "xml2js": "^0.4.23"
-    },
-    "dependencies": {
-        "ts-clone-node": "^0.3.29"
     }
 }

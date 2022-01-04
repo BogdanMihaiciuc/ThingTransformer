@@ -19,7 +19,7 @@
         ]
     },
     "include": [
-        "./src/*", 
+        "src/**/*", 
         "src/transformer/TWCoreTypes.ts", 
         "src/transformer/ThingTransformer.ts", 
         "src/thingworx/TWBaseTypes.d.ts", 
