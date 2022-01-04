@@ -103,7 +103,13 @@ class MyThing extends ThingTemplateWithShapes(RemoteThing, Tunneling) {
      * Service parameters must be specified as a destructured object like in the example below.
      */
     @final
-    async asyncService(): NOTHING {
+    async asyncService({
+        infoTable,
+        stringParameter = 'Parameter default value',
+    }: {
+        infoTable?: INFOTABLE<GenericStringList>;
+        stringParameter: STRING;
+    }): NOTHING {
         // `this` should be used in place of `me`, unlike in thingworx
         // it will be compiled into `me`
         var x = Things[this.streamToUse];

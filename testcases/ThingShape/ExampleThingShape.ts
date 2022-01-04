@@ -22,17 +22,17 @@ class ExampleThingShape extends ThingShapeBase {
     @dataChangeType('VALUE', 0)
     pressure: NUMBER = 10;
     @remoteService('SetHumidity', { timeout: 0 })
-    SetHumidity(): NOTHING {}
+    SetHumidity({ humidity }: { humidity: NUMBER }): NOTHING {}
     /**
      * In addition to specifying the types of each parameter as a literal type, interfaces may also be used.
      */
-    GetStatusResponse(): TWJSON {
+    GetStatusResponse({ humidity, pressure }: { humidity: NUMBER; pressure: NUMBER }): TWJSON {
         return { pressure: pressure, humidity: humidity };
     }
     /**
      * With TypeScript, it is possible to user certain newer javascript features through transpilation.
      */
-    PrintValuesWithFactor(): NOTHING {
+    PrintValuesWithFactor({ factor = 1 }: { factor?: NUMBER }): NOTHING {
         var __values =
             (this && this.__values) ||
             function (o) {
@@ -142,10 +142,10 @@ class ExampleThingShape extends ThingShapeBase {
      *
      * Any JSDoc tags used will be converted into thingworx descriptions.
      */
-    GetValuesWithFactor(): TWJSON {
+    GetValuesWithFactor({ factor = 1 }: { factor?: NUMBER }): TWJSON {
         return { pressure: factor * this.pressure, humidity: factor * this.humidity };
     }
-    SetPressure(): NOTHING {
+    SetPressure({ pressure }: { pressure: NUMBER }): NOTHING {
         this.pressure = pressure;
     }
 }

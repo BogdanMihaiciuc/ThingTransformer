@@ -21,6 +21,7 @@ import {
     TWRuntimePermissionDeclaration,
     TWPrincipal,
     TWThingShape,
+    TWServiceParameter,
 } from './TWCoreTypes';
 
 export interface TransformerOptions {
@@ -72,6 +73,8 @@ export class JsonThingToTsTransformer {
                 }
                 result.code = definitionsSource.serviceImplementations[k].configurationTables.Script.rows[0].code;
             }
+            // property definitions need to be represented as an array
+            result.parameterDefinitions = Object.entries((v as any).parameterDefinitions).map(([k, v]) => v) as TWServiceParameter[];
             result.remoteBinding = thingworxJson.remoteServiceBindings[k];
             return result;
         });
@@ -835,7 +838,7 @@ export class JsonThingToTsTransformer {
         const typeMeToThisTransformer: ts.TransformerFactory<ts.Node> = (context) => {
             const visit: ts.Visitor = (node: ts.Node) => {
                 node = ts.visitEachChild(node, visit, context);
-
+                // todo: also transform all functions into arrow functions, in order to avoid issues where this will end up referring to the wrong object
                 if (ts.isPropertyAccessExpression(node)) {
                     if (ts.isIdentifier(node.expression) && node.expression.escapedText == 'me') {
                         return ts.factory.createPropertyAccessExpression(ts.factory.createThis(), node.name);
