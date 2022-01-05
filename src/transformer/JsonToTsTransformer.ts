@@ -23,6 +23,7 @@ import {
     TWThingShape,
     TWServiceParameter,
 } from './TWCoreTypes';
+import { printNode } from './tsUtils';
 
 export interface TransformerOptions {
     /**
@@ -37,147 +38,28 @@ export class JsonThingToTsTransformer {
     private static DEFAULT_OPTIONS: TransformerOptions = {
         entityNameSeparator: '_',
     };
+    private options: TransformerOptions;
+
     /**
      * Constructs a new transformer
      */
     constructor(options?: Partial<TransformerOptions>) {
         this.options = Object.assign({}, options, JsonThingToTsTransformer.DEFAULT_OPTIONS);
     }
-    private options: TransformerOptions;
 
     /**
-     * Normalizes the JSON metadata of a entity into an object that the API expects
-     * @param thingworxJson JSON definition of the object, as returned by the metadata endpoint
-     * @param entityType Type of entity to transform
-     * @returns The normalized representation of the Thingworx entity
+     * Converts the json representation of a thingworx entity into a typescript class declaration, while its code as string
+     * @param thingworxJson Thingworx json representation of an entity, exposed by thingworx through the metadata endpoint
+     * @param entityKind Kind of entity to convert
+     * @returns The actual entity class code, as well as the generated class name
      */
-    public convertThingworxEntity(thingworxJson: any, entityType: TWEntityKind): TWEntityDefinition {
-        const definitionsSource =
-            entityType == TWEntityKind.Thing || entityType == TWEntityKind.ThingTemplate ? thingworxJson.thingShape : thingworxJson;
-        const propertyDefinitions: TWPropertyDefinition[] = Object.entries(definitionsSource.propertyDefinitions || {}).map(([k, v]) => {
-            const result: TWPropertyDefinition = Object.assign({}, v as any);
-            // information about the remote and local bindings are stored on separate top level properties
-            // this brings them together into the same object
-            result.remoteBinding = thingworxJson.remotePropertyBindings[k];
-            result.localBinding = thingworxJson.propertyBindings[k];
-            return result;
-        });
-
-        const serviceDefinitions: TWServiceDefinition[] = Object.entries(definitionsSource.serviceDefinitions || {}).map(([k, v]) => {
-            const result: TWServiceDefinition = Object.assign({}, v as any);
-            // the actual service code (implementation) is stored in the serviceImplementation object
-            if (definitionsSource.serviceImplementations[k]) {
-                const handlerName = definitionsSource.serviceImplementations[k].handlerName;
-                if (handlerName != 'Script') {
-                    throw `Service implementation for service "${k}" has the handler set to "${handlerName}". This is not supported.`;
-                }
-                result.code = definitionsSource.serviceImplementations[k].configurationTables.Script.rows[0].code;
-            }
-            // property definitions need to be represented as an array
-            result.parameterDefinitions = Object.entries((v as any).parameterDefinitions).map(([k, v]) => v) as TWServiceParameter[];
-            result.remoteBinding = thingworxJson.remoteServiceBindings[k];
-            return result;
-        });
-
-        const subscriptionDefinitions: TWSubscriptionDefinition[] = Object.entries(definitionsSource.subscriptions || {}).map(([k, v]) => {
-            const result: TWSubscriptionDefinition = Object.assign({}, v as any);
-            // subscription code is actually stored under the service implementation
-            result.code = (v as any).serviceImplementation.configurationTables.Script.rows[0].code;
-            return result;
-        });
-
-        const eventDefinitions: TWEventDefinition[] = Object.entries(definitionsSource.eventDefinitions || {}).map(([k, v]) => {
-            const result: TWEventDefinition = Object.assign({}, v as any);
-            result.remoteBinding = thingworxJson.remoteEventBindings[k];
-            return result;
-        });
-
-        const configurationTableDefinitions: TWConfigurationTableDefinition[] = Object.entries(
-            thingworxJson.configurationTableDefinitions || {},
-        ).map(([k, v]) => v as TWConfigurationTableDefinition);
-
-        // reduce the value of the configuration table by removing the infotable datashape information, and keeping only the rows
-        const configurationTables: TWConfigurationTableValue = Object.entries(thingworxJson.configurationTables || {}).reduce(
-            (obj, [k, v]) => {
-                const table = v as any;
-                if (table.isMultiRow) {
-                    return { ...obj, [k]: table.rows };
-                } else {
-                    return { ...obj, [k]: table.rows[0] };
-                }
-            },
-            {},
-        );
-        // runtimePermissions need to be indexed by the resource name
-        const runtimePermissions: TWRuntimePermissionsList = thingworxJson.runTimePermissions.permissions.reduce(
-            (obj, p) => ({ ...obj, [p.resourceName]: p }),
-            {},
-        );
-
-        const baseEntity: TWEntityDefinition = {
-            description: thingworxJson.description,
-            documentationContent: thingworxJson.documentationContent,
-            name: thingworxJson.name,
-            project: thingworxJson.projectName,
-            tags: thingworxJson.tags,
-            aspects: thingworxJson.aspects,
-            propertyDefinitions: propertyDefinitions,
-            serviceDefinitions: serviceDefinitions,
-            eventDefinitions: eventDefinitions,
-            subscriptionDefinitions: subscriptionDefinitions,
-            configurationTableDefinitions: configurationTableDefinitions,
-            configurationTables: configurationTables,
-            kind: entityType,
-            visibilityPermissions: thingworxJson.visibilityPermissions.Visibility,
-            runtimePermissions: runtimePermissions,
+    public createTsDeclarationForEntity(thingworxJson: any, entityKind: TWEntityKind): { declaration: string; className: string } {
+        const parsedEntity = this.convertThingworxEntityDefinition(thingworxJson, entityKind);
+        const tsClass = this.transformThingworxEntityToClass(parsedEntity);
+        return {
+            declaration: printNode(tsClass, true),
+            className: tsClass.name?.text || '',
         };
-
-        if (entityType == TWEntityKind.Thing) {
-            return Object.assign(
-                {
-                    enabled: thingworxJson.enabled === 'true' || thingworxJson.enabled === true,
-                    identifier: thingworxJson.identifier,
-                    published: thingworxJson.published,
-                    valueStream: thingworxJson.valueStream,
-                    thingTemplate: thingworxJson.thingTemplate,
-                    implementedShapes: Object.keys(thingworxJson.implementedShapes),
-                },
-                baseEntity,
-            ) as TWThing;
-        } else if (entityType == TWEntityKind.ThingTemplate) {
-            return Object.assign(
-                {
-                    valueStream: thingworxJson.valueStream,
-                    thingTemplate: thingworxJson.baseThingTemplate,
-                    implementedShapes: Object.keys(thingworxJson.implementedShapes),
-                    instanceVisibilityPermissions: thingworxJson.instanceVisibilityPermissions.Visibility,
-                    instanceRuntimePermissions: thingworxJson.instanceRunTimePermissions.permissions.reduce(
-                        (obj, p) => ({ ...obj, [p.resourceName]: p }),
-                        {},
-                    ),
-                },
-                baseEntity,
-            ) as TWThingTemplate;
-        } else if (entityType == TWEntityKind.ThingShape) {
-            return Object.assign(
-                {
-                    instanceRuntimePermissions: thingworxJson.instanceRunTimePermissions.permissions.reduce(
-                        (obj, p) => ({ ...obj, [p.resourceName]: p }),
-                        {},
-                    ),
-                },
-                baseEntity,
-            );
-        } else if (entityType == TWEntityKind.DataShape) {
-            return Object.assign(
-                {
-                    fieldDefinitions: Object.entries(thingworxJson.fieldDefinitions).map(([k, v]) => v as any),
-                },
-                baseEntity,
-            ) as TWDataShape;
-        } else {
-            return baseEntity;
-        }
     }
 
     /**
@@ -186,7 +68,7 @@ export class JsonThingToTsTransformer {
      * @param entity Entity to transform
      * @returns the AST of the ClassDeclaration
      */
-    public transformThingworxEntity(entity: TWEntityDefinition): ts.ClassDeclaration {
+    public transformThingworxEntityToClass(entity: TWEntityDefinition): ts.ClassDeclaration {
         const decorators: ts.Decorator[] = [];
         const modifiers: ts.Modifier[] = [];
         const heritage: ts.HeritageClause[] = [];
@@ -343,59 +225,6 @@ export class JsonThingToTsTransformer {
         } else {
             return classDeclaration;
         }
-    }
-
-    /**
-     * Constructs an decorator that can be applied to a thingworx class entity to describe the configuration table definitions
-     * @param configurationTables List of configuration table definitions to be included
-     * @returns typescript decorator describing the configuration table
-     */
-    public createConfigurationTableDefinition(configurationTables: TWConfigurationTableDefinition[]): ts.Decorator {
-        return ts.factory.createDecorator(
-            ts.factory.createCallExpression(ts.factory.createIdentifier('ConfigurationTables'), undefined, [
-                ts.factory.createClassExpression(
-                    undefined,
-                    undefined,
-                    undefined,
-                    undefined,
-                    undefined,
-                    configurationTables.map((t) => {
-                        const memberDeclaration = ts.factory.createPropertyDeclaration(
-                            undefined,
-                            undefined,
-                            ts.factory.createIdentifier(t.name),
-                            undefined,
-                            ts.factory.createTypeReferenceNode(ts.factory.createIdentifier(t.isMultiRow ? 'MultiRowTable' : 'Table'), [
-                                ts.factory.createTypeReferenceNode(ts.factory.createIdentifier(t.dataShapeName)),
-                            ]),
-                            undefined,
-                        );
-                        if (t.description) {
-                            return ts.addSyntheticLeadingComment(
-                                memberDeclaration,
-                                ts.SyntaxKind.MultiLineCommentTrivia,
-                                this.commentize(t.description),
-                                true,
-                            );
-                        } else {
-                            return memberDeclaration;
-                        }
-                    }),
-                ),
-            ]),
-        );
-    }
-    /**
-     * Constructs an decorator that can be applied to a thingworx class entity to describe the configuration table values
-     * @param configurationTables List of configuration table values
-     * @returns typescript decorator describing the configuration table values
-     */
-    public createConfigurationTables(configurationTables: TWConfigurationTableValue): ts.Decorator {
-        return ts.factory.createDecorator(
-            ts.factory.createCallExpression(ts.factory.createIdentifier('config'), undefined, [
-                this.getTypescriptAstFromJson(configurationTables),
-            ]),
-        );
     }
 
     /**
@@ -809,6 +638,194 @@ export class JsonThingToTsTransformer {
         } else {
             return propertyDeclaration;
         }
+    }
+
+    /**
+     * Normalizes the JSON metadata of a entity into an object that the API expects
+     * @param thingworxJson JSON definition of the object, as returned by the metadata endpoint
+     * @param entityKind Type of entity to transform
+     * @returns The normalized representation of the Thingworx entity
+     */
+    private convertThingworxEntityDefinition(thingworxJson: any, entityKind: TWEntityKind): TWEntityDefinition {
+        const definitionsSource =
+            entityKind == TWEntityKind.Thing || entityKind == TWEntityKind.ThingTemplate ? thingworxJson.thingShape : thingworxJson;
+        const propertyDefinitions: TWPropertyDefinition[] = Object.entries(definitionsSource.propertyDefinitions || {}).map(([k, v]) => {
+            const result: TWPropertyDefinition = Object.assign({}, v as any);
+            // information about the remote and local bindings are stored on separate top level properties
+            // this brings them together into the same object
+            result.remoteBinding = thingworxJson.remotePropertyBindings[k];
+            result.localBinding = thingworxJson.propertyBindings[k];
+            return result;
+        });
+
+        const serviceDefinitions: TWServiceDefinition[] = Object.entries(definitionsSource.serviceDefinitions || {}).map(([k, v]) => {
+            const result: TWServiceDefinition = Object.assign({}, v as any);
+            // the actual service code (implementation) is stored in the serviceImplementation object
+            if (definitionsSource.serviceImplementations[k]) {
+                const handlerName = definitionsSource.serviceImplementations[k].handlerName;
+                if (handlerName != 'Script') {
+                    throw `Service implementation for service "${k}" has the handler set to "${handlerName}". This is not supported.`;
+                }
+                result.code = definitionsSource.serviceImplementations[k].configurationTables.Script.rows[0].code;
+            }
+            // property definitions need to be represented as an array
+            result.parameterDefinitions = Object.entries((v as any).parameterDefinitions).map(([k, v]) => v) as TWServiceParameter[];
+            result.remoteBinding = thingworxJson.remoteServiceBindings[k];
+            return result;
+        });
+
+        const subscriptionDefinitions: TWSubscriptionDefinition[] = Object.entries(definitionsSource.subscriptions || {}).map(([k, v]) => {
+            const result: TWSubscriptionDefinition = Object.assign({}, v as any);
+            // subscription code is actually stored under the service implementation
+            result.code = (v as any).serviceImplementation.configurationTables.Script.rows[0].code;
+            return result;
+        });
+
+        const eventDefinitions: TWEventDefinition[] = Object.entries(definitionsSource.eventDefinitions || {}).map(([k, v]) => {
+            const result: TWEventDefinition = Object.assign({}, v as any);
+            result.remoteBinding = thingworxJson.remoteEventBindings[k];
+            return result;
+        });
+
+        const configurationTableDefinitions: TWConfigurationTableDefinition[] = Object.entries(
+            thingworxJson.configurationTableDefinitions || {},
+        ).map(([k, v]) => v as TWConfigurationTableDefinition);
+
+        // reduce the value of the configuration table by removing the infotable datashape information, and keeping only the rows
+        const configurationTables: TWConfigurationTableValue = Object.entries(thingworxJson.configurationTables || {}).reduce(
+            (obj, [k, v]) => {
+                const table = v as any;
+                if (table.isMultiRow) {
+                    return { ...obj, [k]: table.rows };
+                } else {
+                    return { ...obj, [k]: table.rows[0] };
+                }
+            },
+            {},
+        );
+        // runtimePermissions need to be indexed by the resource name
+        const runtimePermissions: TWRuntimePermissionsList = thingworxJson.runTimePermissions.permissions.reduce(
+            (obj, p) => ({ ...obj, [p.resourceName]: p }),
+            {},
+        );
+
+        const baseEntity: TWEntityDefinition = {
+            description: thingworxJson.description,
+            documentationContent: thingworxJson.documentationContent,
+            name: thingworxJson.name,
+            project: thingworxJson.projectName,
+            tags: thingworxJson.tags,
+            aspects: thingworxJson.aspects,
+            propertyDefinitions: propertyDefinitions,
+            serviceDefinitions: serviceDefinitions,
+            eventDefinitions: eventDefinitions,
+            subscriptionDefinitions: subscriptionDefinitions,
+            configurationTableDefinitions: configurationTableDefinitions,
+            configurationTables: configurationTables,
+            kind: entityKind,
+            visibilityPermissions: thingworxJson.visibilityPermissions.Visibility,
+            runtimePermissions: runtimePermissions,
+        };
+
+        if (entityKind == TWEntityKind.Thing) {
+            return Object.assign(
+                {
+                    enabled: thingworxJson.enabled === 'true' || thingworxJson.enabled === true,
+                    identifier: thingworxJson.identifier,
+                    published: thingworxJson.published,
+                    valueStream: thingworxJson.valueStream,
+                    thingTemplate: thingworxJson.thingTemplate,
+                    implementedShapes: Object.keys(thingworxJson.implementedShapes),
+                },
+                baseEntity,
+            ) as TWThing;
+        } else if (entityKind == TWEntityKind.ThingTemplate) {
+            return Object.assign(
+                {
+                    valueStream: thingworxJson.valueStream,
+                    thingTemplate: thingworxJson.baseThingTemplate,
+                    implementedShapes: Object.keys(thingworxJson.implementedShapes),
+                    instanceVisibilityPermissions: thingworxJson.instanceVisibilityPermissions.Visibility,
+                    instanceRuntimePermissions: thingworxJson.instanceRunTimePermissions.permissions.reduce(
+                        (obj, p) => ({ ...obj, [p.resourceName]: p }),
+                        {},
+                    ),
+                },
+                baseEntity,
+            ) as TWThingTemplate;
+        } else if (entityKind == TWEntityKind.ThingShape) {
+            return Object.assign(
+                {
+                    instanceRuntimePermissions: thingworxJson.instanceRunTimePermissions.permissions.reduce(
+                        (obj, p) => ({ ...obj, [p.resourceName]: p }),
+                        {},
+                    ),
+                },
+                baseEntity,
+            );
+        } else if (entityKind == TWEntityKind.DataShape) {
+            return Object.assign(
+                {
+                    fieldDefinitions: Object.entries(thingworxJson.fieldDefinitions).map(([k, v]) => v as any),
+                },
+                baseEntity,
+            ) as TWDataShape;
+        } else {
+            return baseEntity;
+        }
+    }
+    /**
+     * Constructs an decorator that can be applied to a thingworx class entity to describe the configuration table definitions
+     * @param configurationTables List of configuration table definitions to be included
+     * @returns typescript decorator describing the configuration table
+     */
+    private createConfigurationTableDefinition(configurationTables: TWConfigurationTableDefinition[]): ts.Decorator {
+        return ts.factory.createDecorator(
+            ts.factory.createCallExpression(ts.factory.createIdentifier('ConfigurationTables'), undefined, [
+                ts.factory.createClassExpression(
+                    undefined,
+                    undefined,
+                    undefined,
+                    undefined,
+                    undefined,
+                    configurationTables.map((t) => {
+                        const memberDeclaration = ts.factory.createPropertyDeclaration(
+                            undefined,
+                            undefined,
+                            ts.factory.createIdentifier(t.name),
+                            undefined,
+                            ts.factory.createTypeReferenceNode(ts.factory.createIdentifier(t.isMultiRow ? 'MultiRowTable' : 'Table'), [
+                                ts.factory.createTypeReferenceNode(ts.factory.createIdentifier(t.dataShapeName)),
+                            ]),
+                            undefined,
+                        );
+                        if (t.description) {
+                            return ts.addSyntheticLeadingComment(
+                                memberDeclaration,
+                                ts.SyntaxKind.MultiLineCommentTrivia,
+                                this.commentize(t.description),
+                                true,
+                            );
+                        } else {
+                            return memberDeclaration;
+                        }
+                    }),
+                ),
+            ]),
+        );
+    }
+
+    /**
+     * Constructs an decorator that can be applied to a thingworx class entity to describe the configuration table values
+     * @param configurationTables List of configuration table values
+     * @returns typescript decorator describing the configuration table values
+     */
+    private createConfigurationTables(configurationTables: TWConfigurationTableValue): ts.Decorator {
+        return ts.factory.createDecorator(
+            ts.factory.createCallExpression(ts.factory.createIdentifier('config'), undefined, [
+                this.getTypescriptAstFromJson(configurationTables),
+            ]),
+        );
     }
 
     /**

@@ -737,9 +737,8 @@ describe('Full thing transformations', () => {
         }
         it(`Verifying testcase ${f}`, async () => {
             const inputFile = JSON.parse(readFileSync(f, 'utf-8'));
-            const transformedFile = transformer.convertThingworxEntity(inputFile, entityKind!);
-            const typescriptClass = transformer.transformThingworxEntity(transformedFile);
-            expect(printNode(typescriptClass, true)).toBe(readFileSync(path.join(parsedPath.dir, parsedPath.name + '.ts')).toString());
+            const transformedCode = transformer.createTsDeclarationForEntity(inputFile, entityKind!);
+            expect(transformedCode.declaration).toBe(readFileSync(path.join(parsedPath.dir, parsedPath.name + '.ts')).toString());
         });
     });
 });
