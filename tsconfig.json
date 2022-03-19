@@ -8,7 +8,8 @@
         "downlevelIteration": true,
         "experimentalDecorators": true,
         "strict": true,
-        "declaration": false,
+        "declaration": true,
+        "declarationDir": "dist/@types",
         "lib": [
             "esnext"
         ],
@@ -18,14 +19,6 @@
         ]
     },
     "include": [
-        "./src/*", 
-        "src/transformer/TWCoreTypes.ts", 
-        "src/transformer/ThingTransformer.ts", 
-        "src/thingworx/TWBaseTypes.d.ts", 
-        "src/thingworx/ThingTemplates.d.ts", 
-        "src/thingworx/ThingShapes.d.ts", 
-        "src/thingworx/Things.d.ts", 
-        "src/thingworx/DefaultEntities.d.ts",
-        "src/thingworx/Decorators.d.ts"
+        "./src/*"
     ]
 }
