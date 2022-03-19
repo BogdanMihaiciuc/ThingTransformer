@@ -33,6 +33,12 @@ const PermittedTypeNodeKinds = [...TypeScriptPrimitiveTypes, ts.SyntaxKind.TypeR
 const PermissionDecorators = ['allow', 'deny', 'allowInstance', 'denyInstance'];
 
 /**
+ * A constant that defines how many thing instances should be created for a thing template
+ * or thing shape when this feature is enabled.
+ */
+const ThingInstancesToCreate = 5;
+
+/**
  * If set to `true`, the transformer will create a configuration table containing the debug information
  * for each entity.
  */
@@ -3951,7 +3957,31 @@ finally {
                 return `declare interface ${this.entityKind}s { ${JSON.stringify(this.exportedName)}: ${this.entityKind}Entity<${this.orgUnits.map(u => JSON.stringify(u.name)).join(' | ') || 'string'}>}`;
             }
             else {
-                return `declare interface ${this.entityKind}s { ${JSON.stringify(this.exportedName)}: ${this.entityKind}Entity<${this.className}>}`;
+                let declaration = `declare interface ${this.entityKind}s { ${JSON.stringify(this.exportedName)}: ${this.entityKind}Entity<${this.className}>}`;
+
+                // If enabled, generate dummy things for templates and shapes
+                if (this.generateThingInstances) {
+
+                    // For template instances, the things' type is the template class directly
+                    if (this.entityKind == TWEntityKind.ThingTemplate) {
+                        declaration += '\n\ndeclare interface Things {\n'
+                        for (let i = 0; i < ThingInstancesToCreate; i++) {
+                            declaration += `\t"${(crypto as any).randomUUID()}": ${this.className};\n`;
+                        }
+                        declaration += '}\n';
+                    }
+
+                    // For shape instances, the things' type is a Generic thing with the shape applied
+                    if (this.entityKind == TWEntityKind.ThingShape) {
+                        declaration += '\n\ndeclare interface Things {\n'
+                        for (let i = 0; i < ThingInstancesToCreate; i++) {
+                            declaration += `\t"${(crypto as any).randomUUID()}": GenericThing & ${this.className};\n`;
+                        }
+                        declaration += '}\n';
+                    }
+                }
+
+                return declaration;
             }
         }
         else {
