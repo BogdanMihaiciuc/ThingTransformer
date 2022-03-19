@@ -1,0 +1,22 @@
+{
+    "compilerOptions": {
+        "outDir": "./dist/",
+        "sourceMap": true,
+        "noImplicitAny": false,
+        "module": "CommonJS",
+        "target": "esnext",
+        "downlevelIteration": true,
+        "experimentalDecorators": true,
+        "strict": true,
+        "lib": [
+            "esnext"
+        ],
+        "typeRoots": [
+            "./typings/",
+            "./node_modules/@types/"
+        ]
+    },
+    "include": [
+        "./types/*"
+    ]
+}
