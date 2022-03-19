@@ -8,8 +8,6 @@
         "downlevelIteration": true,
         "experimentalDecorators": true,
         "strict": true,
-        "declaration": true,
-        "declarationDir": "dist/@types",
         "lib": [
             "esnext"
         ],
@@ -19,6 +17,6 @@
         ]
     },
     "include": [
-        "./src/*"
+        "./types/*"
     ]
 }

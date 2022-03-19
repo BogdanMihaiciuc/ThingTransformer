@@ -1,3 +1,19 @@
+# 0.18.0-beta.1
+
+Removed `gulp` as a dev dependency and the build script using it. Use `npm run build` to build this release, which just executes `tsc` directly.
+
+The core thingworx types are now included with the transformer instead of being part of the thingworx projects.
+
+Added support for building sub projects when the project name is set to `"@auto"` in twconfig.
+
+Added support for using compile time constants (such as env variables) in the `@config` decorator.
+
+Added support for the `THINGGROUP` type.
+
+Added support for generating dummy thing declaration for thing template and thing shape entities and the `"generateThingInstances"` property in twconfig.
+
+Resolves an issue where creating debug builds could fail in certain cases.
+
 # 0.17.0-beta.1
 
 Added the ability to generate "debug" builds, to be used with the `BMDebugger` extension.
