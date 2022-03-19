@@ -301,6 +301,12 @@ export class TWThingTransformer {
      */
     breakpointLocations: { [key: number]: { [key:number]: boolean } } = {};
 
+    /**
+     * If enabled, when generating the declarations for a thing template or thing shape, the transformer
+     * will also declare a number of things that implement them.
+     */
+    generateThingInstances?: boolean;
+
     constructor(program: ts.Program, context: ts.TransformationContext, root: string, after: boolean, watch: boolean) {
         this.program = program;
         this.context = context;
