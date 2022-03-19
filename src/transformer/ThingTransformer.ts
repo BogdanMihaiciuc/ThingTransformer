@@ -1,8 +1,10 @@
 import * as ts from 'typescript';
+import { TWConfig } from '../configuration/TWConfig';
 import { TWEntityKind, TWPropertyDefinition, TWServiceDefinition, TWEventDefinition, TWSubscriptionDefinition, TWBaseTypes, TWPropertyDataChangeKind, TWFieldBase, TWPropertyRemoteBinding, TWPropertyRemoteFoldKind, TWPropertyRemotePushKind, TWPropertyRemoteStartKind, TWPropertyBinding, TWSubscriptionSourceKind, TWServiceParameter, TWDataShapeField, TWConfigurationTable, TWRuntimePermissionsList, TWVisibility, TWExtractedPermissionLists, TWRuntimePermissionDeclaration, TWPrincipal, TWPermission, TWUser, TWUserGroup, TWPrincipalBase, TWOrganizationalUnit, TWConnection, TWDataThings, TWInfoTable } from './TWCoreTypes';
 import { Breakpoint } from './DebugTypes';
 import {Builder} from 'xml2js';
 import * as fs from 'fs';
+import * as crypto from 'crypto';
 
 declare global {
     namespace NodeJS {
@@ -371,6 +373,38 @@ Failed parsing at: \n${node.getText()}\n\n`);
         }
 
         this.throwErrorForNode(classNode, `Unknown entity kind for class ${classNode.name}`);
+    }
+
+
+    /**
+     * Returns the constant value of the given expression so that it can be inlined.
+     * A constant value that must be inlined can occur because of a const enum member or because of
+     * an environment variable.
+     * @param expression    The expression whose constant value should be evaluated.
+     * @returns             The constant value if it could be resolved, `undefined` otherwise.
+     */
+     constantOrLiteralValueOfExpression(expression: ts.Expression): unknown {
+        if (ts.isNumericLiteral(expression)) {
+            return parseFloat((expression as ts.NumericLiteral).text);
+        }
+        else if (ts.isPrefixUnaryExpression(expression) && ts.isNumericLiteral(expression.operand) && expression.operator == ts.SyntaxKind.MinusToken) {
+            // check for negative number
+            return parseFloat('-' + (expression.operand as ts.NumericLiteral).text);
+        }
+        else if (ts.isStringLiteral(expression)) {
+            return expression.text;
+        }
+        else if (expression.kind == ts.SyntaxKind.TrueKeyword) {
+            return true;
+        }
+        else if (expression.kind == ts.SyntaxKind.FalseKeyword) {
+            return false;
+        }
+        else if (ts.isPropertyAccessExpression(expression)) {
+            return this.constantValueOfExpression(expression);
+        }
+
+        return undefined;
     }
 
     /**
@@ -1995,9 +2029,19 @@ Failed parsing at: \n${node.getText()}\n\n`);
         service.isPrivate = false;
         service.isOpen = false;
 
+        // Check if the service is a SQL query or command
+        const isSQLCommand = this.hasDecoratorNamed('SQLCommand', node);
+        const isSQLQuery = this.hasDecoratorNamed('SQLQuery', node);
+        const isSQLService = isSQLCommand || isSQLQuery;
+
         if (this.hasDecoratorNamed('remoteService', node)) {
             // Decorators can't be applied to abstract methods, instead, by convention, the body of the remote
             // service will be ignored
+
+            // Remote services cannot have any other type indentifies, such as SQL decorators
+            if (isSQLService) {
+                this.throwErrorForNode(node, `The service "${service.name}" cannot be both a remote and a SQL service.`);
+            }
 
             //if (!node.modifiers) this.throwErrorForNode(node, 'Remote services must be declared abstract.');
             /*const isAbstract = node.modifiers.some(modifier => modifier.kind == ts.SyntaxKind.AbstractKeyword);
@@ -2042,6 +2086,18 @@ Failed parsing at: \n${node.getText()}\n\n`);
                     }
                 }
             }
+        }
+        else if (isSQLService) {
+            // Ensure that only one SQL decorator is used
+            if (isSQLCommand && isSQLQuery) {
+                this.throwErrorForNode(node, `The service "${service.name}" cannot be both a SQL query and a SQL command.`);
+            }
+
+            service.SQLInfo = {
+                handler: isSQLCommand ? 'SQLCommand' : 'SQLQuery'
+            } as TWServiceDefinition['SQLInfo'];
+
+            this.visitSQLService(node, service);
         }
         else {
             service.code = node.body!.getText();
@@ -2295,6 +2351,197 @@ Failed parsing at: \n${node.getText()}\n\n`);
     }
 
     /**
+     * Visits a method declaration that represents a SQL service definition.
+     * @param node              The node to visit.
+     * @param service           The service definition object.
+     */
+    visitSQLService(node: ts.MethodDeclaration, service: TWServiceDefinition): void {
+        // SQL services must only have a single statement that is a tagged template containing the
+        // query or command to execute
+        if (node.body!.statements.length != 1) {
+            this.throwErrorForNode(node, `A SQL service must have a single statement.`);
+        }
+
+        const statement = node.body!.statements[0];
+
+        switch (service.SQLInfo!.handler) {
+            case 'SQLCommand':
+                // For commands, the single statement must be the tagged template directly
+                if (statement.kind != ts.SyntaxKind.ExpressionStatement) {
+                    this.throwErrorForNode(node, `A SQL service must have a single tagged template expression statement.`);
+                }
+
+                const commandExpression = (statement as ts.ExpressionStatement).expression as ts.TaggedTemplateExpression;
+                if (commandExpression.kind != ts.SyntaxKind.TaggedTemplateExpression) {
+                    this.throwErrorForNode(node, `A SQL service must have a single tagged template expression statement.`);
+                }
+
+                // The tagged statement must use the SQLCommand function
+                if (commandExpression.tag.getText() != 'SQLCommand') {
+                    this.throwErrorForNode(node, `A SQL command must use the SQLCommand function.`)
+                }
+
+                // Get the timeout if specified
+                const commandArgs = this.argumentsOfDecoratorNamed('SQLCommand', node);
+                if (commandArgs) {
+                    const timeout = this.constantOrLiteralValueOfExpression(commandArgs[0]);
+
+                    if (typeof timeout == 'number') {
+                        // The timeout may be a finite numeric literal
+                        if (Number.isNaN(timeout)) {
+                            this.throwErrorForNode(node, 'The timeout must be a numeric compile time constant.');
+                        }
+                        service.SQLInfo!.timeout = timeout;
+                    }
+                    else if (typeof timeout == 'string') {
+                        // It may also be a number-like compile time constant
+                        const numericTimeout = parseFloat(timeout);
+                        if (Number.isNaN(numericTimeout)) {
+                            this.throwErrorForNode(node, 'The timeout must be a numeric compile time constant.');
+                        }
+
+                        service.SQLInfo!.timeout = numericTimeout;
+                    }
+                    else {
+                        // All other values are disallowed
+                        this.throwErrorForNode(node, 'The timeout must be a numeric compile time constant.');
+                    }
+                }
+
+                // Parse the template literal into the SQL code
+                service.code = this._parseSQLTemplateLiteral(commandExpression.template);
+                break;
+            case 'SQLQuery':
+                // For queries, the single statement must be a return statement
+                if (statement.kind != ts.SyntaxKind.ReturnStatement) {
+                    this.throwErrorForNode(node, `A SQL query must return the result of a query.`);
+                }
+
+                const returnedExpression = (statement as ts.ReturnStatement).expression;
+
+                // The return statement must return an expression
+                if (!returnedExpression) {
+                    this.throwErrorForNode(node, `A SQL query must return the result of a query.`);
+                }
+
+                // The returned expression must be SQLQuery tagged template expression
+                if (returnedExpression.kind != ts.SyntaxKind.TaggedTemplateExpression) {
+                    this.throwErrorForNode(node, `A SQL query must return a single tagged template expression statement.`);
+                }
+
+                const queryExpression = returnedExpression as ts.TaggedTemplateExpression;
+
+                // The tagged statement must use the SQLQuery function
+                if (queryExpression.tag.getText() != 'SQLQuery') {
+                    this.throwErrorForNode(node, `A SQL query must use the SQLQuery function.`)
+                }
+
+                // Get the max rows and timeout if specified
+                const queryArgs = this.argumentsOfDecoratorNamed('SQLQuery', node);
+                if (queryArgs) {
+                    const timeout = this.constantOrLiteralValueOfExpression(queryArgs[0]);
+                    const maxRows = this.constantOrLiteralValueOfExpression(queryArgs[1]);
+
+                    if (typeof timeout == 'number') {
+                        // The timeout may be a finite numeric literal
+                        if (Number.isNaN(timeout)) {
+                            this.throwErrorForNode(node, 'The timeout must be a numeric compile time constant.');
+                        }
+                        service.SQLInfo!.timeout = timeout;
+                    }
+                    else if (typeof timeout == 'string') {
+                        // It may also be a number-like compile time constant
+                        const numericTimeout = parseFloat(timeout);
+                        if (Number.isNaN(numericTimeout)) {
+                            this.throwErrorForNode(node, 'The timeout must be a numeric compile time constant.');
+                        }
+
+                        service.SQLInfo!.timeout = numericTimeout;
+                    }
+                    else {
+                        // All other values are disallowed
+                        this.throwErrorForNode(node, 'The timeout must be a numeric compile time constant.');
+                    }
+
+                    if (typeof maxRows == 'number') {
+                        // The max rows may be a finite numeric literal
+                        if (Number.isNaN(maxRows)) {
+                            this.throwErrorForNode(node, 'The maxRows must be a numeric compile time constant.');
+                        }
+                        service.SQLInfo!.maxRows = maxRows;
+                    }
+                    else if (typeof maxRows == 'string') {
+                        // It may also be a number-like compile time constant
+                        const numericMaxRows = parseFloat(maxRows);
+                        if (Number.isNaN(numericMaxRows)) {
+                            this.throwErrorForNode(node, 'The maxRows must be a numeric compile time constant.');
+                        }
+
+                        service.SQLInfo!.maxRows = numericMaxRows;
+                    }
+                    else {
+                        // All other values are disallowed
+                        this.throwErrorForNode(node, 'The maxRows must be a numeric compile time constant.');
+                    }
+                }
+
+                // Parse the template literal into the SQL code
+                service.code = this._parseSQLTemplateLiteral(queryExpression.template);
+                break;
+        }
+    }
+
+    /**
+     * Parses the given template literal as a SQL service body, returning the code
+     * that should be used in the service's implementation.
+     * @param literal       The template literal to parse.
+     * @returns             The code that should be used for the service.
+     */
+    private _parseSQLTemplateLiteral(literal: ts.TemplateLiteral): string {
+        let result = '';
+
+        // if there are no expressions to substitute, return the literal text directly
+        if (literal.kind == ts.SyntaxKind.NoSubstitutionTemplateLiteral) {
+            return (literal as ts.NoSubstitutionTemplateLiteral).text;
+        }
+
+        const expression = literal as ts.TemplateExpression;
+
+        // Check if the next expression is meant to be a SQL literal
+        let isLiteralStart = literal.head.text.endsWith('<<');
+
+        result += literal.head.text;
+
+        for (const span of expression.templateSpans) {
+            const expression = span.expression;
+
+            // The expressions may only be identifiers
+            if (expression.kind != ts.SyntaxKind.Identifier) {
+                this.throwErrorForNode(expression, `SQL template placeholders may only be identifiers.`);
+            }
+
+            const identifier = (expression as ts.Identifier).text;
+
+            if (isLiteralStart && span.literal.text.startsWith('>>')) {
+                // If the previous literal block starts a literal replacement and the next literal
+                // block closes it, add the identifier directly
+                result += identifier;
+            }
+            else {
+                // Otherwise add it as a prepared statement parameter
+                result += `[[${identifier}]]`;
+            }
+
+            result += span.literal.text;
+
+            // Check if the next expression is meant to be a SQL literal
+            isLiteralStart = span.literal.text.endsWith('<<');
+        }
+
+        return result;
+    }
+
+    /**
      * Visits a method declaration that represents a subscription definition.
      * @param node      The node to visit.
      */
@@ -2307,6 +2554,11 @@ Failed parsing at: \n${node.getText()}\n\n`);
 
         if (this.hasDecoratorNamed('subscription', node) && this.hasDecoratorNamed('localSubscription', node)) {
             this.throwErrorForNode(node, 'A method cannot have both the "subscription" and "localSubscription" decorators applied.');
+        }
+
+        // Subscriptions can only be javascript services
+        if (this.hasDecoratorNamed('SQLQuery', node) || this.hasDecoratorNamed('SQLCommand', node)) {
+            this.throwErrorForNode(node, 'Subscriptions cannot be SQL services.');
         }
 
         subscription.name = node.name.getText();
@@ -2362,6 +2614,11 @@ Failed parsing at: \n${node.getText()}\n\n`);
         return node;
     }
 
+    /**
+     * Visits a method node for a debug build, adding in debug statements where possible.
+     * @param node          The method node.
+     * @returns             The transformed node.
+     */
     visitMethodNode(node: ts.Node): ts.Node | undefined {
         node = ts.visitEachChild(node, n => this.visitMethodNode(n), this.context);
 
@@ -2431,13 +2688,20 @@ Failed parsing at: \n${node.getText()}\n\n`);
             case ts.SyntaxKind.PropertyAccessExpression:
                 // Inline constant values where possible. In debug builds this will skip the regular visit method
                 // TODO: These should be combined into one
-                const constantValue = this.constantValueOfExpression(node as ts.PropertyAccessExpression);
-    
-                if (typeof constantValue == 'string') {
-                    return ts.factory.createStringLiteral(constantValue);
+                try {
+                    const constantValue = this.constantValueOfExpression(node as ts.PropertyAccessExpression);
+        
+                    if (typeof constantValue == 'string') {
+                        return ts.factory.createStringLiteral(constantValue);
+                    }
+                    else if (typeof constantValue == 'number') {
+                        return ts.factory.createNumericLiteral(constantValue.toString());
+                    }
                 }
-                else if (typeof constantValue == 'number') {
-                    return ts.factory.createNumericLiteral(constantValue.toString());
+                catch (e) {
+                    // This will fail for synthetic nodes modified by the transformer, but will not be
+                    // compile time constants, so in this case just return the original node
+                    return node;
                 }
                 break;
             case ts.SyntaxKind.Identifier:
@@ -2688,11 +2952,14 @@ Failed parsing at: \n${node.getText()}\n\n`);
             if (!className) return;
 
             const store = this.store || global._TWEntities;
-            const entity = store[className];
+            const entity = store[className] as TWThingTransformer;
             if (!entity) return;
 
             for (const service of entity.services) {
                 if (service.name == name) {
+                    // If this service is a SQL service, don't use the transpiled code
+                    if (service.SQLInfo) return;
+
                     //const body = ts.createPrinter().printNode(ts.EmitHint.Unspecified, node.body, (this as any).source);
                     service.code = this.transpiledBodyOfThingworxMethod(node);
 
@@ -3054,6 +3321,162 @@ finally {
     }
 
     /**
+     * Returns an object that describes the XML structure of the given service's implementation.
+     * @param service           The service.
+     * @returns                 An implementation object.
+     */
+    private _implementationOfService(service: TWServiceDefinition) {
+        if (!service.SQLInfo) {
+            return this._implementationOfJavaScriptService(service);
+        }
+        else {
+            return this._implementationOfSQLService(service);
+        }
+    }
+
+    /**
+     * Returns an object that describes the XML structure of the given javascript service's implementation.
+     * @param service           The service.
+     * @returns                 An implementation object.
+     */
+    private _implementationOfJavaScriptService(service: TWServiceDefinition) {
+        return {
+            $: {
+                description: "",
+                handlerName: "Script",
+                name: service.name
+            },
+            ConfigurationTables: [
+                {
+                    ConfigurationTable: [
+                        {
+                            $: {
+                                description: "Script",
+                                isMultiRow: "false",
+                                name: "Script",
+                                ordinal: "0"
+                            },
+                            DataShape: [
+                                {
+                                    FieldDefinitions: [
+                                        {
+                                            FieldDefinition: [
+                                                {
+                                                    $: {
+                                                        baseType: "STRING",
+                                                        description: "code",
+                                                        name: "code",
+                                                        ordinal: "0"
+                                                    }
+                                                }
+                                            ]
+                                        }
+                                    ]
+                                }
+                            ],
+                            Rows: [
+                                {
+                                    Row: [
+                                        {
+                                            code: [service.code]
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        };
+    }
+
+
+    /**
+     * Returns an object that describes the XML structure of the given SQL service's implementation.
+     * @param service           The service.
+     * @returns                 An implementation object.
+     */
+    private _implementationOfSQLService(service: TWServiceDefinition) {
+        const implementation = {
+            $: {
+                description: "",
+                handlerName: service.SQLInfo!.handler,
+                name: service.name
+            },
+            ConfigurationTables: [
+                {
+                    ConfigurationTable: [
+                        {
+                            $: {
+                                description: service.SQLInfo!.handler,
+                                isMultiRow: "false",
+                                name: 'Query',
+                                ordinal: "0"
+                            },
+                            DataShape: [
+                                {
+                                    FieldDefinitions: [
+                                        {
+                                            FieldDefinition: [
+                                                {
+                                                    $: {
+                                                        baseType: "STRING",
+                                                        description: "sql",
+                                                        name: "sql",
+                                                        ordinal: "0"
+                                                    }
+                                                },
+                                                {
+                                                    $: {
+                                                        baseType: "NUMBER",
+                                                        description: "timeout",
+                                                        name: "timeout",
+                                                        ordinal: "0"
+                                                    }
+                                                }
+                                            ]
+                                        }
+                                    ]
+                                }
+                            ],
+                            Rows: [
+                                {
+                                    Row: [
+                                        {
+                                            sql: [service.code],
+                                            timeout: service.SQLInfo!.timeout || 60
+                                        } as {
+                                            sql: string[],
+                                            timeout: number,
+                                            maxItems?: number
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        };
+
+        // If the service is a query, it also has a max rows field
+        if (service.SQLInfo!.handler == 'SQLQuery') {
+            implementation.ConfigurationTables[0].ConfigurationTable[0].DataShape[0].FieldDefinitions[0].FieldDefinition.push({
+                $: {
+                    baseType: 'NUMBER',
+                    description: 'maxItems',
+                    name: 'maxItems',
+                    ordinal: '0'
+                }
+            });
+
+            implementation.ConfigurationTables[0].ConfigurationTable[0].Rows[0].Row[0].maxItems = service.SQLInfo!.maxRows || 500;
+        }
+
+        return implementation;
+    }
+
+    /**
      * Returns the XML entity representation of the file processed by this transformer.
      * @return      An XML.
      */
@@ -3183,7 +3606,7 @@ finally {
                 const serviceDefinition = {$:{}} as any;
                 
                 for (const key in service) {
-                    if (key == 'aspects' || key == 'remoteBinding' || key == 'code' || key == 'parameterDefinitions' || key == 'resultType' || key == 'isOverriden') continue;
+                    if (key == 'aspects' || key == 'remoteBinding' || key == 'code' || key == 'parameterDefinitions' || key == 'resultType' || key == 'isOverriden' || key == 'SQLInfo') continue;
     
                     serviceDefinition.$[key] = service[key];
                 }
@@ -3246,54 +3669,7 @@ finally {
             }
             else {
                 // This JSON is just how an infotable appears after conversion from an XML format - copy-pasted from an export
-                const implementation = {
-                    $: {
-                        description: "",
-                        handlerName: "Script",
-                        name: service.name
-                    },
-                    ConfigurationTables: [
-                        {
-                            ConfigurationTable: [
-                                {
-                                    $: {
-                                        description: "Script",
-                                        isMultiRow: "false",
-                                        name: "Script",
-                                        ordinal: "0"
-                                    },
-                                    DataShape: [
-                                        {
-                                            FieldDefinitions: [
-                                                {
-                                                    FieldDefinition: [
-                                                        {
-                                                            $: {
-                                                                baseType: "STRING",
-                                                                description: "code",
-                                                                name: "code",
-                                                                ordinal: "0"
-                                                            }
-                                                        }
-                                                    ]
-                                                }
-                                            ]
-                                        }
-                                    ],
-                                    Rows: [
-                                        {
-                                            Row: [
-                                                {
-                                                    code: [service.code]
-                                                }
-                                            ]
-                                        }
-                                    ]
-                                }
-                            ]
-                        }
-                    ]
-                };
+                const implementation = this._implementationOfService(service);
                 
                 serviceImplementations.push(implementation);
             }

@@ -125,6 +125,26 @@ export interface TWServiceDefinition {
     remoteBinding?: TWServiceRemoteBinding;
 
     isOverriden?: boolean;
+
+    /**
+     * An optional object containing additional information about the service if it is a sql service.
+     */
+    SQLInfo?: {
+        /**
+         * The service handler. Must be either `SQLQuery` or `SQLCommand`.
+         */
+        handler: 'SQLQuery' | 'SQLCommand';
+
+        /**
+         * The timeout.
+         */
+        timeout: number;
+
+        /**
+         * The maximum rows.
+         */
+        maxRows: number;
+    }
 }
 
 export interface TWServiceAspects {
