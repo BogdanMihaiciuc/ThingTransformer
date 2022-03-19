@@ -2916,6 +2916,13 @@ finally {
                 case ts.SyntaxKind.NumericLiteral:
                     result[name] = parseFloat((member.initializer as ts.NumericLiteral).text);
                     break;
+                case ts.SyntaxKind.PropertyAccessExpression:
+                    const constant = this.constantValueOfExpression(member.initializer);
+                    if (constant === undefined) {
+                        this.throwErrorForNode(member, `Configuration field values must be compile time constants.`)
+                    }
+                    result[name] = constant;
+                    break;
                 default:
                     this.throwErrorForNode(member, `Configuration field values can only be literal primitives`);
             }
