@@ -18,7 +18,7 @@ A tool that allows the development of Thingworx models in a real IDE. This repo 
 
 # Usage
 
-You should primarily use this via the [Thingworx VSCode Project Template](https://github.com/ptc-iot-sharing/ThingworxVSCodeProject). For more information, refer to that repository.
+You should primarily use this via the [Thingworx VSCode Project Template](https://github.com/BogdanMihaiciuc/ThingworxVSCodeProject). For more information, refer to that repository.
 
 Nevertheless, you can use this standalone as well, by including it in your project with `npm install bm-thing-transformer`.
 
