@@ -1565,17 +1565,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
      * @param node      The node to visit.
      */
     visitDataShapeField(node: ts.PropertyDeclaration) {
-        // Ensure that the property has a type annotation
-        if (!node.type) {
-            this.throwErrorForNode(node, `Properties must have type annotation in Thingworx classes.`);
-        }
-        if (!PermittedTypeNodeKinds.includes(node.type.kind)) {
-            this.throwErrorForNode(node, `Unknown baseType for property ${node.name.getText()}: ${node.type.getText()}`);
-        }
-
-        // Extract the type name
-        const typeNode = node.type as ts.TypeReferenceNode;
-        const baseType = TypeScriptPrimitiveTypes.includes(typeNode.kind) ? typeNode.getText() : typeNode.typeName.getText();
+        const baseType = this.getTypeOfPropertyDeclaration(node);
 
         const property = {} as TWDataShapeField;
         if (node.name.kind != ts.SyntaxKind.Identifier) {
@@ -1607,7 +1597,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
 
         // INFOTABLE can optionally take the data shape as a type argument
         if (TWBaseTypes[baseType] == 'INFOTABLE') {
-            const typeArguments = typeNode.typeArguments;
+            const typeArguments = (node.type as ts.TypeReferenceNode)?.typeArguments;
             if (typeArguments) {
                 if (typeArguments.length != 1) this.throwErrorForNode(node, `Unknown generics specified for property ${property.name}: ${property.baseType}`);
 
@@ -1621,7 +1611,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
         }
         // THINGNAME can optionally take the thing template name and/or thing shape name as a type argument
         else if (TWBaseTypes[baseType] == 'THINGNAME') {
-            const typeArguments = typeNode.typeArguments;
+            const typeArguments = (node.type as ts.TypeReferenceNode)?.typeArguments;
 
             if (typeArguments && typeArguments.length) {
                 if (typeArguments.length > 2) this.throwErrorForNode(node, `Unknown generics specified for property ${property.name}: ${property.baseType}`);
@@ -1674,17 +1664,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
      * @param node      The node to visit.
      */
     visitProperty(node: ts.PropertyDeclaration) {
-        // Ensure that the property has a type annotation
-        if (!node.type) {
-            this.throwErrorForNode(node, `Properties must have type annotation in Thingworx classes.`);
-        }
-        if (!PermittedTypeNodeKinds.includes(node.type.kind)) {
-            this.throwErrorForNode(node, `Unknown baseType for property ${node.name.getText()}: ${node.type.getText()}`);
-        }
-
-        // Extract the type name
-        const typeNode = node.type as ts.TypeReferenceNode;
-        const baseType = TypeScriptPrimitiveTypes.includes(typeNode.kind) ? typeNode.getText() : typeNode.typeName.getText();
+        const baseType = this.getTypeOfPropertyDeclaration(node);
 
         // The special base type "EVENT" identifies properties that will be converted into events.
         if (baseType == 'EVENT') {
@@ -1716,7 +1696,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
 
         // INFOTABLE can optionally take the data shape as a type argument
         if (TWBaseTypes[baseType] == 'INFOTABLE') {
-            const typeArguments = typeNode.typeArguments;
+            const typeArguments = (node.type as ts.TypeReferenceNode)?.typeArguments;
             if (typeArguments) {
                 if (typeArguments.length != 1) this.throwErrorForNode(node, `Unknown generics specified for property ${property.name}: ${property.baseType}`);
 
@@ -1730,7 +1710,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
         }
         // THINGNAME can optionally take the thing template name and/or thing shape name as a type argument
         else if (TWBaseTypes[baseType] == 'THINGNAME') {
-            const typeArguments = typeNode.typeArguments;
+            const typeArguments = (node.type as ts.TypeReferenceNode)?.typeArguments;
 
             if (typeArguments && typeArguments.length) {
                 if (typeArguments.length > 2) this.throwErrorForNode(node, `Unknown generics specified for property ${property.name}: ${property.baseType}`);
@@ -1951,6 +1931,28 @@ Failed parsing at: \n${node.getText()}\n\n`);
         this.runtimePermissions = this.mergePermissionListsForNode([this.runtimePermissions].concat(this.permissionsOfNode(node, node.name.text)), node);
 
         this.properties.push(property);
+    }
+
+    /**
+     * Retrieves the baseType of a typescript property declaration.
+     * If a declared baseType is not defined, then attempt to infer it from context
+     * @param node Note to verify
+     * @returns BaseType of property
+     */
+    private getTypeOfPropertyDeclaration(node: ts.PropertyDeclaration): string {
+        // If the property has a type explicitly set, then use it
+        if (node.type) {
+            if (!PermittedTypeNodeKinds.includes(node.type.kind)) {
+                this.throwErrorForNode(node, `Unknown baseType for property ${node.name.getText()}: ${node.type.getText()}`);
+            }
+            const typeNode = node.type as ts.TypeReferenceNode;
+            return TypeScriptPrimitiveTypes.includes(typeNode.kind) ? typeNode.getText() : typeNode.typeName.getText();
+        } else {
+            // If a type has not been specified, try to infer it from the context
+            const typeChecker = this.program.getTypeChecker();
+            const inferredType = typeChecker.getTypeAtLocation(node);
+            return typeChecker.typeToString(inferredType);
+        }
     }
 
     /**
