@@ -96,6 +96,7 @@ To build the project, run `npm run build` in the root of the project. This will 
 ### Contributors
 
  - [dwil618](https://github.com/dwil618): support for min/max aspects and date initializers.
+ - [stefan-lacatus](https://github.com/stefan-lacatus): support for inferred types in property declarations
 
 #  License
 
