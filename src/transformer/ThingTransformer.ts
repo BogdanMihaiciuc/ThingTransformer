@@ -1585,13 +1585,13 @@ Failed parsing at: \n${node.getText()}\n\n`);
 
         const ordinal = this.numericArgumentOfDecoratorNamed('ordinal', node);
         if (ordinal) {
-            if (!parseInt(ordinal)) this.throwErrorForNode(node, `Non numeric value specified in ordinal decorator for property ${property.name}: ${property.baseType}`);
+            if (!parseInt(ordinal)) this.throwErrorForNode(node, `Non numeric value specified in ordinal decorator for property ${property.name}: ${baseType}`);
             property.ordinal = parseInt(ordinal);
         }
 
         // Ensure that the base type is one of the Thingworx Base Types
         if (!(baseType in TWBaseTypes)) {
-            this.throwErrorForNode(node, `Unknown baseType for property ${property.name}: ${property.baseType}`);
+            this.throwErrorForNode(node, `Unknown baseType for property ${property.name}: ${baseType}`);
         }
         property.baseType = TWBaseTypes[baseType];
 
@@ -1690,7 +1690,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
 
         // Ensure that the base type is one of the Thingworx Base Types
         if (!(baseType in TWBaseTypes)) {
-            this.throwErrorForNode(node, `Unknown baseType for property ${property.name}: ${property.baseType}`);
+            this.throwErrorForNode(node, `Unknown baseType for property ${property.name}: ${baseType}`);
         }
         property.baseType = TWBaseTypes[baseType];
 
