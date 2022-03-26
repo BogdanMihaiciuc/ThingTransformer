@@ -1,3 +1,9 @@
+# TBD
+
+Added support for using inferred types in property declarations and data shape field declarations. ([stefan-lacatus](https://github.com/stefan-lacatus))
+
+Resolved an issue that cause base type errors to report the invalid base types as `undefined` rather than the actual types.
+
 # 0.18.0-beta.1
 
 Removed `gulp` as a dev dependency and the build script using it. Use `npm run build` to build this release, which just executes `tsc` directly.
