@@ -823,6 +823,13 @@ Failed parsing at: \n${node.getText()}\n\n`);
 
         const permissionLists: TWExtractedPermissionLists[] = [];
 
+        // When the permission decorators are applied to a shape or template's fields it is always
+        // interpreted as a runtime instance permission
+        let isTemplateFieldPermission = false;
+        if (!ts.isClassDeclaration(node) && [TWEntityKind.ThingShape, TWEntityKind.ThingTemplate].includes(this.entityKind)) {
+            isTemplateFieldPermission = true;
+        }
+
         for (const decorator of decorators) {
             const text = (decorator.expression as ts.CallExpression).expression.getText();
 
@@ -850,6 +857,11 @@ Failed parsing at: \n${node.getText()}\n\n`);
                     break;
                 default:
                     this.throwErrorForNode(node, `Unkown permission decorator '${text}' specified.`)
+            }
+
+            // For template and thing shape fields, the permission kind is always runtime instance
+            if (isTemplateFieldPermission) {
+                permissionKind = 'runtimeInstance';
             }
 
             // Determine if this decorator applies to a specific property or to the entire node
