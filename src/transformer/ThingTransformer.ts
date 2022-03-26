@@ -825,9 +825,9 @@ Failed parsing at: \n${node.getText()}\n\n`);
 
         // When the permission decorators are applied to a shape or template's fields it is always
         // interpreted as a runtime instance permission
-        let isTemplateFieldPermission = false;
+        let isInstanceMemberPermission = false;
         if (!ts.isClassDeclaration(node) && [TWEntityKind.ThingShape, TWEntityKind.ThingTemplate].includes(this.entityKind)) {
-            isTemplateFieldPermission = true;
+            isInstanceMemberPermission = true;
         }
 
         for (const decorator of decorators) {
@@ -860,7 +860,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
             }
 
             // For template and thing shape fields, the permission kind is always runtime instance
-            if (isTemplateFieldPermission) {
+            if (isInstanceMemberPermission) {
                 permissionKind = 'runtimeInstance';
             }
 
