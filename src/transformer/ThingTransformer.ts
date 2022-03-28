@@ -5,6 +5,7 @@ import { Breakpoint } from './DebugTypes';
 import {Builder} from 'xml2js';
 import * as fs from 'fs';
 import * as crypto from 'crypto';
+import * as path from 'path';
 
 declare global {
     namespace NodeJS {
@@ -823,6 +824,13 @@ Failed parsing at: \n${node.getText()}\n\n`);
 
         const permissionLists: TWExtractedPermissionLists[] = [];
 
+        // When the permission decorators are applied to a shape or template's fields it is always
+        // interpreted as a runtime instance permission
+        let isInstanceMemberPermission = false;
+        if (!ts.isClassDeclaration(node) && [TWEntityKind.ThingShape, TWEntityKind.ThingTemplate].includes(this.entityKind)) {
+            isInstanceMemberPermission = true;
+        }
+
         for (const decorator of decorators) {
             const text = (decorator.expression as ts.CallExpression).expression.getText();
 
@@ -850,6 +858,11 @@ Failed parsing at: \n${node.getText()}\n\n`);
                     break;
                 default:
                     this.throwErrorForNode(node, `Unkown permission decorator '${text}' specified.`)
+            }
+
+            // For template and thing shape fields, the permission kind is always runtime instance
+            if (isInstanceMemberPermission) {
+                permissionKind = 'runtimeInstance';
             }
 
             // Determine if this decorator applies to a specific property or to the entire node
@@ -1565,17 +1578,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
      * @param node      The node to visit.
      */
     visitDataShapeField(node: ts.PropertyDeclaration) {
-        // Ensure that the property has a type annotation
-        if (!node.type) {
-            this.throwErrorForNode(node, `Properties must have type annotation in Thingworx classes.`);
-        }
-        if (!PermittedTypeNodeKinds.includes(node.type.kind)) {
-            this.throwErrorForNode(node, `Unknown baseType for property ${node.name.getText()}: ${node.type.getText()}`);
-        }
-
-        // Extract the type name
-        const typeNode = node.type as ts.TypeReferenceNode;
-        const baseType = TypeScriptPrimitiveTypes.includes(typeNode.kind) ? typeNode.getText() : typeNode.typeName.getText();
+        const baseType = this.getTypeOfPropertyDeclaration(node);
 
         const property = {} as TWDataShapeField;
         if (node.name.kind != ts.SyntaxKind.Identifier) {
@@ -1595,19 +1598,19 @@ Failed parsing at: \n${node.getText()}\n\n`);
 
         const ordinal = this.numericArgumentOfDecoratorNamed('ordinal', node);
         if (ordinal) {
-            if (!parseInt(ordinal)) this.throwErrorForNode(node, `Non numeric value specified in ordinal decorator for property ${property.name}: ${property.baseType}`);
+            if (!parseInt(ordinal)) this.throwErrorForNode(node, `Non numeric value specified in ordinal decorator for property ${property.name}: ${baseType}`);
             property.ordinal = parseInt(ordinal);
         }
 
         // Ensure that the base type is one of the Thingworx Base Types
         if (!(baseType in TWBaseTypes)) {
-            this.throwErrorForNode(node, `Unknown baseType for property ${property.name}: ${property.baseType}`);
+            this.throwErrorForNode(node, `Unknown baseType for property ${property.name}: ${baseType}`);
         }
         property.baseType = TWBaseTypes[baseType];
 
         // INFOTABLE can optionally take the data shape as a type argument
         if (TWBaseTypes[baseType] == 'INFOTABLE') {
-            const typeArguments = typeNode.typeArguments;
+            const typeArguments = (node.type as ts.TypeReferenceNode)?.typeArguments;
             if (typeArguments) {
                 if (typeArguments.length != 1) this.throwErrorForNode(node, `Unknown generics specified for property ${property.name}: ${property.baseType}`);
 
@@ -1621,7 +1624,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
         }
         // THINGNAME can optionally take the thing template name and/or thing shape name as a type argument
         else if (TWBaseTypes[baseType] == 'THINGNAME') {
-            const typeArguments = typeNode.typeArguments;
+            const typeArguments = (node.type as ts.TypeReferenceNode)?.typeArguments;
 
             if (typeArguments && typeArguments.length) {
                 if (typeArguments.length > 2) this.throwErrorForNode(node, `Unknown generics specified for property ${property.name}: ${property.baseType}`);
@@ -1674,17 +1677,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
      * @param node      The node to visit.
      */
     visitProperty(node: ts.PropertyDeclaration) {
-        // Ensure that the property has a type annotation
-        if (!node.type) {
-            this.throwErrorForNode(node, `Properties must have type annotation in Thingworx classes.`);
-        }
-        if (!PermittedTypeNodeKinds.includes(node.type.kind)) {
-            this.throwErrorForNode(node, `Unknown baseType for property ${node.name.getText()}: ${node.type.getText()}`);
-        }
-
-        // Extract the type name
-        const typeNode = node.type as ts.TypeReferenceNode;
-        const baseType = TypeScriptPrimitiveTypes.includes(typeNode.kind) ? typeNode.getText() : typeNode.typeName.getText();
+        const baseType = this.getTypeOfPropertyDeclaration(node);
 
         // The special base type "EVENT" identifies properties that will be converted into events.
         if (baseType == 'EVENT') {
@@ -1710,13 +1703,13 @@ Failed parsing at: \n${node.getText()}\n\n`);
 
         // Ensure that the base type is one of the Thingworx Base Types
         if (!(baseType in TWBaseTypes)) {
-            this.throwErrorForNode(node, `Unknown baseType for property ${property.name}: ${property.baseType}`);
+            this.throwErrorForNode(node, `Unknown baseType for property ${property.name}: ${baseType}`);
         }
         property.baseType = TWBaseTypes[baseType];
 
         // INFOTABLE can optionally take the data shape as a type argument
         if (TWBaseTypes[baseType] == 'INFOTABLE') {
-            const typeArguments = typeNode.typeArguments;
+            const typeArguments = (node.type as ts.TypeReferenceNode)?.typeArguments;
             if (typeArguments) {
                 if (typeArguments.length != 1) this.throwErrorForNode(node, `Unknown generics specified for property ${property.name}: ${property.baseType}`);
 
@@ -1730,7 +1723,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
         }
         // THINGNAME can optionally take the thing template name and/or thing shape name as a type argument
         else if (TWBaseTypes[baseType] == 'THINGNAME') {
-            const typeArguments = typeNode.typeArguments;
+            const typeArguments = (node.type as ts.TypeReferenceNode)?.typeArguments;
 
             if (typeArguments && typeArguments.length) {
                 if (typeArguments.length > 2) this.throwErrorForNode(node, `Unknown generics specified for property ${property.name}: ${property.baseType}`);
@@ -1951,6 +1944,28 @@ Failed parsing at: \n${node.getText()}\n\n`);
         this.runtimePermissions = this.mergePermissionListsForNode([this.runtimePermissions].concat(this.permissionsOfNode(node, node.name.text)), node);
 
         this.properties.push(property);
+    }
+
+    /**
+     * Retrieves the baseType of a typescript property declaration.
+     * If a declared baseType is not defined, then attempt to infer it from context
+     * @param node Note to verify
+     * @returns BaseType of property
+     */
+    private getTypeOfPropertyDeclaration(node: ts.PropertyDeclaration): string {
+        // If the property has a type explicitly set, then use it
+        if (node.type) {
+            if (!PermittedTypeNodeKinds.includes(node.type.kind)) {
+                this.throwErrorForNode(node, `Unknown baseType for property ${node.name.getText()}: ${node.type.getText()}`);
+            }
+            const typeNode = node.type as ts.TypeReferenceNode;
+            return TypeScriptPrimitiveTypes.includes(typeNode.kind) ? typeNode.getText() : typeNode.typeName.getText();
+        } else {
+            // If a type has not been specified, try to infer it from the context
+            const typeChecker = this.program.getTypeChecker();
+            const inferredType = typeChecker.getTypeAtLocation(node);
+            return typeChecker.typeToString(inferredType);
+        }
     }
 
     /**
@@ -4412,6 +4427,11 @@ export * from './TWCoreTypes';
 export function TWThingTransformerFactory(program: ts.Program, root: string, after: boolean = false, watch: boolean = false, project?: string | TWConfig) {
     return function TWThingTransformerFunction(context: ts.TransformationContext) {
         const transformer = new TWThingTransformer(program, context, root, after, watch);
+
+        // The path normalized for the current platform, this is needed in multi project
+        // builds because typescript filenames will also be normalized
+        const rootPath = path.normalize(root);
+
         if (project) {
             if (typeof project == 'string') {
                 transformer.projectName = project;
@@ -4420,7 +4440,7 @@ export function TWThingTransformerFactory(program: ts.Program, root: string, aft
                 // If the project name is "@auto", the project name must be derived from the last
                 // component of the root path
                 if (project.projectName == '@auto') {
-                    transformer.projectName = root.split('/').pop();
+                    transformer.projectName = rootPath.split(path.sep).pop();
                     transformer.isAutoProject = true;
                 }
                 else {
@@ -4435,8 +4455,9 @@ export function TWThingTransformerFactory(program: ts.Program, root: string, aft
         }
     
         return (node: ts.SourceFile) => {
-            // Exclude files that originate from other projects
-            if (transformer.isAutoProject && !node.fileName.startsWith(root)) {
+            // Exclude files that originate from other projects, whose path does not contain
+            // this project's root path
+            if (transformer.isAutoProject && !path.normalize(node.fileName).startsWith(rootPath)) {
                 return node;
             }
 
