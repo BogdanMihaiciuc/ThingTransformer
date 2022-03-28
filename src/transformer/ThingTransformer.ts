@@ -4443,7 +4443,7 @@ export function TWThingTransformerFactory(program: ts.Program, root: string, aft
         return (node: ts.SourceFile) => {
             // Exclude files that originate from other projects, whose path does not contain
             // this project's root path
-            if (transformer.isAutoProject && !node.fileName.startsWith(rootPath)) {
+            if (transformer.isAutoProject && !path.normalize(node.fileName).startsWith(rootPath)) {
                 return node;
             }
 
