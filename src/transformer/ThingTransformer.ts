@@ -5,6 +5,7 @@ import { Breakpoint } from './DebugTypes';
 import {Builder} from 'xml2js';
 import * as fs from 'fs';
 import * as crypto from 'crypto';
+import * as path from 'path';
 
 declare global {
     namespace NodeJS {
@@ -4414,6 +4415,11 @@ export * from './TWCoreTypes';
 export function TWThingTransformerFactory(program: ts.Program, root: string, after: boolean = false, watch: boolean = false, project?: string | TWConfig) {
     return function TWThingTransformerFunction(context: ts.TransformationContext) {
         const transformer = new TWThingTransformer(program, context, root, after, watch);
+
+        // The path normalized for the current platform, this is needed in multi project
+        // builds because typescript filenames will also be normalized
+        const rootPath = path.normalize(root);
+
         if (project) {
             if (typeof project == 'string') {
                 transformer.projectName = project;
@@ -4422,7 +4428,7 @@ export function TWThingTransformerFactory(program: ts.Program, root: string, aft
                 // If the project name is "@auto", the project name must be derived from the last
                 // component of the root path
                 if (project.projectName == '@auto') {
-                    transformer.projectName = root.split('/').pop();
+                    transformer.projectName = rootPath.split(path.sep).pop();
                     transformer.isAutoProject = true;
                 }
                 else {
@@ -4437,8 +4443,9 @@ export function TWThingTransformerFactory(program: ts.Program, root: string, aft
         }
     
         return (node: ts.SourceFile) => {
-            // Exclude files that originate from other projects
-            if (transformer.isAutoProject && !node.fileName.startsWith(root)) {
+            // Exclude files that originate from other projects, whose path does not contain
+            // this project's root path
+            if (transformer.isAutoProject && !path.normalize(node.fileName).startsWith(rootPath)) {
                 return node;
             }
 
