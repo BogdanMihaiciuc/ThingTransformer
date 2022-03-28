@@ -1,8 +1,12 @@
-# TBD
+# 0.19.0-beta.1
 
 Added support for using inferred types in property declarations and data shape field declarations. ([stefan-lacatus](https://github.com/stefan-lacatus))
 
 Resolved an issue that cause base type errors to report the invalid base types as `undefined` rather than the actual types.
+
+Resolved an issue that caused permission decorators applied to templates to be incorrectly emitted as runtime permissions instead of instance runtime permissions. ([stefan-lacatus](https://github.com/stefan-lacatus))
+
+Resolved an issue that caused multiproject builds to fail on windows systems.
 
 # 0.18.0-beta.1
 
