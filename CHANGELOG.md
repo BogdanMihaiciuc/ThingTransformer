@@ -1,3 +1,7 @@
+# 0.20.1-beta.1
+
+Resolved the declarations for the thingworx global functions such as `dateAddDays` that had improper return types. ([stefan-lacatus](https://github.com/stefan-lacatus))
+
 # 0.19.0-beta.1
 
 Added support for using inferred types in property declarations and data shape field declarations. ([stefan-lacatus](https://github.com/stefan-lacatus))
