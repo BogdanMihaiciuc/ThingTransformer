@@ -15,7 +15,7 @@ declare const parameters: undefined;
  * @param amount Amount to add
  * @return Calculated date value
  */
-declare function dateAddHours(dateValue?: DATETIME, amount?: NUMBER): STRING;
+declare function dateAddHours(dateValue?: DATETIME, amount?: NUMBER): DATETIME;
 
 
 /**
@@ -41,7 +41,7 @@ declare function dateMin(date1?: DATETIME, date2?: DATETIME): NUMBER;
  * @param amount Amount to add
  * @return Calculated date value
  */
-declare function dateAddMilliseconds(dateValue?: DATETIME, amount?: NUMBER): STRING;
+declare function dateAddMilliseconds(dateValue?: DATETIME, amount?: NUMBER): DATETIME;
 
 
 /**
@@ -50,7 +50,7 @@ declare function dateAddMilliseconds(dateValue?: DATETIME, amount?: NUMBER): STR
  * @param amount Amount to add
  * @return Calculated date value
  */
-declare function dateAddMinutes(dateValue?: DATETIME, amount?: NUMBER): STRING;
+declare function dateAddMinutes(dateValue?: DATETIME, amount?: NUMBER): DATETIME;
 
 
 /**
@@ -84,7 +84,7 @@ declare function dateDayOfWeek(dateValue?: DATETIME): NUMBER;
  * @param amount Amount to add
  * @return Calculated date value
  */
-declare function dateAddYears(dateValue?: DATETIME, amount?: NUMBER): STRING;
+declare function dateAddYears(dateValue?: DATETIME, amount?: NUMBER): DATETIME;
 
 
 /**
@@ -128,7 +128,7 @@ declare function dateDifference(date1?: DATETIME, date2?: DATETIME): NUMBER;
  * @param amount Amount to add
  * @return Calculated date value
  */
-declare function dateAddMonths(dateValue?: DATETIME, amount?: NUMBER): STRING;
+declare function dateAddMonths(dateValue?: DATETIME, amount?: NUMBER): DATETIME;
 
 
 /**
@@ -146,7 +146,7 @@ declare function parseDate(stringDate?: STRING, dateFormat?: STRING): DATETIME;
  * @param amount Amount to add
  * @return Calculated date value
  */
-declare function dateAddDays(dateValue?: DATETIME, amount?: NUMBER): STRING;
+declare function dateAddDays(dateValue?: DATETIME, amount?: NUMBER): DATETIME;
 
 
 /**
@@ -305,5 +305,5 @@ declare function formatNumber(value?: NUMBER, format?: STRING): STRING;
  * @param value Number of milliseconds
  * @return Number of milliseconds
  */
-declare function pause(value: INTEGER): INTEGER;
+declare function pause(value: INTEGER): NOTHING;
 
