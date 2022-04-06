@@ -7,13 +7,15 @@ A tool that allows the development of Thingworx models in a real IDE. This repo 
 
 # Index
 
+- [Intro](#intro)
+- [Index](#index)
 - [Usage](#usage)
 - [Development](#development)
-  - [Pre-Requisites](#pre-requisites)
-  - [Development Environment](#development-environment)
-  - [File Structure](#file-structure)
-  - [Build](#build)  
-  - [Deployment](#deployment)
+    - [Pre-Requisites](#pre-requisites)
+    - [Development Environment](#development-environment)
+    - [File Structure](#file-structure)
+    - [Build](#build)
+    - [Contributors](#contributors)
 - [License](#license)
 
 # Usage
@@ -47,7 +49,7 @@ const emitResult = program.emit(undefined, () => {}, undefined, undefined, {
 });
 ```
 
-After the emit finishes, the transformers will properties to the `store` object of your twconfig object. This is an object whose keys are the names of the generated entites and their values are each an instance of the transformer. Beyond those related to the actual transformation, the transformer has the following public methods that can be invoked after the program's emit method returns:
+After the emit finishes, the transformers will properties to the `store` object of your twconfig object. This is an object whose keys are the names of the generated entities and their values are each an instance of the transformer. Beyond those related to the actual transformation, the transformer has the following public methods that can be invoked after the program's emit method returns:
 
  - `toXML(): string` - Returns a string that represents the XML definition of the entity
  - `toDeclaration(): string` - Returns a string that represents the declaration of the entity in its relevant collection. For example, with a Thing, the declaration will be something like:
@@ -66,7 +68,7 @@ The following software is required:
 
 The following software is recommended:
 
-* [Visual Studio Code](https://code.visualstudio.com/): An integrated developer enviroment with great javascript and typescript support. You can also use any IDE of your liking, it just that most of the testing was done using VSCode.
+* [Visual Studio Code](https://code.visualstudio.com/): An integrated developer environment with great javascript and typescript support. You can also use any IDE of your liking, it just that most of the testing was done using VSCode.
 
 ### Development Environment
 In order to develop this extension you need to do the following:
@@ -82,7 +84,7 @@ ThingTransformer
 │   LICENSE           // license file
 └───scripts           // build scripts
 │   │   clean.js            // clean script
-└───src               // main folder where your developement will take place
+└───src               // main folder where your development will take place
 │   │   file1.ts            // typescript file
 |   |   ...
 └───static            // folder containing declarations to be used in a thingworx project

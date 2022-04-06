@@ -2843,7 +2843,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
      * @param node  The function declaration.
      * @return      The emit result.
      */
-    transpiledBodyOfFunctionDelcaration(node: ts.FunctionDeclaration): string {
+    transpiledBodyOfFunctionDeclaration(node: ts.FunctionDeclaration): string {
         const result = ts.createPrinter().printNode(ts.EmitHint.Unspecified, node.body!, (this as any).source);
         return result.substring(1, result.length - 1);
     }
@@ -2859,7 +2859,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
         const helpers = ts.getEmitHelpers((this as any).source);
         // Note that the __extends helper is always included to implement classes; if it is the only one used, skip searching
         if (!helpers || !helpers.length || (helpers.length == 1 && helpers[0].name == 'typescript:extends')) {
-            return this.transpiledBodyOfFunctionDelcaration(node);
+            return this.transpiledBodyOfFunctionDeclaration(node);
         }
 
         // Some helpers depend on others only via their body text and not via the
@@ -2867,7 +2867,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
         // This is something I may need to keep up to date.
         // TODO: Need a way to automate this.
         const dependencies = {
-            'typescript:read': ['typescrript:values'],
+            'typescript:read': ['typescript:values'],
             'typescript:spread': ['typescript:read'],
             'typescript:asyncGenerator': ['typescript:await'],
             'typescript:asyncDelegator': ['typescript:await'],
@@ -2934,7 +2934,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
         } while (helpersToInline.size != size)
 
         // After identifying the helpers, join their text and add them to the transpiled method body
-        return [...helpersToInline].map(helper => codeMap[helper.name] || helper.text).join('\n\n') + this.transpiledBodyOfFunctionDelcaration(node);
+        return [...helpersToInline].map(helper => codeMap[helper.name] || helper.text).join('\n\n') + this.transpiledBodyOfFunctionDeclaration(node);
     }
 
     /**
