@@ -4457,7 +4457,7 @@ finally {
 
 }
 
-export { TWConfig };
+export { TWConfig, MethodHelpers };
 
 export * from './TWCoreTypes';
 
