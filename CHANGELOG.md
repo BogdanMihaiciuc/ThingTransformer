@@ -1,3 +1,7 @@
+# 0.21.0-beta.1
+
+Adds support for generating method helpers, that are useful variables that can be used for logging. The following variables can be enabled: `METHOD_NAME`, `CLASS_NAME`, `FILE_PATH` and `LOG_PREFIX`. ([stefan-lacatus](https://github.com/stefan-lacatus))
+
 # 0.20.1-beta.1
 
 Resolved the declarations for the thingworx global functions such as `dateAddDays` that had improper return types. ([stefan-lacatus](https://github.com/stefan-lacatus))
