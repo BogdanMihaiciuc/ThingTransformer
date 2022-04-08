@@ -2851,6 +2851,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
      */
     injectThingworxMethodHelpers(transpiledBody: string, name: string, entity: TWThingTransformer): string {
         let result = transpiledBody;
+        // TODO: Only include the method helpers that are actually referenced
         if (this.methodHelpers) {
             // Prefix a new line at the start of the method
             result = '\n' + result;
