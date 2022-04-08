@@ -259,7 +259,7 @@ export class TWThingTransformer {
     /**
      * When enabled constants are going to be injected into each service or subscription.
      */
-     methodHelpers: MethodHelpers = {};
+     methodHelpers?: MethodHelpers;
 
     /**
      * The project root path, to which files are written by default.
@@ -4488,7 +4488,7 @@ export function TWThingTransformerFactory(program: ts.Program, root: string, aft
                 transformer.store = project.store;
                 transformer.debug = project.debug;
                 transformer.generateThingInstances = project.generateThingInstances;
-                transformer.methodHelpers = project.methodHelpers || {};
+                transformer.methodHelpers = project.methodHelpers;
             }
         }
     
