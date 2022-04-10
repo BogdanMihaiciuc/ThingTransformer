@@ -1,3 +1,11 @@
+# 0.22.0-beta.1
+
+Adds support for declaring and inlining global functions.
+
+The transformer will no longer replace instances of `this` with `me`. Instead it will always use anonymous functions invoked with apply to set the appropriate context.
+
+The transformer will now only declare the method helpers that are referenced in each service, instead of always including them.
+
 # 0.21.0-beta.1
 
 Adds support for generating method helpers, that are useful variables that can be used for logging. The following variables can be enabled: `METHOD_NAME`, `CLASS_NAME`, `FILE_PATH` and `LOG_PREFIX`. ([stefan-lacatus](https://github.com/stefan-lacatus))
