@@ -1,6 +1,6 @@
 import * as ts from 'typescript';
 import { MethodHelpers, TWConfig } from '../configuration/TWConfig';
-import { TWEntityKind, TWPropertyDefinition, TWServiceDefinition, TWEventDefinition, TWSubscriptionDefinition, TWBaseTypes, TWPropertyDataChangeKind, TWFieldBase, TWPropertyRemoteBinding, TWPropertyRemoteFoldKind, TWPropertyRemotePushKind, TWPropertyRemoteStartKind, TWPropertyBinding, TWSubscriptionSourceKind, TWServiceParameter, TWDataShapeField, TWConfigurationTable, TWRuntimePermissionsList, TWVisibility, TWExtractedPermissionLists, TWRuntimePermissionDeclaration, TWPrincipal, TWPermission, TWUser, TWUserGroup, TWPrincipalBase, TWOrganizationalUnit, TWConnection, TWDataThings, TWInfoTable } from './TWCoreTypes';
+import { TWEntityKind, TWPropertyDefinition, TWServiceDefinition, TWEventDefinition, TWSubscriptionDefinition, TWBaseTypes, TWPropertyDataChangeKind, TWFieldBase, TWPropertyRemoteBinding, TWPropertyRemoteFoldKind, TWPropertyRemotePushKind, TWPropertyRemoteStartKind, TWPropertyBinding, TWSubscriptionSourceKind, TWServiceParameter, TWDataShapeField, TWConfigurationTable, TWRuntimePermissionsList, TWVisibility, TWExtractedPermissionLists, TWRuntimePermissionDeclaration, TWPrincipal, TWPermission, TWUser, TWUserGroup, TWPrincipalBase, TWOrganizationalUnit, TWConnection, TWDataThings, TWInfoTable, GlobalFunction, GlobalFunctionReference } from './TWCoreTypes';
 import { Breakpoint } from './DebugTypes';
 import {Builder} from 'xml2js';
 import * as fs from 'fs';
@@ -13,6 +13,51 @@ declare global {
             _TWEntities: any;
         }
     }
+}
+
+/**
+ * The interface for a store object that is used to hold references to transformers
+ * and various project-wide information that should be shared between the transformers.
+ */
+interface TransformerStore {
+    /**
+     * A store that is used to keep references to transformers that represent
+     * global code blocks, indexed by the entity to which they will be added.
+     */
+    '@globalBlocks'?: {
+        [key: string]: TWThingTransformer[];
+    }
+
+    /**
+     * A store that is used to keep references to global functions found throughout
+     * the entire project, indexed by their names.
+     */
+    '@globalFunctions'?: {
+        [key: string]: GlobalFunction;
+    }
+
+    /**
+     * A store that is used to keep track of debug information, indexed by filename.
+     */
+    '@debugInformation'?: {
+        [key: string]: {
+            _debugBreakpointCounter: number;
+            breakpoints: Breakpoint[];
+            breakpointLocations: { [key: number]: { [key:number]: boolean } };
+        }
+    }
+
+    [key: string]: TWThingTransformer | {
+        [key: string]: TWThingTransformer[];
+    } | {
+        [key: string]: GlobalFunction;
+    } | {
+        [key: string]: {
+            _debugBreakpointCounter: number;
+            breakpoints: Breakpoint[];
+            breakpointLocations: { [key: number]: { [key:number]: boolean } };
+        }
+    } | undefined;
 }
 
 /**
@@ -42,16 +87,179 @@ const PermissionDecorators = ['allow', 'deny', 'allowInstance', 'denyInstance'];
 const ThingInstancesToCreate = 5;
 
 /**
+ * An array of identifiers that represent method helpers.
+ */
+const MethodHelperIdentifiers = ['METHOD_NAME', 'CLASS_NAME', 'FILE_PATH', 'LOG_PREFIX'];
+
+/**
+ * @deprecated No longer used
+ * ---
  * If set to `true`, the transformer will create a configuration table containing the debug information
  * for each entity.
  */
 const USE_DEBUG_CONFIGURATION_TABLE = false;
 
 /**
+ * The interface for the portion of the thing transformer that is used for
+ * transforming functions and methods.
+ */
+interface TWCodeTransformer {
+
+    /**
+     * The typescript program.
+     */
+    program: ts.Program;
+
+    /**
+     * The typescript transformation context.
+     */
+    context: ts.TransformationContext;
+
+    /**
+     * The source file node being processed.
+     */
+    sourceFile?: ts.SourceFile;
+
+    /**
+     * The file currently being processed.
+     */
+    filename?: string;
+
+    /**
+     * The path to the repository containing the project currently being processed.
+     */
+    repoPath: string;
+
+    /**
+     * Set to `true` if a debug build should be generated.
+     */
+    debug?: boolean;
+
+    /**
+     * A weak map that contains a mapping between nodes that have been marked for replacement before
+     * having been visited.
+     */
+    nodeReplacementMap: WeakMap<ts.Node, ts.Node>;
+
+    /**
+     * A counter that keeps track of each breakpoint location that was added.
+     */
+    _debugBreakpointCounter: number;
+
+    /**
+     * An array of breakpoint locations that have been added in a debug build.
+     */
+    breakpoints: Breakpoint[];
+
+    /**
+     * A map of existing breakpoint locations.
+     */
+    breakpointLocations: { [key: number]: { [key:number]: boolean } };
+
+    /**
+     * An object containing instances of the transformer.
+     */
+    store: TransformerStore;
+
+    /**
+     * Returns a new code transformer that can be used to transform nodes in the given source file.
+     * @param source        The source file for which a transfomer should be returned.
+     * @returns             A code transformer.
+     */
+    codeTransformerForSource(this: TWCodeTransformer, source: ts.SourceFile): TWCodeTransformer;
+
+    /**
+     * Returns the constant value of the given property access expression so that it can be inlined.
+     * A constant value that must be inlined can occur because of a const enum member or because of
+     * an environment variable.
+     * @param expression    The expression whose constant value should be evaluated.
+     * @returns             The constant value if it could be resolved, `undefined` otherwise.
+     */
+    constantValueOfExpression(this: TWCodeTransformer, expression: ts.Expression): unknown;
+
+    /**
+     * Throws a formatted error message for the given AST node.
+     * @param node      The node which caused an error.
+     * @param error     The error message to display.
+     */
+    throwErrorForNode(node: ts.Node, error: string): never;
+
+    /**
+     * Evaluates the given call expression, returning a global function reference if
+     * it is a call to a global function.
+     * @param expression        The expression to evaluate.
+     * @returns                 A function reference if this is a call to a global function,
+     *                          `undefined` otherwise.
+     */
+    evaluateGlobalCallExpression(this: TWCodeTransformer, expression: ts.CallExpression): GlobalFunctionReference | undefined;
+
+    /**
+     * Evaluates the given node that is part of a global function and, if appropriate,
+     * extracts information out of it into the given global function object.
+     * @param node      The node to evaluate.
+     * @param fn        The global function object.
+     */
+    evaluateGlobalFunctionNode(this: TWCodeTransformer, node: ts.Node, fn: GlobalFunction): void;
+
+    /**
+     * Visits a node that is in the body of a service or global function code, performing a replacement
+     * that is applicable to all build modes.
+     * @param node          The node to visit.
+     * @returns             The source node, if no replacement is necessary, otherwise a node to replace it.
+     */
+    visitCodeNode(this: TWCodeTransformer, node: ts.Node): ts.Node;
+
+    /**
+     * Visits a node that is part of a global function declaration.
+     * @param node      The node.
+     * @param fn        The object containing information about the global function.
+     * @returns         The transformed node.
+     */
+    visitGlobalFunctionNode(this: TWCodeTransformer, node: ts.Node, fn: GlobalFunction): ts.Node;
+
+    /**
+     * Visits a method node for a release build, performing replacements and extracting references to functions.
+     * @param node          The method or function node.
+     * @param service       The reference to the service or subscription that
+     *                      this method represents. This is used to discover function references.
+     * @returns             The transformed node.
+     */
+    visitMethodNode(this: TWCodeTransformer, node: ts.Node, service?: TWServiceDefinition | TWSubscriptionDefinition): ts.Node | undefined;
+
+    /**
+     * Visits a method or global function node for a debug build, adding in debug statements where possible.
+     * @param node          The method or function node.
+     * @param fn            The object containing information about the global function, if this is invoked
+     *                      for a global function, `undefined` otherwise.
+     * @param service       If this is invoked for a method, this is a reference to the service or subscription that
+     *                      this method represents. This is used to discover function references.
+     * @returns             The transformed node.
+     */
+    visitDebugMethodNode(this: TWCodeTransformer, node: ts.Node, fn?: GlobalFunction, service?: TWServiceDefinition | TWSubscriptionDefinition): ts.Node | undefined;
+
+    /**
+     * Returns an expression that represents a debug checkpoint.
+     * @param ID            A unique ID that identifies this expression.
+     * @returns             A typescript expression.
+     */
+    debugCheckpointExpression(this: TWCodeTransformer, ID: string): ts.Expression;
+
+    /**
+     * Creates a comma expression that adds a debug checkpoint to the given expression.
+     * Also stores information about the breakpoint location that was just added.
+     * @param expression        The expression to modify. If `undefined`, a new expression will be returned.
+     * @param targetNode        When `expression` is `undefined`, the node from which to get the position information.
+     * @returns                 A typescript expression.
+     */
+    commaCheckpointExpression(this: TWCodeTransformer, expression: ts.Expression | undefined, targetNode?: ts.Node): ts.Expression
+
+}
+
+/**
  * The thing transformer is applied to Thingworx source files to convert them into Thingworx XML entities.
  * It can also be used with global files to export symbols into the shared global scope.
  */
-export class TWThingTransformer {
+export class TWThingTransformer implements TWCodeTransformer {
 
     program: ts.Program;
 
@@ -108,6 +316,12 @@ export class TWThingTransformer {
      * When set to a string, this project will be assigned to the entity.
      */
     projectName?: string;
+
+    /**
+     * The path to the repository containing the typescript project. In multi project mode, this is the
+     * path of the source folder containing all of the subprojects.
+     */
+    repoPath!: string;
 
     /**
      * when enabled, it indicates that the project name is derived from the root path.
@@ -259,7 +473,17 @@ export class TWThingTransformer {
     /**
      * When enabled constants are going to be injected into each service or subscription.
      */
-     methodHelpers?: MethodHelpers;
+    methodHelpers?: MethodHelpers;
+
+    /**
+     * When set to `true`, function declarations in the global scope will be permitted.
+     */
+    globalFunctionsEnabled?: boolean;
+
+    /**
+     * An array of global functions declared in this file.
+     */
+    globalFunctions: GlobalFunction[] = [];
 
     /**
      * The project root path, to which files are written by default.
@@ -281,7 +505,7 @@ export class TWThingTransformer {
     /**
      * An object containing instances of the transformer.
      */
-    store?: {[key: string]: TWThingTransformer};
+    store!: TransformerStore;
 
     /**
      * An array of endpoints that should be invoked after deployment.
@@ -295,9 +519,14 @@ export class TWThingTransformer {
     nodeReplacementMap: WeakMap<ts.Node, ts.Node> = new WeakMap;
 
     /**
+     * A weak set of the methods that should be visited for extracting referenced functions.
+     */
+    methodNodes: WeakMap<ts.Node, TWServiceDefinition | TWSubscriptionDefinition> = new WeakMap;
+
+    /**
      * A weak set of the methods that should be visited for adding debug information.
      */
-    debugMethodNodes: WeakSet<ts.Node> = new WeakSet;
+    debugMethodNodes: WeakMap<ts.Node, TWServiceDefinition | TWSubscriptionDefinition> = new WeakMap;
 
     /**
      * Set to `true` if this transformer should generate debugging information.
@@ -389,7 +618,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
      * @param expression    The expression whose constant value should be evaluated.
      * @returns             The constant value if it could be resolved, `undefined` otherwise.
      */
-     constantOrLiteralValueOfExpression(expression: ts.Expression): unknown {
+    constantOrLiteralValueOfExpression(expression: ts.Expression): unknown {
         if (ts.isNumericLiteral(expression)) {
             return parseFloat((expression as ts.NumericLiteral).text);
         }
@@ -420,7 +649,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
      * @param expression    The expression whose constant value should be evaluated.
      * @returns             The constant value if it could be resolved, `undefined` otherwise.
      */
-    constantValueOfExpression(expression: ts.Expression): unknown {
+    constantValueOfExpression(this: TWCodeTransformer, expression: ts.Expression): unknown {
         if (expression.kind != ts.SyntaxKind.PropertyAccessExpression) return undefined;
 
         const propertyAccess = expression as ts.PropertyAccessExpression
@@ -584,7 +813,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
                     if (store[globalClass]) {
                         targetArray = (store[globalClass] as TWThingTransformer).globalBlocks;
                     }
-                    else if (store['@globalBlocks'][globalClass]) {
+                    else if (store['@globalBlocks']?.[globalClass]) {
                         targetArray = store['@globalBlocks'][globalClass];
                     }
 
@@ -633,8 +862,43 @@ Failed parsing at: \n${node.getText()}\n\n`);
                 }
             }
 
+            // In watch mode, the additional transformations below do not affect declarations
+            if (this.watch) return ts.visitEachChild(node, node => this.visit(node), this.context);
+
             // The following transformations only make sense for non-global code
             if (!this.isGlobalCode) {
+                // If this is a global function declaration, extract it and discover its dependencies
+                if (node.kind == ts.SyntaxKind.FunctionDeclaration && node.parent.kind == ts.SyntaxKind.SourceFile) {
+
+                    const functionName = (node as ts.FunctionDeclaration).name?.text;
+
+                    if (!functionName) {
+                        this.throwErrorForNode(node, `Global functions must be named.`)
+                    }
+
+                    // If this function was already processed, return its replacement directly
+                    if (this.store['@globalFunctions']?.[functionName]) {
+                        return this.store['@globalFunctions']?.[functionName].node;
+                    }
+
+                    const fn = {
+                        filename: this.filename,
+                        dependencies: new Set,
+                        methodHelperDependencies: new Set,
+                        sourceFile: this.sourceFile
+                    } as GlobalFunction;
+
+                    const replacementNode = this.debug ? this.visitDebugMethodNode(node, fn)! : this.visitGlobalFunctionNode(node, fn);
+
+                    // Add this function to the store
+                    this.store['@globalFunctions'] = this.store['@globalFunctions'] || {};
+                    this.store['@globalFunctions'][fn.name] = fn;
+
+                    fn.node = replacementNode;
+
+                    return replacementNode;
+                }
+
                 // Async is only included for metadata but cannot be used on the result
                 if (node.kind == ts.SyntaxKind.AsyncKeyword) {
                     return undefined;
@@ -657,9 +921,11 @@ Failed parsing at: \n${node.getText()}\n\n`);
                     }
                 }
         
+                /* TODO: Remove, as this is now handled via applied functions
                 if (node.kind == ts.SyntaxKind.ThisKeyword) {
                     return this.visitThisNode(node as ts.ThisExpression);
                 }
+                */
 
                 if (this.nodeReplacementMap.get(node)) {
                     // If the node was already processed and marked for replacement, return its replacement
@@ -669,7 +935,11 @@ Failed parsing at: \n${node.getText()}\n\n`);
                 // Upon reaching a method declaration that has been marked for debugging
                 // start processing in reverse.
                 if (this.debugMethodNodes.has(node)) {
-                    return this.visitMethodNode(node);
+                    return this.visitDebugMethodNode(node, undefined, this.debugMethodNodes.get(node));
+                }
+                // Similar in non-debug mode
+                else if (this.methodNodes.has(node)) {
+                    return this.visitMethodNode(node, this.methodNodes.get(node));
                 }
                 
             }
@@ -681,6 +951,9 @@ Failed parsing at: \n${node.getText()}\n\n`);
     }
 
     /**
+     * @deprecated 
+     * This is now handled with an applied function instead of replacing this with me
+     * -----
      * Visits a `this` node and decides whether to replace with `me` or leave it as is. The node will be replaced by
      * `me` if its scope - the closest parent non-arrow function - is a thingworx service.
      * @param node      The node to visit.
@@ -1046,7 +1319,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
                         if ((store[this.className] as TWThingTransformer).entityKind != TWEntityKind.Thing) {
                             this.throwErrorForNode(node, `Blocks of global code can only be attached to thing entities.`);
                         }
-                        store[this.className].globalBlocks.push(this);
+                        (store[this.className] as TWThingTransformer).globalBlocks.push(this);
                     }
                     return;
                 }
@@ -1057,7 +1330,10 @@ Failed parsing at: \n${node.getText()}\n\n`);
 
         // The only permitted entries at the source level are class declarations, interface declarations, const enums and import statements
         if (![ts.SyntaxKind.ClassDeclaration, ts.SyntaxKind.InterfaceDeclaration, ts.SyntaxKind.EnumDeclaration, ts.SyntaxKind.ImportClause, ts.SyntaxKind.SingleLineCommentTrivia, ts.SyntaxKind.JSDocComment, ts.SyntaxKind.MultiLineCommentTrivia].includes(node.kind)) {
-            this.throwErrorForNode(node, `Only classes, interfaces, const enums and import statements are permitted at the root level.`);
+            // Only allow function declarations if support for them is enabled
+            if (node.kind == ts.SyntaxKind.FunctionDeclaration && !this.globalFunctionsEnabled) {
+                this.throwErrorForNode(node, `Only classes, interfaces, const enums and import statements are permitted at the root level.`);
+            }
         }
 
         // Enums are permitted, but only if they are const
@@ -2033,7 +2309,11 @@ Failed parsing at: \n${node.getText()}\n\n`);
             return this.visitSubscription(node);
         }
 
-        const service = {aspects: {}} as TWServiceDefinition;
+        const service = {
+            aspects: {},
+            '@globalFunctions': new Set,
+            '@methodHelpers': new Set
+        } as TWServiceDefinition;
         if (node.modifiers) for (const modifier of node.modifiers) {
             if (modifier.kind == ts.SyntaxKind.AsyncKeyword) {
                 service.aspects = {isAsync: true};
@@ -2122,7 +2402,10 @@ Failed parsing at: \n${node.getText()}\n\n`);
         else {
             service.code = node.body!.getText();
             if (this.debug) {
-                this.debugMethodNodes.add(node);
+                this.debugMethodNodes.set(node, service);
+            }
+            else {
+                this.methodNodes.set(node, service);
             }
         }
 
@@ -2568,7 +2851,9 @@ Failed parsing at: \n${node.getText()}\n\n`);
     visitSubscription(node: ts.MethodDeclaration): ts.MethodDeclaration {
         const subscription = {
             source: '',
-            sourceProperty: ''
+            sourceProperty: '',
+            '@globalFunctions': new Set,
+            '@methodHelpers': new Set
         } as TWSubscriptionDefinition;
         subscription.enabled = true;
 
@@ -2627,24 +2912,342 @@ Failed parsing at: \n${node.getText()}\n\n`);
         }
 
         if (this.debug) {
-            this.debugMethodNodes.add(node);
+            this.debugMethodNodes.set(node, subscription);
+        }
+        else {
+            this.methodNodes.set(node, subscription);
         }
 
         this.subscriptions.push(subscription);
         return node;
     }
 
+    //#region Code transformation
+
     /**
-     * Visits a method node for a debug build, adding in debug statements where possible.
-     * @param node          The method node.
+     * Returns a new code transformer that can be used to transform nodes in the given source file.
+     * @param source        The source file for which a transfomer should be returned.
+     * @returns             A code transformer.
+     */
+    codeTransformerForSource(this: TWCodeTransformer, source: ts.SourceFile): TWCodeTransformer {
+        // In debug mode, get or create the debug information associated with the given file
+        const debugInformation = {
+            _debugBreakpointCounter: 0,
+            breakpointLocations: [],
+            breakpoints: [],
+        }
+
+        if (this.store['@debugInformation']?.[source.fileName]) {
+            const debugStore = this.store['@debugInformation'][source.fileName];
+            Object.assign(debugInformation, {
+                _debugBreakpointCounter: debugStore._debugBreakpointCounter,
+                breakpointLocations: debugStore.breakpointLocations,
+                breakpoints: debugStore.breakpoints,
+            });
+        }
+        else {
+            this.store['@debugInformation'] = this.store['@debugInformation'] || {};
+            this.store['@debugInformation'][source.fileName] = {
+                _debugBreakpointCounter: debugInformation._debugBreakpointCounter,
+                breakpointLocations: debugInformation.breakpointLocations,
+                breakpoints: debugInformation.breakpoints
+            };
+        }
+
+        // Create a new code transformer with the appropriate properties and the methods
+        // copied over from this transformer
+        const transformer: TWCodeTransformer = {
+            _debugBreakpointCounter: 0,
+            debug: this.debug,
+            breakpointLocations: [],
+            breakpoints: [],
+            context: this.context,
+            nodeReplacementMap: new WeakMap,
+            program: this.program,
+            repoPath: this.repoPath,
+            filename: source.fileName,
+            sourceFile: source,
+            store: this.store,
+            codeTransformerForSource: this.codeTransformerForSource,
+            commaCheckpointExpression: this.commaCheckpointExpression,
+            constantValueOfExpression: this.constantValueOfExpression,
+            debugCheckpointExpression: this.debugCheckpointExpression,
+            evaluateGlobalCallExpression: this.evaluateGlobalCallExpression,
+            evaluateGlobalFunctionNode: this.evaluateGlobalFunctionNode,
+            throwErrorForNode: this.throwErrorForNode,
+            visitCodeNode: this.visitCodeNode,
+            visitDebugMethodNode: this.visitDebugMethodNode,
+            visitGlobalFunctionNode: this.visitGlobalFunctionNode,
+            visitMethodNode: this.visitMethodNode
+        };
+
+        return transformer;
+    }
+
+    /**
+     * Evaluates the given call expression, returning a global function reference if
+     * it is a call to a global function.
+     * @param expression        The expression to evaluate.
+     * @returns                 A function reference if this is a call to a global function,
+     *                          `undefined` otherwise.
+     */
+    evaluateGlobalCallExpression(this: TWCodeTransformer, expression: ts.CallExpression): GlobalFunctionReference | undefined {
+        const name = expression.expression as ts.Identifier;
+        if (name.kind != ts.SyntaxKind.Identifier) {
+            return;
+        }
+
+        // Discover where the function comes from to see if it is a global function
+        // defined in the project
+        const typeChecker = this.program.getTypeChecker();
+        const type = typeChecker.getTypeAtLocation(name);
+        const symbol = type.getSymbol();
+
+        if (!symbol) {
+            return;
+        }
+
+        const declarations = symbol.getDeclarations();
+        if (declarations) {
+            for (const declaration of declarations) {
+                if (declaration.kind == ts.SyntaxKind.FunctionDeclaration) {
+                    // If the function is an ambient declaration it doesn't need to be inlined
+                    const functionDeclaration = declaration as ts.FunctionDeclaration;
+                    if (functionDeclaration.modifiers?.some(m => m.kind == ts.SyntaxKind.DeclareKeyword)) {
+                        break;
+                    }
+
+                    // The function must be declared in the global scope
+                    if (functionDeclaration.parent.kind != ts.SyntaxKind.SourceFile) {
+                        break;
+                    }
+
+                    // Otherwise get the source and name, and add it as a dependency of this function
+                    const sourceFile = declaration.getSourceFile();
+                    const filename = sourceFile.fileName;
+                    const name = functionDeclaration.name?.text;
+
+                    // Validate that the source is part of the repo; in multi project mode
+                    // this can also be a global function declared in a different project
+                    if (!filename.startsWith(this.repoPath)) break;
+
+                    if (name) {
+                        // If this function is defined in a different file and hasn't yet been processed, do it now
+                        // This is required because otherwise, in the after phase, there will be no reference to this
+                        // function that can be inlined
+                        if (filename != this.filename) {
+                            if (!this.store['@globalFunctions']?.[name]) {
+                                const fn = {
+                                    filename: this.filename,
+                                    dependencies: new Set,
+                                    methodHelperDependencies: new Set,
+                                    sourceFile
+                                } as GlobalFunction;
+
+                                // Create a transformer for the function's source file
+                                const transformer = this.codeTransformerForSource(sourceFile);
+
+                                // Run the appropriate transformation based on whether this is running in debug mode or not
+                                const result = ts.transform(functionDeclaration, [() => {
+                                    return (node) => {
+                                        if (this.debug) {
+                                            return transformer.visitDebugMethodNode(node, fn) as ts.FunctionDeclaration;
+                                        }
+                                        else {
+                                            return transformer.visitGlobalFunctionNode(node, fn) as ts.FunctionDeclaration;
+                                        }
+                                    }
+                                }]);
+
+                                // In debug mode, update the stored debugger state
+                                if (this.debug) {
+                                    this.store['@debugInformation']![filename]._debugBreakpointCounter = transformer._debugBreakpointCounter;
+                                }
+
+                                // Save the transformation result
+                                fn.node = result.transformed[0];
+                                
+                                this.store['@globalFunctions'] = this.store['@globalFunctions'] || {};
+                                this.store['@globalFunctions'][name] = fn;
+                            }
+                        }
+
+                        return {name};
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Evaluates the given node that is part of a global function and, if appropriate,
+     * extracts information out of it into the given global function object.
+     * @param node      The node to evaluate.
+     * @param fn        The global function object.
+     */
+    evaluateGlobalFunctionNode(this: TWCodeTransformer, node: ts.Node, fn: GlobalFunction): void {
+        switch (node.kind) {
+            case ts.SyntaxKind.FunctionDeclaration:
+                // For the root function, extract its name
+                // When this node is a function declaration that is being processed from an external file
+                // it will be the root node and have no parent
+                if (!node.parent || node.parent.kind == ts.SyntaxKind.SourceFile) {
+                    const name = (node as ts.FunctionDeclaration).name;
+                    if (!name) {
+                        this.throwErrorForNode(node, `Global function declarations must be named.`);
+                    }
+
+                    fn.name = name.text;
+                }
+                break;
+            case ts.SyntaxKind.CallExpression:
+                const callExpression = node as ts.CallExpression;
+                // Whenever a call expression is encountered, determine if it represents a global
+                // function call and if it does, add it to the dependencies of this function
+                const dependency = this.evaluateGlobalCallExpression(callExpression);
+
+                if (dependency) {
+                    fn.dependencies.add(dependency.name);
+                }
+            case ts.SyntaxKind.Identifier:
+                // For identifiers, verify if they represent helper names and if they do add them
+                // as dependencies
+                const identifier = node as ts.Identifier;
+                if (MethodHelperIdentifiers.includes(identifier.text)) {
+                    fn.methodHelperDependencies.add(identifier.text);
+                }
+        }
+    }
+
+    /**
+     * Visits a node that is in the body of a service or global function code, performing a replacement
+     * that is applicable to all build modes.
+     * @param node          The node to visit.
+     * @returns             The source node, if no replacement is necessary, otherwise a node to replace it.
+     */
+    visitCodeNode(this: TWCodeTransformer, node: ts.Node): ts.Node {
+        // This function performs the replacements that are common to services and functions
+        // in both debug and release modes
+        // Currently this is just inlining constant values, but this may expand in the future
+        switch (node.kind) {
+            case ts.SyntaxKind.PropertyAccessExpression:
+                // Inline constant values where possible
+                try {
+                    const constantValue = this.constantValueOfExpression(node as ts.PropertyAccessExpression);
+        
+                    if (typeof constantValue == 'string') {
+                        return ts.factory.createStringLiteral(constantValue);
+                    }
+                    else if (typeof constantValue == 'number') {
+                        return ts.factory.createNumericLiteral(constantValue.toString());
+                    }
+                }
+                catch (e) {
+                    // This will fail for synthetic nodes modified by the transformer, but these will not be
+                    // compile time constants, so in this case just return the original node
+                    return node;
+                }
+                break;
+        }
+
+        return node;
+    }
+
+    /**
+     * Visits a node that is part of a global function declaration.
+     * @param node      The node.
+     * @param fn        The object containing information about the global function.
+     * @returns         The transformed node.
+     */
+    visitGlobalFunctionNode(this: TWCodeTransformer, node: ts.Node, fn: GlobalFunction): ts.Node {
+        node = ts.visitEachChild(node, n => this.visitGlobalFunctionNode(n, fn), this.context);
+
+        // If the node has a generic code replacement available, return its replacement directly
+        const codeReplacement = this.visitCodeNode(node);
+        if (codeReplacement != node) {
+            return codeReplacement;
+        }
+
+        this.evaluateGlobalFunctionNode(node, fn);
+
+        return node;
+    }
+
+    /**
+     * Visits a method node for a release build, performing replacements and extracting references to functions.
+     * @param node          The method or function node.
+     * @param service       The reference to the service or subscription that
+     *                      this method represents. This is used to discover function references.
      * @returns             The transformed node.
      */
-    visitMethodNode(node: ts.Node): ts.Node | undefined {
-        node = ts.visitEachChild(node, n => this.visitMethodNode(n), this.context);
+    visitMethodNode(this: TWCodeTransformer, node: ts.Node, service?: TWServiceDefinition | TWSubscriptionDefinition): ts.Node | undefined {
+        node = ts.visitEachChild(node, n => this.visitMethodNode(n, service), this.context);
 
         // If the node has been marked for replacement, return its replacement directly
         if (this.nodeReplacementMap.get(node)) {
             return this.nodeReplacementMap.get(node)!;
+        }
+
+        // If the node has a generic code replacement available, return its replacement directly
+        const codeReplacement = this.visitCodeNode(node);
+        if (codeReplacement != node) {
+            return codeReplacement;
+        }
+
+        switch (node.kind) {
+            // Async keywords are only used for metadata and should not emit any code
+            case ts.SyntaxKind.AsyncKeyword:
+                return;
+            case ts.SyntaxKind.CallExpression:
+                const n11 = node as ts.CallExpression;
+
+                // If a service is specified, add references to global functions to it so that they can be inlined afterwards
+                if (service) {
+                    const dependency = this.evaluateGlobalCallExpression(n11);
+                    if (dependency) {
+                        service['@globalFunctions'].add(dependency.name);
+                    }
+                }
+
+                return node;
+            case ts.SyntaxKind.Identifier:
+                // For identifiers, verify if they represent helper names and if they do add them
+                // as dependencies
+                const identifier = node as ts.Identifier;
+                if (MethodHelperIdentifiers.includes(identifier.text)) {
+                    service?.['@methodHelpers'].add(identifier.text);
+                }
+        }
+
+        return node;
+    }
+
+    /**
+     * Visits a method or global function node for a debug build, adding in debug statements where possible.
+     * @param node          The method or function node.
+     * @param fn            The object containing information about the global function, if this is invoked
+     *                      for a global function, `undefined` otherwise.
+     * @param service       If this is invoked for a method, this is a reference to the service or subscription that
+     *                      this method represents. This is used to discover function references.
+     * @returns             The transformed node.
+     */
+    visitDebugMethodNode(this: TWCodeTransformer, node: ts.Node, fn?: GlobalFunction, service?: TWServiceDefinition | TWSubscriptionDefinition): ts.Node | undefined {
+        node = ts.visitEachChild(node, n => this.visitDebugMethodNode(n, fn, service), this.context);
+
+        // If this visits global function nodes, evaluate the node to extract information about the function.
+        if (fn) {
+            this.evaluateGlobalFunctionNode(node, fn);
+        }
+
+        // If the node has been marked for replacement, return its replacement directly
+        if (this.nodeReplacementMap.get(node)) {
+            return this.nodeReplacementMap.get(node)!;
+        }
+
+        // If the node has a generic code replacement available, return its replacement directly
+        const codeReplacement = this.visitCodeNode(node);
+        if (codeReplacement != node) {
+            return codeReplacement;
         }
 
         switch (node.kind) {
@@ -2691,6 +3294,15 @@ Failed parsing at: \n${node.getText()}\n\n`);
                 return ts.factory.createReturnStatement(n10.expression ? this.commaCheckpointExpression(n10.expression) : this.commaCheckpointExpression(undefined, n10));
             case ts.SyntaxKind.CallExpression:
                 const n11 = node as ts.CallExpression;
+
+                // If a service is specified, add references to global functions to it so that they can be inlined afterwards
+                if (service) {
+                    const dependency = this.evaluateGlobalCallExpression(n11);
+                    if (dependency) {
+                        service['@globalFunctions'].add(dependency.name);
+                    }
+                }
+
                 if (n11.parent) {
                     switch (n11.parent.kind) {
                         case ts.SyntaxKind.PropertyDeclaration:
@@ -2705,29 +3317,15 @@ Failed parsing at: \n${node.getText()}\n\n`);
                     }
                 }
                 return this.commaCheckpointExpression(n11);
-            case ts.SyntaxKind.PropertyAccessExpression:
-                // Inline constant values where possible. In debug builds this will skip the regular visit method
-                // TODO: These should be combined into one
-                try {
-                    const constantValue = this.constantValueOfExpression(node as ts.PropertyAccessExpression);
-        
-                    if (typeof constantValue == 'string') {
-                        return ts.factory.createStringLiteral(constantValue);
-                    }
-                    else if (typeof constantValue == 'number') {
-                        return ts.factory.createNumericLiteral(constantValue.toString());
-                    }
-                }
-                catch (e) {
-                    // This will fail for synthetic nodes modified by the transformer, but will not be
-                    // compile time constants, so in this case just return the original node
-                    return node;
-                }
-                break;
             case ts.SyntaxKind.Identifier:
                 const n12 = node as ts.Identifier;
                 if (n12.text == '__d') {
                     this.throwErrorForNode(node, `The "__d" identifier is reserved for the debugger in debug builds.`);
+                }
+                // For identifiers, verify if they represent helper names and if they do add them
+                // as dependencies
+                if (MethodHelperIdentifiers.includes(n12.text)) {
+                    service?.['@methodHelpers'].add(n12.text);
                 }
         }
 
@@ -2737,14 +3335,14 @@ Failed parsing at: \n${node.getText()}\n\n`);
     /**
      * A counter that keeps track of each breakpoint location that was added.
      */
-    private _debugBreakpointCounter = 0;
+    _debugBreakpointCounter = 0;
 
     /**
      * Returns an expression that represents a debug checkpoint.
      * @param ID            A unique ID that identifies this expression.
      * @returns             A typescript expression.
      */
-    debugCheckpointExpression(ID: string): ts.Expression {
+    debugCheckpointExpression(this: TWCodeTransformer, ID: string): ts.Expression {
         // Essentially returns __d.checkpoint(ID)
         return ts.factory.createCallExpression(
             ts.factory.createPropertyAccessExpression(ts.factory.createIdentifier('__d'), 'checkpoint'),
@@ -2760,9 +3358,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
      * @param targetNode        When `expression` is `undefined`, the node from which to get the position information.
      * @returns                 A typescript expression.
      */
-    commaCheckpointExpression(expression: ts.Expression | undefined, targetNode?: ts.Node): ts.Expression {
-        this.initDebugConfiguration();
-
+    commaCheckpointExpression(this: TWCodeTransformer, expression: ts.Expression | undefined, targetNode?: ts.Node): ts.Expression {
         this._debugBreakpointCounter++;
 
         if (!expression && !targetNode) {
@@ -2842,34 +3438,115 @@ Failed parsing at: \n${node.getText()}\n\n`);
         }
     }
 
+    //#endregion
+
     /**
-     * Injects the method helpers into the already transpiled code of a service or subscription
-     * @param transpiledBody Transpiled method body
-     * @param name Name of the service/subscription
-     * @param entity Entity this method is a part of
-     * @returns New transpiled method body with the helpers injected
+     * Creates a flat list of all of the global functions and method helpers that the given method depends on
+     * so that they can be inlined to be used at runtime.
+     * @param method        The method whose dependencies should be found.
      */
-    injectThingworxMethodHelpers(transpiledBody: string, name: string, entity: TWThingTransformer): string {
+    flattenMethodDependencies(method: TWServiceDefinition | TWSubscriptionDefinition): void {
+        let size: number;
+        let processedFunctions = new Set;
+        do {
+            size = method['@globalFunctions'].size;
+
+            // For each function, add all of its dependencies as direct dependencies of the method
+            for (const fn of [...method['@globalFunctions']]) {
+                // Exclude functions that have already been processed
+                if (processedFunctions.has(fn)) continue;
+
+                // Get the global function description from the store and add its dependencies to the method
+                const globalFunction = this.store['@globalFunctions']?.[fn] as GlobalFunction;
+                // If the function doesn't exist in the store, don't inline it
+                if (!globalFunction) continue;
+
+                // If any new dependencies are added here, they will be processed in the next loop
+                for (const dependency of globalFunction.dependencies) {
+                    method['@globalFunctions'].add(dependency);
+                }
+
+                for (const dependency of globalFunction.methodHelperDependencies) {
+                    method['@methodHelpers'].add(dependency);
+                }
+
+                // Don't process this function again in the next loop
+                processedFunctions.add(fn);
+            }
+        } while (size != method['@globalFunctions'].size);
+    }
+
+    /**
+     * Injects the method helpers into the already transpiled code of a service or subscription.
+     * @param transpiledBody        Transpiled method body.
+     * @param name                  Name of the service/subscription.
+     * @param entity                Entity this method is a part of.
+     * @param method                The definition object for the method.
+     * @returns                     New transpiled method body with the helpers injected.
+     */
+    injectThingworxMethodHelpers(transpiledBody: string, name: string, entity: TWThingTransformer, method: TWServiceDefinition | TWSubscriptionDefinition): string {
         let result = transpiledBody;
-        // TODO: Only include the method helpers that are actually referenced
+
+        if (!method) return transpiledBody;
+
         if (this.methodHelpers) {
             // Prefix a new line at the start of the method
             result = '\n' + result;
-            if(this.methodHelpers.methodName) {
+            if (this.methodHelpers.methodName && method['@methodHelpers'].has('METHOD_NAME')) {
                 result = `const METHOD_NAME = "${name}";\n` + result;
             }
-            if(this.methodHelpers.className) {
+            if (this.methodHelpers.className && method['@methodHelpers'].has('CLASS_NAME')) {
                 result = `const CLASS_NAME = "${entity.className}";\n` + result;
             }
-            if(this.methodHelpers.filePath) {
+            if (this.methodHelpers.filePath && method['@methodHelpers'].has('FILE_PATH')) {
                 // Relativize the path to the file, to contain it to the project directory
                 const relativeFilePath = entity.projectName + '' + entity.filename?.replace(entity.root, '');
                 result = `const FILE_PATH = "${relativeFilePath}";\n` + result;
             }
-            if(this.methodHelpers.logPrefix) {
+            if (this.methodHelpers.logPrefix && method['@methodHelpers'].has('LOG_PREFIX')) {
                 result = "const LOG_PREFIX = " + this.methodHelpers.logPrefix  + ";\n" + result;
             }
         }
+        return result;
+    }
+
+    /**
+     * Copies the global functions that the given method uses to its body so that they can be used at runtime.
+     * @param transpiledBody        Transpiled method body.
+     * @param method                The definition object for the method.
+     * @returns                     New transpiled method body with the helpers injected.
+     */
+    inlineGlobalFunctions(transpiledBody: string, method: TWServiceDefinition | TWSubscriptionDefinition): string {
+        let result = transpiledBody;
+
+        for (const fn of method['@globalFunctions']) {
+            // Find the function in the global store
+            const globalFunction = this.store['@globalFunctions']?.[fn] as GlobalFunction;
+            if (!globalFunction) continue;
+
+            /*
+            // Get a reference to the source file where the function is defined
+            const source = this.program.getSourceFile(globalFunction.filename);
+            if (!source) continue;
+
+            // Find the declaration of the function within the source file
+            const declaration = source.statements.find(s => {
+                // The statement must be a function declaration
+                if (s.kind != ts.SyntaxKind.FunctionDeclaration) return false;
+                const functionDeclaration = s as ts.FunctionDeclaration;
+
+                // With the same name as the function being looked up
+                if (functionDeclaration.name?.text != fn) return false;
+                return true;
+            });
+            if (!declaration) continue;
+            */
+
+            // Emit the function and add its code to the service
+            const codeToInline = ts.createPrinter().printNode(ts.EmitHint.Unspecified, globalFunction.node, globalFunction.sourceFile);
+            result = codeToInline + '\n' + result;
+        }
+
         return result;
     }
 
@@ -3006,19 +3683,33 @@ Failed parsing at: \n${node.getText()}\n\n`);
             const entity = store[className] as TWThingTransformer;
             if (!entity) return;
 
-            let transpiledBody = this.injectThingworxMethodHelpers(this.transpiledBodyOfThingworxMethod(node), name, entity);
+            // Find the entity methods for which helpers should be added, to determine
+            // which of the helpers it actually references
+            const methods = (entity.services as (TWServiceDefinition | TWSubscriptionDefinition)[]).concat(entity.subscriptions);
+            const method = methods.find(m => m.name == name);
 
-            for (const service of entity.services) {
-                if (service.name == name) {
-                    // If this service is a SQL service, don't use the transpiled code
-                    if (service.SQLInfo) return;
+            if (!method) return;
 
-                    //const body = ts.createPrinter().printNode(ts.EmitHint.Unspecified, node.body, (this as any).source);
-                    service.code = transpiledBody;
+            this.flattenMethodDependencies(method);
 
-                    // In debug mode, additional code is added to activate and deactivate the debugger
-                    if (this.debug) {
-                        service.code = `
+            // Inline any referenced global functions
+            let transpiledBody = this.inlineGlobalFunctions(this.transpiledBodyOfThingworxMethod(node), method);
+
+            // Then add the helpers; because of the way these are added, the helpers will be the first declarations in the code
+            transpiledBody = this.injectThingworxMethodHelpers(transpiledBody, name, entity, method);
+
+
+            if ('parameterDefinitions' in method) {
+                const service = method;
+                // If this service is a SQL service, don't use the transpiled code
+                if (service.SQLInfo) return;
+
+                //const body = ts.createPrinter().printNode(ts.EmitHint.Unspecified, node.body, (this as any).source);
+                service.code = transpiledBody;
+
+                // In debug mode, additional code is added to activate and deactivate the debugger
+                if (this.debug) {
+                    service.code = `
 const __d = BMDebuggerRuntime.localDebugger(); 
 const __dLogger = __d.getLogger();
 __d.retainForService({name: ${JSON.stringify(service.name)}, filename: ${JSON.stringify(entity.sourceFile?.fileName)}, scopeStack: []}); 
@@ -3028,18 +3719,17 @@ try {
 finally { 
     __d.release(); 
 }`;
-                    }
-                    else {
-                        service.code = `var result = (function () {${service.code}}).apply(me)`;
-                    }
+                }
+                else {
+                    service.code = `var result = (function () {${service.code}}).apply(me)`;
                 }
             }
-            for (const subscription of entity.subscriptions) {
-                if (subscription.name == name) {
-                    if (this.debug) {
-                        // In debug builds, an applied anonymous function is used because this is no longer transformed to me
-                        subscription.code = transpiledBody;
-                        subscription.code = `
+            else {
+                const subscription = method;
+                if (this.debug) {
+                    // In debug builds, an applied anonymous function is used because this is no longer transformed to me
+                    subscription.code = transpiledBody;
+                    subscription.code = `
 const __d = BMDebuggerRuntime.localDebugger(); 
 const __dLogger = __d.getLogger();
 __d.retainForService({name: ${JSON.stringify(subscription.name)}, filename: ${JSON.stringify(entity.sourceFile?.fileName)}, scopeStack: []}); 
@@ -3049,11 +3739,10 @@ try {
 finally { 
     __d.release(); 
 }`;
-                    }
-                    else {
-                        //const body = ts.createPrinter().printNode(ts.EmitHint.Unspecified, node.body, (this as any).source);
-                        subscription.code = transpiledBody;
-                    }
+                }
+                else {
+                    //const body = ts.createPrinter().printNode(ts.EmitHint.Unspecified, node.body, (this as any).source);
+                    subscription.code = `(function () {${transpiledBody}}).apply(me)`;
                 }
             }
         }
@@ -3124,6 +3813,9 @@ finally {
     _debugConfigurationInitialized = false;
 
     /**
+     * @deprecated Unused, this is now handled via a separate thing that 
+     * directly announces itself to the debug server.
+     * ---
      * For debug builds with at least one breakpoint location, creates a configuration table
      * that stores various debug information.
      */
@@ -3659,7 +4351,7 @@ finally {
                 const serviceDefinition = {$:{}} as any;
                 
                 for (const key in service) {
-                    if (key == 'aspects' || key == 'remoteBinding' || key == 'code' || key == 'parameterDefinitions' || key == 'resultType' || key == 'isOverriden' || key == 'SQLInfo') continue;
+                    if (key == 'aspects' || key == 'remoteBinding' || key == 'code' || key == 'parameterDefinitions' || key == 'resultType' || key == 'isOverriden' || key == 'SQLInfo' || key.startsWith('@')) continue;
     
                     serviceDefinition.$[key] = service[key];
                 }
@@ -3767,7 +4459,7 @@ finally {
             const subscriptionDefinition = {$:{}} as any;
             
             for (const key in subscription) {
-                if (key == 'code') continue;
+                if (key == 'code' || key.startsWith('@')) continue;
 
                 subscriptionDefinition.$[key] = subscription[key];
             }
@@ -4479,10 +5171,12 @@ export function TWThingTransformerFactory(program: ts.Program, root: string, aft
                 // component of the root path
                 if (project.projectName == '@auto') {
                     transformer.projectName = rootPath.split(path.sep).pop();
+                    transformer.repoPath = rootPath.substring(0, rootPath.length - transformer.projectName!.length - 1);
                     transformer.isAutoProject = true;
                 }
                 else {
                     transformer.projectName = project.projectName;
+                    transformer.repoPath = rootPath;
                 }
                 transformer.experimentalGlobals = project.experimentalGlobals;
                 transformer.autoGenerateDataShapeOrdinals = project.autoGenerateDataShapeOrdinals || false;
@@ -4490,6 +5184,7 @@ export function TWThingTransformerFactory(program: ts.Program, root: string, aft
                 transformer.debug = project.debug;
                 transformer.generateThingInstances = project.generateThingInstances;
                 transformer.methodHelpers = project.methodHelpers;
+                transformer.globalFunctionsEnabled = project.globalFunctions;
             }
         }
     
@@ -4498,6 +5193,20 @@ export function TWThingTransformerFactory(program: ts.Program, root: string, aft
             // this project's root path
             if (transformer.isAutoProject && !path.normalize(node.fileName).startsWith(rootPath)) {
                 return node;
+            }
+
+            if (!after && transformer.debug) {
+                // When running in debug mode, a different transformer may have already visited parts of this
+                // transformer's file and added debug information to it
+                // If that has happened, load the debug state saved by that transformer
+                if (transformer.store['@debugInformation']?.[node.fileName]) {
+                    const debugStore = transformer.store['@debugInformation'][node.fileName];
+                    Object.assign(transformer, {
+                        _debugBreakpointCounter: debugStore._debugBreakpointCounter,
+                        breakpointLocations: debugStore.breakpointLocations,
+                        breakpoints: debugStore.breakpoints,
+                    });
+                }
             }
 
             return ts.visitNode(node, node => transformer.visit(node))
