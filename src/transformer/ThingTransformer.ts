@@ -3543,7 +3543,23 @@ Failed parsing at: \n${node.getText()}\n\n`);
             */
 
             // Emit the function and add its code to the service
-            const codeToInline = ts.createPrinter().printNode(ts.EmitHint.Unspecified, globalFunction.node, globalFunction.sourceFile);
+            const codeToTranspile = ts.createPrinter().printNode(ts.EmitHint.Unspecified, globalFunction.node, globalFunction.sourceFile);
+            const transpileResult = ts.transpileModule(codeToTranspile, {
+                compilerOptions: {
+                    ...this.program.getCompilerOptions(),
+                    noImplicitUseStrict: true,
+                    sourceMap: false,
+                    noEmitHelpers: true
+                },
+            });
+
+            // TODO: not sure how to prevent typescript from emitting "use strict" at the beginning of the result
+            // remove directly for now
+            let codeToInline = transpileResult.outputText;
+            if (codeToInline.startsWith(`"use strict";`)) {
+                codeToInline = codeToInline.substring(`"use strict";`.length, codeToInline.length);
+            }
+
             result = codeToInline + '\n' + result;
         }
 
