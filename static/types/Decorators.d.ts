@@ -389,3 +389,11 @@ declare function allowInstance(...args: (UserEntity | GroupEntity | Permission)[
   * @param args      A comma separated list of organizations.
   */
   declare function visibleInstance(...args: (OrganizationEntity)[]): <T extends new (...args) => unknown>(target: T) => void;
+
+/**
+ * **EXPERIMENTAL**
+ * 
+ * Causes the given entity to be exposed and used in the API type generation
+ */
+ declare function exposedInApi<K extends new (...args) => GenericThing | DataShapeBase>(target: K);
+
