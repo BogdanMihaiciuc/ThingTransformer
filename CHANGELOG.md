@@ -1,3 +1,13 @@
+# 0.21.1-beta.1
+
+Improved the infotable type ([stefan-lacatus](https://github.com/stefan-lacatus)):
+- Added documentation for most infotable methods. This is based on the existing documentation in the [Monaco BaseTypes](https://github.com/ptc-iot-sharing/MonacoEditorTWX/blob/master/src/configs/declarations/ThingworxBaseTypes.d.ts) and the JavaDocs.
+- Improved types for `Filter`, `Find` and `Delete`. They cannot take in a QUERY as parameter. The lowercase variants can, but those cannot be called from javascript.
+- Added missing `topN`, `topNToNewInfotable`, `hasField`, `getRow` methods.
+- Added the missing `dataShape` property.
+
+Improved the data shape type by exposing the `fields` property.
+
 # 0.21.0-beta.1
 
 Adds support for generating method helpers, that are useful variables that can be used for logging. The following variables can be enabled: `METHOD_NAME`, `CLASS_NAME`, `FILE_PATH` and `LOG_PREFIX`. ([stefan-lacatus](https://github.com/stefan-lacatus))
