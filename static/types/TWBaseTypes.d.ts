@@ -106,38 +106,126 @@ declare class InfoTable<T = any> {
     private constructor();
 
     length: number;
-    rows: ValueCollectionList<T>;
-    
     [i: number]: ValueCollection<T>;
 
     [Symbol.iterator]: (...args: any[]) => Iterator<ValueCollection<T>>;
-
+    /**
+     * An array of all the  rows in the infotable as ValueCollection
+     */
+    rows: ValueCollectionList<T>;
+    /**
+     * Clones the infotable into a new one
+     */
     clone(): INFOTABLE<T>;
+    /**
+     * Returns the current length of the infotable
+     */
     getLength(): number;
+
+    /**
+     * Returns a boolean indicating whether this InfoTable has a size of zero
+     */
     isEmpty(): boolean;
-
+    /**
+     * Adds a field (column) to this InfoTable given a field definition 
+     */
     AddField(field: FieldDefinitionCore & Partial<FieldDefinition>): void;
+    /**
+     * Returns a FieldDefinition from this InfoTables DataShapeDefinition, given the name of the
+     * field as a String
+     *
+     * @param name String containing the name of the field
+     * @return FieldDefinition from this InfoTables DataShape or null if not found
+     */
     getField<K extends keyof T>(field: K): FieldDefinitionClass<T[K]>;
+    /**
+     * Verifies a field exists in this InfoTables DataShape given the field name as a String
+     *
+     * @param name String containing the name of the field to verify
+     * @return Boolean True: if field exists in DataShape, False: if field does not exist in DataShape
+     */
+    hasField(name: string): boolean;
+    /**
+     * Returns the number of fields in this InfoTable's DataShape as an int
+     */
     getFieldCount(): number;
-
+    /**
+     * Retrieves a specific row from the infotable
+     * @param index Index of the row to get
+     * @returns Value collection at that row. If the requested index is not found, the method returns `null`
+     */
+    getRow(index: number): ValueCollection<T> | undefined;
+    /**
+     * Gets the last row in the infotable
+     *
+     * @returns ValueCollection at the last row. If the infotable is empty this method returns `null`
+     */
     getLastRow(): ValueCollection<T> | undefined;
+    /**
+     * Gets the first row (row with index 0)
+     * @returns ValueCollection at the first row. If the infotable is empty this method returns `null`
+     */
     getFirstRow(): ValueCollection<T> | undefined;
-
+    /**
+     * Copies a row from this InfoTable, given its row number as an int, and returns it in a new InfoTable
+     *
+     * @param rowNumber The row to be copied from this InfoTable as an int
+     * @return InfoTable containing the row copied from this InfoTable
+     */
     CopyValues(index: number): INFOTABLE<T>;
 
+    /**
+     * Limits the infotable to the top N items. This happens in-place, modifying the current infotable
+     */
+    topN(maxItems: number);
+    /**
+     * Limits the infotable to the top N items. Returns the new infotable
+     */
+    topNToNewTable(maxItems: number): INFOTABLE<T>;
+
+    /**
+     * Removes a row from the InfoTable given its index
+     */
     RemoveRow(index: number): void;
+    /**
+     * Removes all rows from this InfoTable
+     */
     RemoveAllRows(): void;
 
+    /**
+     * Adds a row at the end to this InfoTable
+     * @param row information about the row to add
+     */
     AddRow(row: ValueCollectionConvertible<T>): void;
 
-    Find(query: QUERY<T> | Partial<T>): ValueCollection<T> | undefined;
-    Filter(query: Partial<T>);
-    Delete(query: QUERY<T> | Partial<T>): number;
+    /**
+     * Finds the first row that matches the condition based on values
+     */
+    Find(values: Partial<T>): ValueCollection<T> | undefined;
+    /**
+     * Filters the infotable in-place based on the given values
+     */
+    Filter(values: Partial<T>);
+    /**
+     * Deletes all the rows that match the given vales
+     */
+    Delete(values: Partial<T>): number;
+    /**
+     * Sorts the infotable in-place on a particular field
+    */
     Sort(args?: {name: string, ascending?: boolean}): void;
-
+    /**
+     * Returns the number of rows in this InfoTable as an Integer
+     */
     RowCount(): number;
+    /**
+     * Transforms the infotable into a JSON infotable
+     */
     ToJSON(): JSONInfoTable<T>;
-    
+
+    /**
+     * Reference to the datashape used for this infotable
+     */
     getDataShape(): DataShapeDefinition<T>;
 }
 
@@ -150,13 +238,30 @@ declare class ValueCollectionList<T = any> {
     [Symbol.iterator]: (...args: any[]) => Iterator<ValueCollection<T>>;
 
     getLength(): number;
-    getLastRow(): ValueCollection<T> | undefined;
+
+    /**
+     * Gets the first row (row with index 0)
+     * @returns ValueCollection at the first row. If the infotable is empty this method returns `null`
+     */
     getFirstRow(): ValueCollection<T> | undefined;
+    /**
+     * Gets the last row in the infotable
+     *
+     * @returns ValueCollection at the last row. If the infotable is empty this method returns `null`
+     */
+    getLastRow(): ValueCollection<T> | undefined;
+
+    /**
+     * Retrieves a specific row from the infotable
+     * @param index Index of the row to get
+     * @returns Value collection at that row. If the requested index is not found, the method returns `null`
+     */
     getRow(index: number): ValueCollection<T> | undefined;
 
+    /**
+     * Transforms the infotable rows into an javascript array
+     */
     toArray(): T[];
-
-    // TODO: Maybe add base ArrayList<T> methods?
 }
 
 declare class ValueCollectionBase<T = any> {
