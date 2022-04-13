@@ -1,6 +1,6 @@
 {
     "name": "bm-thing-transformer",
-    "version": "0.21.0-beta.1",
+    "version": "0.21.1-beta.1",
     "description": "Develop in ThingWorx with a proper IDE.",
     "author": "Thingworx RoIcenter",
     "minimumThingWorxVersion": "6.0.0",
