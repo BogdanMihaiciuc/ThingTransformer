@@ -185,6 +185,12 @@ interface TWCodeTransformer {
     throwErrorForNode(node: ts.Node, error: string): never;
 
     /**
+     * Compiles the given function declaration, saving its result in the global store.
+     * @param fn    The function declaration to compile;
+     */
+    compileGlobalFunction(this: TWCodeTransformer, fn: ts.FunctionDeclaration): void;
+
+    /**
      * Evaluates the given call expression, returning a global function reference if
      * it is a call to a global function.
      * @param expression        The expression to evaluate.
@@ -878,27 +884,15 @@ Failed parsing at: \n${node.getText()}\n\n`);
                         this.throwErrorForNode(node, `Global functions must be named.`)
                     }
 
-                    // If this function was already processed, return its replacement directly
                     if (this.store['@globalFunctions']?.[functionName]) {
-                        return this.store['@globalFunctions']?.[functionName].node;
+                        // If this function was already processed, omit it from the result
+                        return undefined;
                     }
-
-                    const fn = {
-                        filename: this.filename,
-                        dependencies: new Set,
-                        methodHelperDependencies: new Set,
-                        sourceFile: this.sourceFile
-                    } as GlobalFunction;
-
-                    const replacementNode = this.debug ? this.visitDebugMethodNode(node, fn)! : this.visitGlobalFunctionNode(node, fn);
-
-                    // Add this function to the store
-                    this.store['@globalFunctions'] = this.store['@globalFunctions'] || {};
-                    this.store['@globalFunctions'][fn.name] = fn;
-
-                    fn.node = replacementNode;
-
-                    return replacementNode;
+                    else {
+                        // Otherwise compile it and omit it from the result
+                        this.compileGlobalFunction(node as ts.FunctionDeclaration);
+                        return undefined;
+                    }
                 }
 
                 // Async is only included for metadata but cannot be used on the result
@@ -2940,6 +2934,8 @@ Failed parsing at: \n${node.getText()}\n\n`);
         }
 
         if (this.store['@debugInformation']?.[source.fileName]) {
+            // If a different transformer has already processed parts of this file, load the
+            // debug information it saved
             const debugStore = this.store['@debugInformation'][source.fileName];
             Object.assign(debugInformation, {
                 _debugBreakpointCounter: debugStore._debugBreakpointCounter,
@@ -2948,6 +2944,8 @@ Failed parsing at: \n${node.getText()}\n\n`);
             });
         }
         else {
+            // Otherwise initialize an object describing the debug information for this file
+            // and add it to the store
             this.store['@debugInformation'] = this.store['@debugInformation'] || {};
             this.store['@debugInformation'][source.fileName] = {
                 _debugBreakpointCounter: debugInformation._debugBreakpointCounter,
@@ -2959,10 +2957,10 @@ Failed parsing at: \n${node.getText()}\n\n`);
         // Create a new code transformer with the appropriate properties and the methods
         // copied over from this transformer
         const transformer: TWCodeTransformer = {
-            _debugBreakpointCounter: 0,
+            _debugBreakpointCounter: debugInformation._debugBreakpointCounter,
             debug: this.debug,
-            breakpointLocations: [],
-            breakpoints: [],
+            breakpointLocations: debugInformation.breakpointLocations,
+            breakpoints: debugInformation.breakpoints,
             context: this.context,
             nodeReplacementMap: new WeakMap,
             program: this.program,
@@ -2974,6 +2972,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
             commaCheckpointExpression: this.commaCheckpointExpression,
             constantValueOfExpression: this.constantValueOfExpression,
             debugCheckpointExpression: this.debugCheckpointExpression,
+            compileGlobalFunction: this.compileGlobalFunction,
             evaluateGlobalCallExpression: this.evaluateGlobalCallExpression,
             evaluateGlobalFunctionNode: this.evaluateGlobalFunctionNode,
             throwErrorForNode: this.throwErrorForNode,
@@ -2984,6 +2983,97 @@ Failed parsing at: \n${node.getText()}\n\n`);
         };
 
         return transformer;
+    }
+
+    /**
+     * Compiles the given global function, storing the result in the global store.
+     * @param fn        The function to compile.
+     */
+    compileGlobalFunction(this: TWCodeTransformer, functionDeclaration: ts.FunctionDeclaration): void {
+        const name = functionDeclaration.name!.text;
+        const sourceFile = functionDeclaration.getSourceFile();
+        const filename = sourceFile.fileName
+
+        if (!this.store['@globalFunctions']?.[name]) {
+            const fn = {
+                filename,
+                dependencies: new Set,
+                methodHelperDependencies: new Set,
+                sourceFile
+            } as GlobalFunction;
+
+            let compiledCode: string | undefined;
+            let transformedNode: ts.Node = functionDeclaration;
+
+            // TODO: Create new program from function source and compile independently
+
+            // Create a transformer for the function's source file
+            const transformer = this.codeTransformerForSource(sourceFile);
+
+            // Build and transform the function
+            ts.transpileModule(
+                sourceFile.text.substring(functionDeclaration.getStart(), functionDeclaration.getEnd()),
+                {
+                    compilerOptions: this.program.getCompilerOptions(),
+                    transformers: {
+                        before: [(context) => {
+                            return (node) => {
+                                // Perform standard replacements in the before phase
+                                return ts.visitEachChild(node, (node) => {
+                                    if (node.kind == ts.SyntaxKind.FunctionDeclaration) {
+                                        if (this.debug) {
+                                            return transformer.visitDebugMethodNode(node, fn) as ts.FunctionDeclaration;
+                                        }
+                                        else {
+                                            return transformer.visitGlobalFunctionNode(node, fn) as ts.FunctionDeclaration;
+                                        }
+                                    }
+                                }, context);
+                            }
+                        }],
+                        after: [(context) => {
+                            return (node) => {
+                                const compiledSourceFile = node;
+
+                                // Save this function's emit helpers so they can be added to the services using it
+                                fn.emitHelperDependencies = ts.getEmitHelpers(node);
+
+                                // In the after phase, find the compiled function and save its code
+                                return ts.visitEachChild(node, (node) => {
+                                    if (node.kind == ts.SyntaxKind.FunctionDeclaration) {
+                                        const declaration = node as ts.FunctionDeclaration;
+                                        if (declaration.name?.text == name) {
+                                            // Print and save the compiled function
+                                            compiledCode = ts.createPrinter().printNode(ts.EmitHint.Unspecified, node, compiledSourceFile) + '\n';
+                                            transformedNode = node;
+                                        }
+                                    }
+                                    return node;
+                                }, context);
+                            }
+                        }]
+                    }
+                }
+            );
+
+            // In debug mode, update the stored debugger state
+            if (this.debug) {
+                this.store['@debugInformation']![filename]._debugBreakpointCounter = transformer._debugBreakpointCounter;
+            }
+
+            // If the function is in the same source as this transformer, update the breakpoint counter
+            if (sourceFile == this.sourceFile) {
+                this._debugBreakpointCounter = transformer._debugBreakpointCounter;
+            }
+
+            // Save the transformation result
+            fn.node = functionDeclaration;
+            fn.compiledCode = compiledCode;
+
+            
+            this.store['@globalFunctions'] = this.store['@globalFunctions'] || {};
+            this.store['@globalFunctions'][name] = fn;
+        }
     }
 
     /**
@@ -3039,38 +3129,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
                         // function that can be inlined
                         if (filename != this.filename) {
                             if (!this.store['@globalFunctions']?.[name]) {
-                                const fn = {
-                                    filename: this.filename,
-                                    dependencies: new Set,
-                                    methodHelperDependencies: new Set,
-                                    sourceFile
-                                } as GlobalFunction;
-
-                                // Create a transformer for the function's source file
-                                const transformer = this.codeTransformerForSource(sourceFile);
-
-                                // Run the appropriate transformation based on whether this is running in debug mode or not
-                                const result = ts.transform(functionDeclaration, [() => {
-                                    return (node) => {
-                                        if (this.debug) {
-                                            return transformer.visitDebugMethodNode(node, fn) as ts.FunctionDeclaration;
-                                        }
-                                        else {
-                                            return transformer.visitGlobalFunctionNode(node, fn) as ts.FunctionDeclaration;
-                                        }
-                                    }
-                                }]);
-
-                                // In debug mode, update the stored debugger state
-                                if (this.debug) {
-                                    this.store['@debugInformation']![filename]._debugBreakpointCounter = transformer._debugBreakpointCounter;
-                                }
-
-                                // Save the transformation result
-                                fn.node = result.transformed[0];
-                                
-                                this.store['@globalFunctions'] = this.store['@globalFunctions'] || {};
-                                this.store['@globalFunctions'][name] = fn;
+                                this.compileGlobalFunction(functionDeclaration);
                             }
                         }
 
@@ -3526,40 +3585,30 @@ Failed parsing at: \n${node.getText()}\n\n`);
             const globalFunction = this.store['@globalFunctions']?.[fn] as GlobalFunction;
             if (!globalFunction) continue;
 
-            /*
-            // Get a reference to the source file where the function is defined
-            const source = this.program.getSourceFile(globalFunction.filename);
-            if (!source) continue;
-
-            // Find the declaration of the function within the source file
-            const declaration = source.statements.find(s => {
-                // The statement must be a function declaration
-                if (s.kind != ts.SyntaxKind.FunctionDeclaration) return false;
-                const functionDeclaration = s as ts.FunctionDeclaration;
-
-                // With the same name as the function being looked up
-                if (functionDeclaration.name?.text != fn) return false;
-                return true;
-            });
-            if (!declaration) continue;
-            */
-
-            // Emit the function and add its code to the service
-            const codeToTranspile = ts.createPrinter().printNode(ts.EmitHint.Unspecified, globalFunction.node, globalFunction.sourceFile);
-            const transpileResult = ts.transpileModule(codeToTranspile, {
-                compilerOptions: {
-                    ...this.program.getCompilerOptions(),
-                    noImplicitUseStrict: true,
-                    sourceMap: false,
-                    noEmitHelpers: true
-                },
-            });
-
-            // TODO: not sure how to prevent typescript from emitting "use strict" at the beginning of the result
-            // remove directly for now
-            let codeToInline = transpileResult.outputText;
-            if (codeToInline.startsWith(`"use strict";`)) {
-                codeToInline = codeToInline.substring(`"use strict";`.length, codeToInline.length);
+            let codeToInline: string;
+            if (globalFunction.compiledCode) {
+                // If the function was precompiled, emit its compiled node directly
+                codeToInline = globalFunction.compiledCode;
+            }
+            else {
+                // Otherwise create an AST from the function's code, then emit it
+                // Emit the function and add its code to the service
+                const codeToTranspile = ts.createPrinter().printNode(ts.EmitHint.Unspecified, globalFunction.node, globalFunction.sourceFile);
+                const transpileResult = ts.transpileModule(codeToTranspile, {
+                    compilerOptions: {
+                        ...this.program.getCompilerOptions(),
+                        noImplicitUseStrict: true,
+                        sourceMap: false,
+                        noEmitHelpers: true
+                    },
+                });
+    
+                // TODO: not sure how to prevent typescript from emitting "use strict" at the beginning of the result
+                // remove directly for now
+                codeToInline = transpileResult.outputText;
+                if (codeToInline.startsWith(`"use strict";`)) {
+                    codeToInline = codeToInline.substring(`"use strict";`.length, codeToInline.length);
+                }
             }
 
             result = codeToInline + '\n' + result;
@@ -3587,8 +3636,35 @@ Failed parsing at: \n${node.getText()}\n\n`);
      * @return          The emit result, with added helpers as necessary.
      */
     transpiledBodyOfThingworxMethod(node: ts.FunctionDeclaration, method: TWServiceDefinition | TWSubscriptionDefinition): string {
+        // Get the helpers from this source file and the method's global functions
+        const helpers = ts.getEmitHelpers((this as any).source) || [];
+        const helpersToInline = new Set<ts.EmitHelper>();
+
+        // Add helpers used by the global functions called by this method
+        for (const functionName of method['@globalFunctions']) {
+            const fn = this.store['@globalFunctions']?.[functionName];
+
+            if (fn?.emitHelperDependencies) {
+                for (const helper of fn.emitHelperDependencies) {
+                    // Check if the method's source already has the helper
+                    // Despite having the same code, the function's helper will be different instances
+                    // from the source file's helpers
+                    const localHelper = helpers.find(h => h.name == helper.name);
+
+                    if (!localHelper) {
+                        // If it doesn't inline the function's helper
+                        helpers.push(helper);
+                        helpersToInline.add(helper);
+                    }
+                    else {
+                        // Otherwise inline the method's helper
+                        helpersToInline.add(localHelper);
+                    }
+                }
+            }
+        }
+
         // If no helpers are used, just return the compiled method
-        const helpers = ts.getEmitHelpers((this as any).source);
         // Note that the __extends helper is always included to implement classes; if it is the only one used, skip searching
         if (!helpers || !helpers.length || (helpers.length == 1 && helpers[0].name == 'typescript:extends')) {
             return this.transpiledBodyOfFunctionDeclaration(node);
@@ -3628,8 +3704,9 @@ Failed parsing at: \n${node.getText()}\n\n`);
             };`
         }
 
-        // Otherwise need to look up usages for each helper and inline it
-        const helpersToInline = new Set<ts.EmitHelper>();
+        // Since typescript only reports the helpers used per file, to avoid overloading
+        // services with unnecessary code, it's needed to look up usages for each helper 
+        // and only inline those that are actually referenced
         const visitor = (node: ts.Node) => {
             // All helpers so far are global functions, so need to look for function invocations
             if (node.kind == ts.SyntaxKind.CallExpression) {
