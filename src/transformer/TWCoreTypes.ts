@@ -1,4 +1,5 @@
 import type { Node, SourceFile } from 'typescript';
+import type { EmitHelper } from 'typescript';
 
 export interface TWInfoTable {
     dataShape: {
@@ -501,9 +502,19 @@ export interface GlobalFunction {
     methodHelperDependencies: Set<string>;
 
     /**
+     * An array of emit helper that this function uses.
+     */
+    emitHelperDependencies?: EmitHelper[];
+
+    /**
      * The transformed node of the function.
      */
     node: Node;
+
+    /**
+     * The compiled code of the function.
+     */
+    compiledCode?: string;
 
     /**
      * The source file where this function is defined.
