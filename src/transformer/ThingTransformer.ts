@@ -2186,6 +2186,10 @@ Failed parsing at: \n${node.getText()}\n\n`);
                 if (!type) this.throwErrorForNode(node, `Parameter ${parameter.name} is untyped.`);
 
                 const typeNode = type.type as ts.TypeReferenceNode;
+                
+                if (!typeNode) {
+                    this.throwErrorForNode(node, `No base type specified for parameter ${parameter.name}.`);
+                }
 
                 parameter.aspects.isRequired = !type.questionToken;
                 const baseType = TypeScriptPrimitiveTypes.includes(typeNode.kind) ? typeNode.getText() : typeNode.typeName.getText();
