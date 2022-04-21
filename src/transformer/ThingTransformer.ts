@@ -136,6 +136,11 @@ interface TWCodeTransformer {
     debug?: boolean;
 
     /**
+     * When set to `true`, function declarations in the global scope will be permitted.
+     */
+    globalFunctionsEnabled?: boolean;
+
+    /**
      * A weak map that contains a mapping between nodes that have been marked for replacement before
      * having been visited.
      */
@@ -2966,6 +2971,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
             program: this.program,
             repoPath: this.repoPath,
             filename: source.fileName,
+            globalFunctionsEnabled: this.globalFunctionsEnabled,
             sourceFile: source,
             store: this.store,
             codeTransformerForSource: this.codeTransformerForSource,
@@ -3163,6 +3169,10 @@ Failed parsing at: \n${node.getText()}\n\n`);
                 break;
             case ts.SyntaxKind.CallExpression:
                 const callExpression = node as ts.CallExpression;
+
+                // If global functions are not enabled, there's no need to inline global functions
+                if (!this.globalFunctionsEnabled) return;
+
                 // Whenever a call expression is encountered, determine if it represents a global
                 // function call and if it does, add it to the dependencies of this function
                 const dependency = this.evaluateGlobalCallExpression(callExpression);
@@ -3262,6 +3272,9 @@ Failed parsing at: \n${node.getText()}\n\n`);
             case ts.SyntaxKind.CallExpression:
                 const n11 = node as ts.CallExpression;
 
+                // If global functions are not enabled, there's no need to inline global functions
+                if (!this.globalFunctionsEnabled) return node;
+
                 // If a service is specified, add references to global functions to it so that they can be inlined afterwards
                 if (service) {
                     const dependency = this.evaluateGlobalCallExpression(n11);
@@ -3357,7 +3370,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
                 const n11 = node as ts.CallExpression;
 
                 // If a service is specified, add references to global functions to it so that they can be inlined afterwards
-                if (service) {
+                if (service && this.globalFunctionsEnabled) {
                     const dependency = this.evaluateGlobalCallExpression(n11);
                     if (dependency) {
                         service['@globalFunctions'].add(dependency.name);
