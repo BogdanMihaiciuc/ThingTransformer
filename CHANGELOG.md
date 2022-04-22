@@ -6,6 +6,8 @@ The transformer will no longer replace instances of `this` with `me`. Instead it
 
 The transformer will now only declare the method helpers that are referenced in each service, instead of always including them.
 
+Added support for using the `@exported` decorator to generate an API declarations file that can be consumed by a separate frontend or node project. ([stefan-lacatus](https://github.com/stefan-lacatus))
+
 # 0.21.1-beta.1
 
 Improved the infotable type ([stefan-lacatus](https://github.com/stefan-lacatus)):
