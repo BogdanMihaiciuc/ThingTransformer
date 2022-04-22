@@ -1,3 +1,6 @@
+import type { Node, SourceFile } from 'typescript';
+import type { EmitHelper } from 'typescript';
+
 export interface TWInfoTable {
     dataShape: {
         fieldDefinitions: Record<string, TWFieldBase>;
@@ -127,6 +130,16 @@ export interface TWServiceDefinition {
     isOverriden?: boolean;
 
     /**
+     * An array of global functions referenced in the body of this service.
+     */
+    '@globalFunctions': Set<string>;
+
+    /**
+     * An array of method helpers referenced in the body of this service.
+     */
+    '@methodHelpers': Set<string>;
+
+    /**
      * An optional object containing additional information about the service if it is a sql service.
      */
     SQLInfo?: {
@@ -189,6 +202,16 @@ export interface TWSubscriptionDefinition {
     sourceType: TWSubscriptionSourceKind;
     sourceProperty: string;
     code: string;
+
+    /**
+     * An array of global functions referenced in the body of this subscription.
+     */
+    '@globalFunctions': Set<string>;
+
+    /**
+     * An array of method helpers referenced in the body of this subscription.
+     */
+    '@methodHelpers': Set<string>;
 }
 
 export const enum TWSubscriptionSourceKind {
@@ -451,4 +474,60 @@ export interface TWOrganizationalUnit {
     description?: string;
     name: string;
     members: TWMemberBase[];
+}
+
+/**
+ * The interface for an object that identifies a global function.
+ */
+export interface GlobalFunction {
+
+    /**
+     * The name of the function.
+     */
+    name: string;
+
+    /**
+     * The file where the function is defined.
+     */
+    filename: string;
+
+    /**
+     * An array of global functions that this function invokes.
+     */
+    dependencies: Set<string>;
+
+    /**
+     * An array of method helpers that this function uses.
+     */
+    methodHelperDependencies: Set<string>;
+
+    /**
+     * An array of emit helper that this function uses.
+     */
+    emitHelperDependencies?: EmitHelper[];
+
+    /**
+     * The transformed node of the function.
+     */
+    node: Node;
+
+    /**
+     * The compiled code of the function.
+     */
+    compiledCode?: string;
+
+    /**
+     * The source file where this function is defined.
+     */
+    sourceFile: SourceFile;
+}
+
+/**
+ * The interface for an object that describes a reference to a global function.
+ */
+export interface GlobalFunctionReference {
+    /**
+     * The name of the function.
+     */
+    name: string;
 }
