@@ -3583,6 +3583,15 @@ Failed parsing at: \n${node.getText()}\n\n`);
 
         if (this.methodHelpers) {
             // Prefix a new line at the start of the method
+            const logPrefix = this.methodHelpers.logPrefix;
+
+            // Get the helpers used by log prefix
+            for (const helper of MethodHelperIdentifiers) {
+                if (logPrefix?.includes(helper)) {
+                    method['@methodHelpers'].add(helper);
+                }
+            }
+
             result = '\n' + result;
             if (this.methodHelpers.methodName && method['@methodHelpers'].has('METHOD_NAME')) {
                 result = `const METHOD_NAME = "${name}";\n` + result;
