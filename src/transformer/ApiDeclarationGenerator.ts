@@ -14,7 +14,7 @@ import {TWServiceDefinition, TWPropertyDefinition, TWServiceParameter, TWDataSha
  * A class that contains various static methods for parsing entity metadata
  * objects into typescript class declarations.
  */
- export class ApiGenerator {
+ export class APIGenerator {
 
     /**
      * Returns a string that represents the typescript type that should be used to represent
