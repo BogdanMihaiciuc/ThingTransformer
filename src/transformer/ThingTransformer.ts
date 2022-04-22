@@ -151,7 +151,7 @@ export class TWThingTransformer {
      *
      * For Things and DataShapes, this triggers the generation of APIs
      */
-    exposedInApi: boolean = false;
+    exported: boolean = false;
 
     /**
      * Controls whether the class represents an editable extension object.
@@ -1232,10 +1232,10 @@ Failed parsing at: \n${node.getText()}\n\n`);
                 this.throwErrorForNode(node, `Only Things may be published.`);
             }
 
-            this.exposedInApi = this.hasDecoratorNamed('exposedInApi', classNode);
+            this.exported = this.hasDecoratorNamed('exported', classNode);
 
-            if (this.exposedInApi && !(this.entityKind == TWEntityKind.Thing || this.entityKind == TWEntityKind.DataShape)) {
-                this.throwErrorForNode(node, `Only Things or DataShapes may be exposedInApi.`);
+            if (this.exported && !(this.entityKind == TWEntityKind.Thing || this.entityKind == TWEntityKind.DataShape)) {
+                this.throwErrorForNode(node, `Only Things or DataShapes may be exported.`);
             }
 
             this.editable = !!classNode.decorators && classNode.decorators.some(decorator => decorator.expression.kind == ts.SyntaxKind.Identifier && decorator.expression.getText() == 'editable');
@@ -3548,22 +3548,25 @@ finally {
      * @returns API representation of the exposed entities
      */
     toApiDeclaration(): string {
-        if(this.exposedInApi) {
+        if (this.exported) {
             if (this.entityKind == TWEntityKind.DataShape) {
                 return `export interface ${this.exportedName} {
-                    ${this.fields.map(f=> ApiGenerator.declarationOfProperty(f)).join('\n')}
-                }`;            }
-            if (this.entityKind == TWEntityKind.Thing) {
+                    ${this.fields.map(f => ApiGenerator.declarationOfProperty(f)).join('\n')}
+                }`;
+            }
+            else if (this.entityKind == TWEntityKind.Thing) {
                 return `export class ${this.exportedName} {
                     ${this.services.map(f=> ApiGenerator.declarationOfService(f)).join('\n')}
                 }
                 export interface Things {
                     "${this.exportedName}": ${this.exportedName};
                 }`;
-            } else {
+            }
+            else {
                 throw new Error('Only Things and DataShapes can be exposed in API');
             }
-        } else {
+        }
+        else {
             return "";
         }
     }
