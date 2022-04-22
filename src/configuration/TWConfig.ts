@@ -5,19 +5,22 @@ export interface MethodHelpers {
      * Generates a `METHOD_NAME` constant with the name of the service or subscription 
      */
     methodName?: boolean;
+
     /**
-    * Generates a `CLASS_NAME` constant with the name of the class this function is declared in
-    */
+     * Generates a `CLASS_NAME` constant with the name of the class this function is declared in
+     */
     className?: boolean;
-   /**
-    * Generates a `FILE_PATH` constant with the relative path of the file
-    */
+
+    /**
+     * Generates a `FILE_PATH` constant with the relative path of the file
+     */
     filePath?: boolean;
-   /**
+
+    /**
      * Generates a `LOG_PREFIX` constant with the name of the service
      * Example: `${me.name}::${METHOD_NAME}::
-    */
-   logPrefix?: string;
+     */
+    logPrefix?: string;
 }
 
 /**
@@ -67,7 +70,13 @@ export interface TWConfig {
     /**
      * Configuration for the generation of method helpers that can be used used within services and subscriptions 
      */
-     methodHelpers?: MethodHelpers;
+    methodHelpers?: MethodHelpers;
+
+    /**
+     * When enabled, global function declarations are permitted and any service that references a global function will
+     * gain a copy of it.
+     */
+    globalFunctions?: boolean;
 
     /**
      * The minimum thingworx version on which the project may be installed.
@@ -105,7 +114,9 @@ export interface TWConfig {
     debug?: boolean;
 
     /**
-     * An object holding transformer instances.
+     * An object holding transformer instances and global metadata.
      */
-    store: {[key: string]: TWThingTransformer};
+    store: {
+        [key: string]: TWThingTransformer;
+    };
 }
