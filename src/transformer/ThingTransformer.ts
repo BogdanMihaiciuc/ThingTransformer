@@ -2,7 +2,8 @@ import * as ts from 'typescript';
 import { MethodHelpers, TWConfig } from '../configuration/TWConfig';
 import { TWEntityKind, TWPropertyDefinition, TWServiceDefinition, TWEventDefinition, TWSubscriptionDefinition, TWBaseTypes, TWPropertyDataChangeKind, TWFieldBase, TWPropertyRemoteBinding, TWPropertyRemoteFoldKind, TWPropertyRemotePushKind, TWPropertyRemoteStartKind, TWPropertyBinding, TWSubscriptionSourceKind, TWServiceParameter, TWDataShapeField, TWConfigurationTable, TWRuntimePermissionsList, TWVisibility, TWExtractedPermissionLists, TWRuntimePermissionDeclaration, TWPrincipal, TWPermission, TWUser, TWUserGroup, TWPrincipalBase, TWOrganizationalUnit, TWConnection, TWDataThings, TWInfoTable } from './TWCoreTypes';
 import { Breakpoint } from './DebugTypes';
-import {Builder} from 'xml2js';
+import { APIGenerator } from './APIDeclarationGenerator';
+import { Builder } from 'xml2js';
 import * as fs from 'fs';
 import * as crypto from 'crypto';
 import * as path from 'path';
@@ -144,6 +145,13 @@ export class TWThingTransformer {
      * For things, this represents the published flag if it has been set.
      */
     published: boolean = false;
+
+    /**
+     * **EXPERIMENTAL!!!**
+     *
+     * For Things and DataShapes, this triggers the generation of APIs
+     */
+    exported: boolean = false;
 
     /**
      * Controls whether the class represents an editable extension object.
@@ -1222,6 +1230,12 @@ Failed parsing at: \n${node.getText()}\n\n`);
 
             if (this.published && this.entityKind != TWEntityKind.Thing) {
                 this.throwErrorForNode(node, `Only Things may be published.`);
+            }
+
+            this.exported = this.hasDecoratorNamed('exported', classNode);
+
+            if (this.exported && !(this.entityKind == TWEntityKind.Thing || this.entityKind == TWEntityKind.DataShape)) {
+                this.throwErrorForNode(node, `Only Things or DataShapes may be exported.`);
             }
 
             this.editable = !!classNode.decorators && classNode.decorators.some(decorator => decorator.expression.kind == ts.SyntaxKind.Identifier && decorator.expression.getText() == 'editable');
@@ -3527,6 +3541,34 @@ finally {
         }
 
         return implementation;
+    }
+
+    /**
+     * Exposed entities declarations
+     * @returns API representation of the exposed entities
+     */
+    toAPIDeclaration(): string {
+        if (this.exported) {
+            if (this.entityKind == TWEntityKind.DataShape) {
+                return `export interface ${this.exportedName} {
+                    ${this.fields.map(f => APIGenerator.declarationOfProperty(f)).join('\n')}
+                }`;
+            }
+            else if (this.entityKind == TWEntityKind.Thing) {
+                return `export class ${this.exportedName} {
+                    ${this.services.map(f=> APIGenerator.declarationOfService(f)).join('\n')}
+                }
+                export interface Things {
+                    "${this.exportedName}": ${this.exportedName};
+                }`;
+            }
+            else {
+                throw new Error('Only Things and DataShapes can be exposed in API');
+            }
+        }
+        else {
+            return "";
+        }
     }
 
     /**

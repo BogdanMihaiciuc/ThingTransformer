@@ -384,8 +384,15 @@ declare function allowInstance(...args: (UserEntity | GroupEntity | Permission)[
  */
  declare function visible(...args: (OrganizationEntity)[]): <T extends new (...args) => unknown>(target: T) => void;
 
- /**
-  * A decorator that can be used to make an entity visible for a set of given organizations.
-  * @param args      A comma separated list of organizations.
-  */
-  declare function visibleInstance(...args: (OrganizationEntity)[]): <T extends new (...args) => unknown>(target: T) => void;
+/**
+ * A decorator that can be used to make an entity visible for a set of given organizations.
+ * @param args      A comma separated list of organizations.
+ */
+declare function visibleInstance(...args: (OrganizationEntity)[]): <T extends new (...args) => unknown>(target: T) => void;
+
+/**
+ * **EXPERIMENTAL**
+ * 
+ * Causes the given entity to be exposed and used in the API type generation
+ */
+declare function exported<K extends new (...args) => GenericThing | DataShapeBase>(target: K);
