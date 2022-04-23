@@ -79,6 +79,11 @@ export interface TWConfig {
     globalFunctions?: boolean;
 
     /**
+     * When enabled, inline SQL queries and commands will be allowed and extracted into services.
+     */
+    inlineSQL?: boolean;
+
+    /**
      * The minimum thingworx version on which the project may be installed.
      */
     minimumThingWorxVersion?: string;
