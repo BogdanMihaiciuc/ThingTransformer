@@ -2245,8 +2245,8 @@ Failed parsing at: \n${node.getText()}\n\n`);
     /**
      * Retrieves the baseType of a typescript property declaration.
      * If a declared baseType is not defined, then attempt to infer it from context
-     * @param node Note to verify
-     * @returns BaseType of property
+     * @param node      Note to verify
+     * @returns         BaseType of property
      */
     private getTypeOfPropertyDeclaration(node: ts.PropertyDeclaration): string {
         // If the property has a type explicitly set, then use it
@@ -2262,6 +2262,36 @@ Failed parsing at: \n${node.getText()}\n\n`);
             const inferredType = typeChecker.getTypeAtLocation(node);
             return typeChecker.typeToString(inferredType);
         }
+    }
+
+    /**
+     * Gets the inferred type of the given expression.
+     * @param expression        The expression whose type should be inferred.
+     * @returns                 A string representing the thingwor xbase type of the expression.
+     */
+    private getBaseTypeOfExpression(expression: ts.Expression): string {
+        const typeChecker = this.program.getTypeChecker();
+        const inferredType = typeChecker.getTypeAtLocation(expression);
+        let typeName = typeChecker.typeToString(inferredType);
+
+        // If the type is a thingworx generic type, remove the generics
+        if (typeName.startsWith('INFOTABLE<')) {
+            typeName = 'INFOTABLE';
+        }
+        else if (typeName.startsWith('THINGNAME<')) {
+            typeName = 'THINGNAME';
+        }
+        else if (typeName.startsWith('STRING<')) {
+            typeName = 'STRING';
+        }
+        else if (typeName.startsWith('NUMBER<')) {
+            typeName = 'NUMBER';
+        }
+        else if (typeName.startsWith('TWJSON<')) {
+            typeName = 'TWJSON';
+        }
+
+        return TWBaseTypes[typeName];
     }
 
     /**
@@ -2816,10 +2846,13 @@ Failed parsing at: \n${node.getText()}\n\n`);
     /**
      * Parses the given template literal as a SQL service body, returning the code
      * that should be used in the service's implementation.
-     * @param literal       The template literal to parse.
-     * @returns             The code that should be used for the service.
+     * @param literal               The template literal to parse.
+     * @param parameters            If specified, an array to which the parameters in the service will be added.
+     * @param expressions           If specified, an array that will hold the expressions that have been substituted by parameters.
+     * @param allowExpressions      If set to `true`, expression will be allowed and will be substituted by generic arguments.
+     * @returns                     The code that should be used for the service.
      */
-    private _parseSQLTemplateLiteral(literal: ts.TemplateLiteral): string {
+    private _parseSQLTemplateLiteral(literal: ts.TemplateLiteral, parameters?: TWServiceParameter[], expressions?: ts.Expression[], allowExpressions = false): string {
         let result = '';
 
         // if there are no expressions to substitute, return the literal text directly
@@ -2834,15 +2867,62 @@ Failed parsing at: \n${node.getText()}\n\n`);
 
         result += literal.head.text;
 
+        // An argument counter used to generate unique argument names
+        let argumentCounter = 0;
+
         for (const span of expression.templateSpans) {
             const expression = span.expression;
 
-            // The expressions may only be identifiers
+            let isNonIdentifier = false;
+
+            // The expressions may only be identifiers, unless allowExpression is set to true
             if (expression.kind != ts.SyntaxKind.Identifier) {
-                this.throwErrorForNode(expression, `SQL template placeholders may only be identifiers.`);
+                if (!allowExpressions) {
+                    this.throwErrorForNode(expression, `SQL template placeholders may only be identifiers.`);
+                }
+                else {
+                    isNonIdentifier = true;
+                }
             }
 
-            const identifier = (expression as ts.Identifier).text;
+            // When allowExpressions is set to true, the identifier becomes a generic argument name
+            const identifier = allowExpressions ? `param${argumentCounter}` : (expression as ts.Identifier).text;
+            argumentCounter++;
+
+            // If a parameters array is specified, create a parameter from the expression
+            if (parameters) {
+                // If the expression has an explicit type assertion, use the specified type
+                let baseType;
+                if (expression.kind == ts.SyntaxKind.AsExpression || expression.kind == ts.SyntaxKind.TypeAssertionExpression) {
+                    const type = (expression as ts.AsExpression).type;
+                    if (ts.isTypeReferenceNode(type)) {
+                        // Exclude any generics from type references
+                        baseType = TWBaseTypes[type.typeName.getText()];
+                    }
+                    else {
+                        baseType = TWBaseTypes[type.getText()];
+                    }
+                }
+                else {
+                    baseType = this.getBaseTypeOfExpression(expression);
+                }
+
+                const parameter: TWServiceParameter = {
+                    name: identifier,
+                    baseType,
+                    description: 'Automatically generated parameter',
+                    aspects: {},
+                    ordinal: argumentCounter
+                };
+
+                // If the base type cannot be determined, throw
+                if (!parameter.baseType) {
+                    this.throwErrorForNode(expression, `The base type of the expression cannot be inferred; consider adding an explicit type assertion`);
+                }
+
+                parameters.push(parameter);
+                expressions?.push(expression);
+            }
 
             if (isLiteralStart && span.literal.text.startsWith('>>')) {
                 // If the previous literal block starts a literal replacement and the next literal
@@ -3262,6 +3342,163 @@ Failed parsing at: \n${node.getText()}\n\n`);
         return node;
     }
 
+
+    /**
+     * Evaluates the given tagged template literal node and, if necessary, returning a replacement node
+     * and creating a SQL service for it.
+     * @param node          The node to evaluate.
+     * @param service       The service or subscription in which the tagged template was found.
+     * @returns             A replacement node if a substitution is necessary, `false` otherwise.
+     */
+    evaluateTaggedTemplateLiteralNode(node: ts.TaggedTemplateExpression, service: TWServiceDefinition | TWSubscriptionDefinition): ts.CallExpression | undefined {
+        // The tag must be either the SQLQuery or SQLCommand identifier
+        const tag = node.tag as ts.Identifier;
+        if (tag.kind != ts.SyntaxKind.Identifier) {
+            return;
+        }
+
+        if (tag.text != 'SQLQuery' && tag.text != 'SQLCommand') return;
+
+        // Create a new service for this sql statement
+        const SQLService: TWServiceDefinition = {
+            "@globalFunctions": new Set,
+            "@methodHelpers": new Set,
+            aspects: {
+                isAsync: false
+            },
+            category: '',
+            code: '',
+            description: `SQL service generated from the ${service.name} service`,
+            isAllowOverride: false,
+            isLocalOnly: false,
+            isOpen: false,
+            isPrivate: false,
+            name: `SQL_${service.name}_${(crypto as any).randomUUID()}`,
+            parameterDefinitions: [],
+            resultType: {} as any,
+            SQLInfo: {
+                timeout: 60,
+                maxRows: 500,
+                handler: 'SQLCommand'
+            }
+        }
+
+        // Extract the appropriate generic arguments
+        switch (tag.text) {
+            case 'SQLQuery':
+                SQLService.SQLInfo!.handler = 'SQLQuery';
+
+                // The SQLQuery must have at least one generic argument specifying
+                // the data shape of the returned infotable
+                const genericArguments = node.typeArguments;
+                if (!genericArguments?.length) {
+                    this.throwErrorForNode(node, `The SQLQuery function must specify the return type via a type argument.`);
+                }
+
+                const type = genericArguments[0] as ts.TypeReferenceNode;
+                if (type.kind != ts.SyntaxKind.TypeReference) {
+                    this.throwErrorForNode(node, `The SQLQuery return type must be an identifier.`);
+                }
+
+                // Construct the result type
+                SQLService.resultType = {
+                    baseType: 'INFOTABLE',
+                    description: '',
+                    name: 'result',
+                    ordinal: 0,
+                    aspects: {
+                        dataShape: type.typeName.getText()
+                    }
+                }
+
+                // The arguments may also be used to override the timeout and max rows
+                const timeout = genericArguments[1] as ts.LiteralTypeNode;
+                if (!timeout) break;
+
+                if (timeout.kind != ts.SyntaxKind.LiteralType || !ts.isLiteralExpression(timeout.literal)) {
+                    this.throwErrorForNode(node, `The timeout of a SQLQuery must be a numeric literal.`);
+                }
+
+                const timeoutValue = parseInt((timeout.literal as ts.LiteralExpression).text);
+                if (Number.isNaN(timeoutValue)) {
+                    this.throwErrorForNode(node, `The timeout of a SQLQuery must be a numeric literal.`);
+                }
+                SQLService.SQLInfo!.timeout = timeoutValue;
+
+                // Use a similar logic for the max rows
+                const maxRows = genericArguments[2] as ts.LiteralTypeNode;
+                if (!maxRows) break;
+                
+                if (maxRows.kind != ts.SyntaxKind.LiteralType || !ts.isLiteralExpression(maxRows.literal)) {
+                    this.throwErrorForNode(node, `The maxRows of a SQLQuery must be a numeric literal.`);
+                }
+
+                const maxRowsValue = parseInt((maxRows.literal as ts.LiteralExpression).text);
+                if (Number.isNaN(maxRowsValue)) {
+                    this.throwErrorForNode(node, `The maxRows of a SQLQuery must be a numeric literal.`);
+                }
+                SQLService.SQLInfo!.maxRows = maxRowsValue;
+
+                break;
+            case 'SQLCommand':
+                // The SQLCommand may optionally have its timeout specified via a type argument
+                const commandArguments = node.typeArguments;
+                if (commandArguments?.length) {
+                    const timeout = commandArguments[0] as ts.LiteralTypeNode;
+                    if (!timeout) break;
+
+                    if (timeout.kind != ts.SyntaxKind.LiteralType || !ts.isLiteralExpression(timeout.literal)) {
+                        this.throwErrorForNode(node, `The timeout of a SQLCommand must be a numeric literal.`);
+                    }
+
+                    const timeoutValue = parseInt((timeout.literal as ts.LiteralExpression).text);
+                    if (Number.isNaN(timeoutValue)) {
+                        this.throwErrorForNode(node, `The timeout of a SQLCommand must be a numeric literal.`);
+                    }
+                    SQLService.SQLInfo!.timeout = timeoutValue;
+                }
+
+                // Construct the result type
+                SQLService.resultType = {
+                    baseType: 'NUMBER',
+                    description: '',
+                    name: 'result',
+                    ordinal: 0,
+                    aspects: {}
+                }
+
+                break;
+        }
+
+        // Extract the parameters and code from the literal
+        const parameters: TWServiceParameter[] = [];
+        const expressions: ts.Expression[] = [];
+        const code = this._parseSQLTemplateLiteral(node.template, parameters, expressions, true);
+
+        SQLService.code = code;
+        SQLService.parameterDefinitions = parameters;
+
+        // Add the SQL service to the entity
+        this.services.push(SQLService);
+
+        // Return a node that represents an invocation of the newly created service
+        return ts.factory.createCallExpression(
+            ts.factory.createPropertyAccessExpression(
+                ts.factory.createThis(),
+                SQLService.name
+            ),
+            undefined,
+            [
+                ts.factory.createObjectLiteralExpression(
+                    parameters.map((parameter, i) => ts.factory.createPropertyAssignment(
+                        parameter.name,
+                        expressions[i]
+                    ))
+                )
+            ]
+        )
+    }
+
     /**
      * Visits a method node for a release build, performing replacements and extracting references to functions.
      * @param node          The method or function node.
@@ -3301,6 +3538,18 @@ Failed parsing at: \n${node.getText()}\n\n`);
                     }
                 }
 
+                return node;
+            case ts.SyntaxKind.TaggedTemplateExpression:
+                // Tagged templates can represent SQL statements which need to be replaced by service calls
+                const template = node as ts.TaggedTemplateExpression;
+
+                if (service) {
+                    // If a replacement is found, return it
+                    const replacement = (this as TWThingTransformer).evaluateTaggedTemplateLiteralNode(template, service);
+                    if (replacement) {
+                        return replacement;
+                    }
+                }
                 return node;
             case ts.SyntaxKind.Identifier:
                 // For identifiers, verify if they represent helper names and if they do add them
@@ -3419,6 +3668,19 @@ Failed parsing at: \n${node.getText()}\n\n`);
                 if (MethodHelperIdentifiers.includes(n12.text)) {
                     service?.['@methodHelpers'].add(n12.text);
                 }
+                break;
+            case ts.SyntaxKind.TaggedTemplateExpression:
+                // Tagged templates can represent SQL statements which need to be replaced by service calls
+                const template = node as ts.TaggedTemplateExpression;
+
+                if (service) {
+                    // If a replacement is found, return it
+                    const replacement = (this as TWThingTransformer).evaluateTaggedTemplateLiteralNode(template, service);
+                    if (replacement) {
+                        return this.commaCheckpointExpression(replacement, node);
+                    }
+                }
+                return node;
         }
 
         return node;
