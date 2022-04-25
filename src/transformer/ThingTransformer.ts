@@ -505,6 +505,11 @@ export class TWThingTransformer implements TWCodeTransformer {
     globalFunctions: GlobalFunction[] = [];
 
     /**
+     * When set to `true`, SQL statements in javascript services will be permitted.
+     */
+    inlineSQLEnabled?: boolean;
+
+    /**
      * The project root path, to which files are written by default.
      */
     root: string;
@@ -3344,13 +3349,13 @@ Failed parsing at: \n${node.getText()}\n\n`);
 
 
     /**
-     * Evaluates the given tagged template literal node and, if necessary, returning a replacement node
+     * Visits the given tagged template literal node and, if necessary, returning a replacement node
      * and creating a SQL service for it.
      * @param node          The node to evaluate.
      * @param service       The service or subscription in which the tagged template was found.
      * @returns             A replacement node if a substitution is necessary, `false` otherwise.
      */
-    evaluateTaggedTemplateLiteralNode(node: ts.TaggedTemplateExpression, service: TWServiceDefinition | TWSubscriptionDefinition): ts.CallExpression | undefined {
+    visitTaggedTemplateLiteralNode(node: ts.TaggedTemplateExpression, service: TWServiceDefinition | TWSubscriptionDefinition): ts.CallExpression | undefined {
         // The tag must be either the SQLQuery or SQLCommand identifier
         const tag = node.tag as ts.Identifier;
         if (tag.kind != ts.SyntaxKind.Identifier) {
@@ -3358,6 +3363,11 @@ Failed parsing at: \n${node.getText()}\n\n`);
         }
 
         if (tag.text != 'SQLQuery' && tag.text != 'SQLCommand') return;
+
+        // If inline SQL is disabled, throw an error
+        if (!this.inlineSQLEnabled) {
+            this.throwErrorForNode(node, `The ${tag.text} function can only be used in a SQL service.`);
+        }
 
         // Create a new service for this sql statement
         const SQLService: TWServiceDefinition = {
@@ -3544,8 +3554,8 @@ Failed parsing at: \n${node.getText()}\n\n`);
                 const template = node as ts.TaggedTemplateExpression;
 
                 if (service) {
-                    // If a replacement is found, return it
-                    const replacement = (this as TWThingTransformer).evaluateTaggedTemplateLiteralNode(template, service);
+                    // If a replacement is found, return it; when the service argument is provided
+                    const replacement = (this as TWThingTransformer).visitTaggedTemplateLiteralNode(template, service);
                     if (replacement) {
                         return replacement;
                     }
@@ -3674,8 +3684,9 @@ Failed parsing at: \n${node.getText()}\n\n`);
                 const template = node as ts.TaggedTemplateExpression;
 
                 if (service) {
-                    // If a replacement is found, return it
-                    const replacement = (this as TWThingTransformer).evaluateTaggedTemplateLiteralNode(template, service);
+                    // If a replacement is found, return it; when the service argument is provided this is called from
+                    // a thing transformer rather than a code transformer
+                    const replacement = (this as TWThingTransformer).visitTaggedTemplateLiteralNode(template, service);
                     if (replacement) {
                         return this.commaCheckpointExpression(replacement, node);
                     }
@@ -5611,6 +5622,7 @@ export function TWThingTransformerFactory(program: ts.Program, root: string, aft
                 transformer.generateThingInstances = project.generateThingInstances;
                 transformer.methodHelpers = project.methodHelpers;
                 transformer.globalFunctionsEnabled = project.globalFunctions;
+                transformer.inlineSQLEnabled = project.inlineSQL;
             }
         }
     
