@@ -18,7 +18,7 @@ export interface MethodHelpers {
 
     /**
      * Generates a `LOG_PREFIX` constant with the name of the service.
-     * Example: `${me.name}::${METHOD_NAME}::
+     * Example: `${me.name}::${METHOD_NAME}::`
      */
     logPrefix?: string;
 }
