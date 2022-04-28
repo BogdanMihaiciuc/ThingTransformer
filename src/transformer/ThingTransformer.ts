@@ -1,5 +1,5 @@
 import * as ts from 'typescript';
-import { MethodHelpers, TWConfig } from '../configuration/TWConfig';
+import { InlineSQL, MethodHelpers, TWConfig } from '../configuration/TWConfig';
 import { TWEntityKind, TWPropertyDefinition, TWServiceDefinition, TWEventDefinition, TWSubscriptionDefinition, TWBaseTypes, TWPropertyDataChangeKind, TWFieldBase, TWPropertyRemoteBinding, TWPropertyRemoteFoldKind, TWPropertyRemotePushKind, TWPropertyRemoteStartKind, TWPropertyBinding, TWSubscriptionSourceKind, TWServiceParameter, TWDataShapeField, TWConfigurationTable, TWRuntimePermissionsList, TWVisibility, TWExtractedPermissionLists, TWRuntimePermissionDeclaration, TWPrincipal, TWPermission, TWUser, TWUserGroup, TWPrincipalBase, TWOrganizationalUnit, TWConnection, TWDataThings, TWInfoTable, GlobalFunction, GlobalFunctionReference } from './TWCoreTypes';
 import { Breakpoint } from './DebugTypes';
 import { APIGenerator } from './APIDeclarationGenerator';
@@ -507,7 +507,7 @@ export class TWThingTransformer implements TWCodeTransformer {
     /**
      * When set to `true`, SQL statements in javascript services will be permitted.
      */
-    inlineSQLEnabled?: boolean;
+    inlineSQLOptions?: InlineSQL;
 
     /**
      * The project root path, to which files are written by default.
@@ -3365,7 +3365,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
         if (tag.text != 'SQLQuery' && tag.text != 'SQLCommand') return;
 
         // If inline SQL is disabled, throw an error
-        if (!this.inlineSQLEnabled) {
+        if (!this.inlineSQLOptions?.enabled) {
             this.throwErrorForNode(node, `The ${tag.text} function can only be used in a SQL service.`);
         }
 
@@ -3490,6 +3490,60 @@ Failed parsing at: \n${node.getText()}\n\n`);
 
         // Add the SQL service to the entity
         this.services.push(SQLService);
+
+        // Select the appropriate permission kind based on whether this entity is a thing, shape or template
+        const permissionKind = this.entityKind == TWEntityKind.Thing ? 'runtime' : 'runtimeInstance';
+
+        // Add the appropriate permissions
+        switch (this.inlineSQLOptions.permissions) {
+            case 'inherit':
+                // If no permissions have been defined, there is nothing to inherit
+                if (!this.runtimePermissions[permissionKind]) break;
+
+                // Create a permission object to copy over inherited permissions
+                const inheritedPermission: TWExtractedPermissionLists = {
+                    [permissionKind]: {
+                        [SQLService.name]: {
+                            ServiceInvoke: [] as TWPermission[]
+                        }
+                    } as TWRuntimePermissionsList
+                }
+
+                // Find all the service invoke permissions related to the current service
+                for (const permission in this.runtimePermissions[permissionKind]) {
+                    if (permission == service.name) {
+                        const permissionDefinition = this.runtimePermissions[permissionKind]![permission];
+
+                        // If the permission has a ServiceInvoke permission list, create a copy of it for the current service
+                        if (permissionDefinition.ServiceInvoke?.length) {
+                            inheritedPermission[permissionKind]![SQLService.name].ServiceInvoke.push(...permissionDefinition.ServiceInvoke);
+                        }
+                    }
+                }
+
+                // Merge the permission into the permissions list, if any was copied
+                if (inheritedPermission[permissionKind]![SQLService.name].ServiceInvoke.length) {
+                    this.mergePermissionListsForNode([this.runtimePermissions, inheritedPermission], node);
+                }
+                break;
+            case 'system':
+                // Create a ServiceInvoke permission for the system user
+                const systemUserPermission: TWExtractedPermissionLists = {
+                    [permissionKind]: {
+                        [SQLService.name]: {
+                            ServiceInvoke: [{
+                                isPermitted: true,
+                                principal: 'System',
+                                type: 'User'
+                            }]
+                        }
+                    } as TWRuntimePermissionsList
+                }
+
+                // Merge the permission into the permissions list
+                this.mergePermissionListsForNode([this.runtimePermissions, systemUserPermission], node);
+                break;
+        }
 
         // Return a node that represents an invocation of the newly created service
         return ts.factory.createCallExpression(
@@ -5622,7 +5676,7 @@ export function TWThingTransformerFactory(program: ts.Program, root: string, aft
                 transformer.generateThingInstances = project.generateThingInstances;
                 transformer.methodHelpers = project.methodHelpers;
                 transformer.globalFunctionsEnabled = project.globalFunctions;
-                transformer.inlineSQLEnabled = project.inlineSQL;
+                transformer.inlineSQLOptions = project.inlineSQL;
             }
         }
     

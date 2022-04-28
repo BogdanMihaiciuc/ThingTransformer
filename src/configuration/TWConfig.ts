@@ -1,5 +1,8 @@
 import type { TWThingTransformer } from '../transformer/ThingTransformer';
 
+/**
+ * An interface that describes the `methodHelpers` property in twconfig.json.
+ */
 export interface MethodHelpers {
     /**
      * Generates a `METHOD_NAME` constant with the name of the service or subscription.
@@ -21,6 +24,27 @@ export interface MethodHelpers {
      * Example: `${me.name}::${METHOD_NAME}::`
      */
     logPrefix?: string;
+}
+
+/**
+ * An interface that describes the `inlineSQL` property in twconfig.json.
+ */
+export interface InlineSQL {
+
+    /**
+     * When set to `true`, inline SQL statements are permitted in javascript services and will be extracted
+     * into SQL services.
+     */
+    enabled?: boolean;
+
+    /**
+     * Controls what permissions are assigned to the services generated from the inline SQL statements.
+     * The following values may be used:
+     *  - `"none"`: Default if omitted. The SQL services will not have any permissions assigned to them.
+     *  - `"inherit"`: When used, the SQL services will have the same permissions as the service they are created from.
+     *  - `"system"`: When used, the SQL services will have the `ServiceInvoke` permission allowed for the `System` user.
+     */
+    permissions?: 'none' | 'inherit' | 'system';
 }
 
 /**
@@ -81,7 +105,7 @@ export interface TWConfig {
     /**
      * When enabled, inline SQL queries and commands will be allowed and extracted into services.
      */
-    inlineSQL?: boolean;
+    inlineSQL?: InlineSQL;
 
     /**
      * The minimum thingworx version on which the project may be installed.
