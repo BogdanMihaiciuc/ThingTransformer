@@ -3140,7 +3140,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
 
                     // Otherwise get the source and name, and add it as a dependency of this function
                     const sourceFile = declaration.getSourceFile();
-                    const filename = sourceFile.fileName;
+                    const filename = path.normalize(sourceFile.fileName);
                     const name = functionDeclaration.name?.text;
 
                     // Validate that the source is part of the repo; in multi project mode
