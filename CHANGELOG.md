@@ -1,3 +1,7 @@
+# 0.22.1-beta.1
+
+Resolves an issue that caused global functions to not be inlined when compiling on windows systems.
+
 # 0.22.0-beta.1
 
 Adds support for declaring and inlining global functions.
