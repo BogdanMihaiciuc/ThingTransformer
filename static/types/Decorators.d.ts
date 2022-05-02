@@ -179,6 +179,8 @@ declare function local< S extends keyof Things, P extends NonMethod<Things[S]>>(
 declare function final<T extends GenericThing>(target: T, key: string, descriptor: TypedPropertyDescriptor<(...args: any[]) => any>): void;
 
 /**
+ * @deprecated Use the override keyword instead.
+ * ---
  * This decorator must be applied to services that are overriden from a base template or thing shape.
  */
 declare function override<T extends GenericThing>(target: T, key: string, descriptor: TypedPropertyDescriptor<(...args: any[]) => any>): void;
@@ -195,7 +197,7 @@ declare function deploy<T extends GenericThing>(target: T, key: string, descript
  * When used as tagged template function, it can only be used in a service marked with the `@SQLCommand` decorator, where it must be
  * the only statement.
  */
-declare function SQLCommand(strings: TemplateStringsArray, ...keys: any[]): number;
+declare function SQLCommand<timeout extends number = 60>(strings: TemplateStringsArray, ...keys: any[]): number;
 
 /**
  * When applied to a service method, this marks that method as a SQL command, causing its contents to be parsed
@@ -217,7 +219,7 @@ declare function SQLCommand<T extends Database>(target: T, key: string, descript
  * When used as tagged template function, it can only be used in a service marked with the `@SQLQuery` decorator, where it must be
  * the only statement.
  */
-declare function SQLQuery(strings: TemplateStringsArray, ...keys: any[]): any;
+declare function SQLQuery<T = unknown, timeout extends number = 60, maxRows extends number = 500>(strings: TemplateStringsArray, ...keys: any[]): T extends {} ? INFOTABLE<T> : unknown;
 
 /**
  * When applied to a service method, this marks that method as a SQL query, causing its contents to be parsed

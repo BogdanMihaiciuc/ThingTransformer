@@ -531,3 +531,49 @@ export interface GlobalFunctionReference {
      */
     name: string;
 }
+
+/**
+ * An enum that contains constants describing the possible kinds of diagnostic message.
+ */
+export enum DiagnosticMessageKind {
+
+    /**
+     * Indicates that this diagnostic message represents a warning that doesn't affect compilation.
+     */
+    Warning = 0,
+
+    /**
+     * Indicates that this diagnostic message represents an error that prevents successful compilation or 
+     * that indicates that the compilation is not valid.
+     */
+    Error = 1,
+
+}
+
+export interface DiagnosticMessage {
+
+    /**
+     * The message that should be displayed.
+     */
+    message: string;
+
+    /**
+     * The kind of message.
+     */
+    kind: DiagnosticMessageKind;
+
+    /**
+     * The file from which this diagnostic message was generated, if applicable.
+     */
+    file?: string;
+
+    /**
+     * If file is specified, the line number for which this diagnostic message was generated.
+     */
+    line?: number;
+
+    /**
+     * If file is specified, the column number for which this diagnostic message was generated.
+     */
+    column?: number;
+}
