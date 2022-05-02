@@ -47,6 +47,11 @@ interface TransformerStore {
         }
     }
 
+    /**
+     * An array of error and warning messages that may be reported after compilation fails.
+     */
+    '@diagnosticMessages'?: DiagnosticMessage[];
+
     [key: string]: TWThingTransformer | {
         [key: string]: TWThingTransformer[];
     } | {
