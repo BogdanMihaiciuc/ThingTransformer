@@ -1,6 +1,6 @@
 import * as ts from 'typescript';
 import { InlineSQL, MethodHelpers, TWConfig } from '../configuration/TWConfig';
-import { TWEntityKind, TWPropertyDefinition, TWServiceDefinition, TWEventDefinition, TWSubscriptionDefinition, TWBaseTypes, TWPropertyDataChangeKind, TWFieldBase, TWPropertyRemoteBinding, TWPropertyRemoteFoldKind, TWPropertyRemotePushKind, TWPropertyRemoteStartKind, TWPropertyBinding, TWSubscriptionSourceKind, TWServiceParameter, TWDataShapeField, TWConfigurationTable, TWRuntimePermissionsList, TWVisibility, TWExtractedPermissionLists, TWRuntimePermissionDeclaration, TWPrincipal, TWPermission, TWUser, TWUserGroup, TWPrincipalBase, TWOrganizationalUnit, TWConnection, TWDataThings, TWInfoTable, GlobalFunction, GlobalFunctionReference } from './TWCoreTypes';
+import { TWEntityKind, TWPropertyDefinition, TWServiceDefinition, TWEventDefinition, TWSubscriptionDefinition, TWBaseTypes, TWPropertyDataChangeKind, TWFieldBase, TWPropertyRemoteBinding, TWPropertyRemoteFoldKind, TWPropertyRemotePushKind, TWPropertyRemoteStartKind, TWPropertyBinding, TWSubscriptionSourceKind, TWServiceParameter, TWDataShapeField, TWConfigurationTable, TWRuntimePermissionsList, TWVisibility, TWExtractedPermissionLists, TWRuntimePermissionDeclaration, TWPrincipal, TWPermission, TWUser, TWUserGroup, TWPrincipalBase, TWOrganizationalUnit, TWConnection, TWDataThings, TWInfoTable, GlobalFunction, GlobalFunctionReference, DiagnosticMessage, DiagnosticMessageKind, TWThing } from './TWCoreTypes';
 import { Breakpoint } from './DebugTypes';
 import { Builder } from 'xml2js';
 import * as fs from 'fs';
@@ -47,6 +47,11 @@ interface TransformerStore {
         }
     }
 
+    /**
+     * An array of error and warning messages that may be reported after compilation fails.
+     */
+    '@diagnosticMessages'?: DiagnosticMessage[];
+
     [key: string]: TWThingTransformer | {
         [key: string]: TWThingTransformer[];
     } | {
@@ -57,7 +62,7 @@ interface TransformerStore {
             breakpoints: Breakpoint[];
             breakpointLocations: { [key: number]: { [key:number]: boolean } };
         }
-    } | undefined;
+    } | DiagnosticMessage[] | undefined;
 }
 
 /**
@@ -1994,6 +1999,11 @@ Failed parsing at: \n${node.getText()}\n\n`);
 
         property.description = this.documentationOfNode(node);
 
+        // Properties cannot be overriden
+        if (node.modifiers?.some(m => m.kind == ts.SyntaxKind.OverrideKeyword)) {
+            this.throwErrorForNode(node, 'Properties cannot be overriden');
+        }
+
         // Create the generic aspects, required for all properties
         property.aspects = {
             cacheTime: 0,
@@ -2310,6 +2320,11 @@ Failed parsing at: \n${node.getText()}\n\n`);
 
         event.description = this.documentationOfNode(node);
 
+        // Events cannot be overriden
+        if (node.modifiers?.some(m => m.kind == ts.SyntaxKind.OverrideKeyword)) {
+            this.throwErrorForNode(node, 'Events cannot be overriden');
+        }
+
         const typeNode = node.type as ts.TypeReferenceNode;
         if (typeNode.typeArguments && typeNode.typeArguments.length) {
             if (typeNode.typeArguments[0].kind == ts.SyntaxKind.LiteralType) {
@@ -2370,13 +2385,26 @@ Failed parsing at: \n${node.getText()}\n\n`);
         }
         const originalNode = node;
 
+        // Check for either the override decorator or keyword
+        let hasOverrideDecorator = this.hasDecoratorNamed('override', node);
+        let hasOverrideKeyword = node.modifiers?.some(m => m.kind == ts.SyntaxKind.OverrideKeyword);
+
         if (node.name.kind != ts.SyntaxKind.Identifier) this.throwErrorForNode(node, 'Service names cannot be computed property names.');
         service.name = (node.name as ts.Identifier).text;
         service.isAllowOverride = !this.hasDecoratorNamed('final', node);
-        service.isOverriden = this.hasDecoratorNamed('override', node);
+        service.isOverriden = hasOverrideKeyword || hasOverrideDecorator;
         service.isLocalOnly = false;
         service.isPrivate = false;
         service.isOpen = false;
+
+        // If the override decorator is used, report a warning to replace it with the keyword
+        if (hasOverrideDecorator) {
+            this.store['@diagnosticMessages'] = this.store['@diagnosticMessages'] || [];
+            this.store['@diagnosticMessages'].push({
+                kind: DiagnosticMessageKind.Warning,
+                message: `Class "${this.className}" is using the @override decorator for "${service.name}", which is deprecated.`
+            });
+        }
 
         // Check if the service is a SQL query or command
         const isSQLCommand = this.hasDecoratorNamed('SQLCommand', node);
@@ -2970,6 +2998,11 @@ Failed parsing at: \n${node.getText()}\n\n`);
         }
 
         subscription.name = node.name.getText();
+
+        // Subscriptions cannot be overriden
+        if (node.modifiers?.some(m => m.kind == ts.SyntaxKind.OverrideKeyword)) {
+            this.throwErrorForNode(node, 'Subscriptions cannot be overriden');
+        }
 
         subscription.description = this.documentationOfNode(node);
 
@@ -4410,6 +4443,148 @@ finally {
         return result;
     }
 
+    /**
+     * This method must be called after all files have been processed. Validates, where
+     * possible, that constraints that thingworx expects are met and saves the relevant
+     * diagnostic messages in the store.
+     * If any constraint violations would prevent the project from being imported in thingworx,
+     * an error diagnostic message will be saved in the store.
+     */
+    validateConstraints() {
+        // Initialize the message store if it doesn't exist
+        this.store['@diagnosticMessages'] = this.store['@diagnosticMessages'] || [];
+
+        // Validate that thing shapes do not have duplicate fields
+        this._validateThingShapeDuplicates(this.className || '');
+
+        // Validate that override and final are used correctly
+        this._validateServiceOverrides(this.className || '');
+    }
+
+    /**
+     * Validates that there are no duplicate non-overriden fields declared in the thing shapes
+     * and templates from which this entity inherits, which are permitted by typescript but not by thingworx.
+     * @param sourceClassName           The class name for which field names are reported.
+     * @param baseFieldNames            If specified, a set of field names to check against.
+     */
+    private _validateThingShapeDuplicates(sourceClassName: string, baseFieldNames: Record<string, string> = {}): void {
+        const messages = this.store['@diagnosticMessages']!;
+
+        // Only things, templates and thing shapes support this currently
+        switch (this.entityKind) {
+            case TWEntityKind.Thing:
+            case TWEntityKind.ThingTemplate:
+            case TWEntityKind.ThingShape:
+                break;
+            default:
+                return;
+        }
+
+        // A set of field names to be checked for duplicates
+        const fieldNames: Record<string, string> = baseFieldNames;
+
+        // Add all property, event and subscription names.
+        // If any exist in the base field names, report an error.
+        type Field = {name: string, [key: string]: any};
+        const nonOverridableFields: Field[] = (this.properties as Field[]).concat(this.events as Field[]).concat(this.subscriptions as Field[]);
+        for (const property of nonOverridableFields) {
+            if (fieldNames[property.name]) {
+                messages.push({
+                    message: `Class "${fieldNames[property.name]}" incorrectly overrides property "${property.name}" which is not supported in Thingworx.`,
+                    kind: DiagnosticMessageKind.Error
+                });
+            }
+            else {
+                fieldNames[property.name] = this.className || '';
+            }
+        }
+
+        // Add all services, omitting the overriden ones
+        for (const service of this.services) {
+            if (service.isOverriden) continue;
+
+            if (fieldNames[service.name]) {
+                messages.push({
+                    message: `Class "${fieldNames[service.name]}" incorrectly overrides service "${service.name}" without using the override keyword.`,
+                    kind: DiagnosticMessageKind.Error
+                });
+            }
+            else {
+                fieldNames[service.name] = this.className || '';
+            }
+        }
+
+        // Validate that none of the fields exist on the parent template, if defined
+        if (this.thingTemplateName && this.store[this.thingTemplateName]) {
+            const transformer = this.store[this.thingTemplateName]! as TWThingTransformer;
+            transformer._validateThingShapeDuplicates(sourceClassName, fieldNames);
+        }
+
+        // Validate that none of the fields exist on any of the parent thing shapes, if defined
+        for (const shape of this.thingShapes) {
+            const transformer = this.store[shape] as TWThingTransformer;
+            if (transformer) {
+                transformer._validateThingShapeDuplicates(sourceClassName, fieldNames);
+            }
+        }
+    }
+
+    /**
+     * Validates that services don't override final services and that final services
+     * aren't overriden from the base class.
+     * @param sourceClassName           The class name for which overriden services are validated.
+     * @param overridenServices         A set of service names that were overriden.
+     */
+    private _validateServiceOverrides(sourceClassName: string, overridenServices: Record<string, string> = {}): void {
+        const messages = this.store['@diagnosticMessages']!;
+
+        // Only things, templates and thing shapes support this
+        switch (this.entityKind) {
+            case TWEntityKind.Thing:
+            case TWEntityKind.ThingTemplate:
+            case TWEntityKind.ThingShape:
+                break;
+            default:
+                return;
+        }
+
+        // Collect all service that are overriden, and report an error for services that were
+        // overriden but where the base service is final
+        for (const service of this.services) {
+            if (service.isOverriden) {
+                overridenServices[service.name] = this.className || '';
+            }
+
+            if (!service.isAllowOverride && overridenServices[service.name]) {
+                messages.push({
+                    message: `Class "${overridenServices[service.name]}" incorrectly overrides service "${service.name}" which is final on "${this.className}".`,
+                    kind: DiagnosticMessageKind.Error
+                });
+            }
+        }
+
+        // Validate that none of the overriden services are final on the parent thing template, if defined
+        if (this.thingTemplateName && this.store[this.thingTemplateName]) {
+            const transformer = this.store[this.thingTemplateName]! as TWThingTransformer;
+            transformer._validateServiceOverrides(sourceClassName, overridenServices);
+        }
+
+        // Validate that none of the overriden services are final on any parent thing shapes, if defined
+        for (const shape of this.thingShapes) {
+            const transformer = this.store[shape] as TWThingTransformer;
+            if (transformer) {
+                transformer._validateServiceOverrides(sourceClassName, overridenServices);
+            }
+        }
+    }
+
+    /**
+     * Returns an object representing the given infotable, that can be converted to an XML tag
+     * using xml2js.
+     * @param infotable         The infotable to convert.
+     * @param withOrdinals      Defaults to `false`. If set to `true`, the ordinal property will be specified.
+     * @returns                 An object.
+     */
     private XMLRepresentationOfInfotable(infotable: TWInfoTable, withOrdinals = false) {
         return {
             $: {} as Record<string, string>,

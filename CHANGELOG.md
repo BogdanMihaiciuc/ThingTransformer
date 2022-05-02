@@ -4,6 +4,19 @@ Adds support for using inline SQL statements and extracting them into SQL servic
 
 Updated versioning to match the version numbers used by `bm-thing-cli`.
 
+Adds support for using the `override` keyword in place of the `@override` decorator. Additionally deprecates the `@override` decorator.
+
+Adds support for reporting errors and warnings via a new `"@diagnosticMessages"` key that is added to the twconfig store. This version emits a warning when using the `@override` decorator.
+
+Adds a new method `validateConstraints` that can validate a set of constraints that are required by Thingworx but optional in typescript. This method must be invoked after all files have been processed and currently validates the following, writing out error messages as appropriate to the `"@diagnosticMessages"` store:
+ - Properties, events and subscriptions are not overriden.
+ - Services that are overriden use the override keyword or decorator.
+ - Services that are overriden are not marked final in a base class.
+
+Note that this will only validate for files defined in the current project. For example, it will not report an error when overriding a service which cannot be overriden that originates in a `.d.ts` file generated from a thingworx instance.
+
+The transformer will now report an error when using the `override` keyword on properties, events or subscriptions. This combines particularly well with the `noImplicitOverride` flag in typescript, which requires the use of the `override` keyword when overriding a base class member.
+
 # 0.22.1-beta.1
 
 Resolves an issue that caused global functions to not be inlined when compiling on windows systems.
