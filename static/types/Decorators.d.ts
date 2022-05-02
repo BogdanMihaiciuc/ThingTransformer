@@ -179,6 +179,8 @@ declare function local< S extends keyof Things, P extends NonMethod<Things[S]>>(
 declare function final<T extends GenericThing>(target: T, key: string, descriptor: TypedPropertyDescriptor<(...args: any[]) => any>): void;
 
 /**
+ * @deprecated Use the override keyword instead.
+ * ---
  * This decorator must be applied to services that are overriden from a base template or thing shape.
  */
 declare function override<T extends GenericThing>(target: T, key: string, descriptor: TypedPropertyDescriptor<(...args: any[]) => any>): void;
