@@ -1,7 +1,7 @@
 # Intro
 
 A tool that allows the development of Thingworx models in a real IDE. This repo contains the following:
- * The `bm-thing-transformer` module, which is a `tsc` transformer that converts TypeScript source files into Thingworx entity XML files.
+ * The `bm-thing-transformer` module, which is a typescript transformer that converts TypeScript source files into Thingworx entity XML files.
  * The declarations of the decorators and thingworx specific types that are interpreted by the transformer
  * The declarations of the standard thingworx entities such as `GenericThing` and `InfoTableFunctions`
 
