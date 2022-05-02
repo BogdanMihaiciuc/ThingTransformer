@@ -1,6 +1,6 @@
 import * as ts from 'typescript';
 import { InlineSQL, MethodHelpers, TWConfig } from '../configuration/TWConfig';
-import { TWEntityKind, TWPropertyDefinition, TWServiceDefinition, TWEventDefinition, TWSubscriptionDefinition, TWBaseTypes, TWPropertyDataChangeKind, TWFieldBase, TWPropertyRemoteBinding, TWPropertyRemoteFoldKind, TWPropertyRemotePushKind, TWPropertyRemoteStartKind, TWPropertyBinding, TWSubscriptionSourceKind, TWServiceParameter, TWDataShapeField, TWConfigurationTable, TWRuntimePermissionsList, TWVisibility, TWExtractedPermissionLists, TWRuntimePermissionDeclaration, TWPrincipal, TWPermission, TWUser, TWUserGroup, TWPrincipalBase, TWOrganizationalUnit, TWConnection, TWDataThings, TWInfoTable, GlobalFunction, GlobalFunctionReference } from './TWCoreTypes';
+import { TWEntityKind, TWPropertyDefinition, TWServiceDefinition, TWEventDefinition, TWSubscriptionDefinition, TWBaseTypes, TWPropertyDataChangeKind, TWFieldBase, TWPropertyRemoteBinding, TWPropertyRemoteFoldKind, TWPropertyRemotePushKind, TWPropertyRemoteStartKind, TWPropertyBinding, TWSubscriptionSourceKind, TWServiceParameter, TWDataShapeField, TWConfigurationTable, TWRuntimePermissionsList, TWVisibility, TWExtractedPermissionLists, TWRuntimePermissionDeclaration, TWPrincipal, TWPermission, TWUser, TWUserGroup, TWPrincipalBase, TWOrganizationalUnit, TWConnection, TWDataThings, TWInfoTable, GlobalFunction, GlobalFunctionReference, DiagnosticMessage } from './TWCoreTypes';
 import { Breakpoint } from './DebugTypes';
 import { Builder } from 'xml2js';
 import * as fs from 'fs';
@@ -62,7 +62,7 @@ interface TransformerStore {
             breakpoints: Breakpoint[];
             breakpointLocations: { [key: number]: { [key:number]: boolean } };
         }
-    } | undefined;
+    } | DiagnosticMessage[] | undefined;
 }
 
 /**
@@ -2375,10 +2375,14 @@ Failed parsing at: \n${node.getText()}\n\n`);
         }
         const originalNode = node;
 
+        // Check for either the override decorator or keyword
+        let hasOverrideDecorator = this.hasDecoratorNamed('override', node);
+        let hasOverrideKeyword = node.modifiers?.some(m => m.kind == ts.SyntaxKind.OverrideKeyword);
+
         if (node.name.kind != ts.SyntaxKind.Identifier) this.throwErrorForNode(node, 'Service names cannot be computed property names.');
         service.name = (node.name as ts.Identifier).text;
         service.isAllowOverride = !this.hasDecoratorNamed('final', node);
-        service.isOverriden = this.hasDecoratorNamed('override', node);
+        service.isOverriden = hasOverrideKeyword || hasOverrideDecorator;
         service.isLocalOnly = false;
         service.isPrivate = false;
         service.isOpen = false;
