@@ -1,3 +1,9 @@
+# 1.3
+
+Adds support for using inline SQL statements and extracting them into SQL services.
+
+Updated versioning to match the version numbers used by `bm-thing-cli`.
+
 # 0.22.1-beta.1
 
 Resolves an issue that caused global functions to not be inlined when compiling on windows systems.
