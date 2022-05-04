@@ -3579,9 +3579,9 @@ Failed parsing at: \n${node.getText()}\n\n`);
 
         // Return a node that represents an invocation of the newly created service
         return ts.factory.createCallExpression(
-            ts.factory.createPropertyAccessExpression(
+            ts.factory.createElementAccessExpression(
                 ts.factory.createThis(),
-                SQLService.name
+                ts.factory.createStringLiteral(SQLService.name)
             ),
             undefined,
             [

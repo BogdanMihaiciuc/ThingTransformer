@@ -1,3 +1,7 @@
+# 1.3.1
+
+Resolves an issue where inline SQL statements would compile into code with syntax errors.
+
 # 1.3
 
 Adds support for using inline SQL statements and extracting them into SQL services.
