@@ -19,7 +19,7 @@ declare global {
  * The interface for a store object that is used to hold references to transformers
  * and various project-wide information that should be shared between the transformers.
  */
-interface TransformerStore {
+export interface TransformerStore {
     /**
      * A store that is used to keep references to transformers that represent
      * global code blocks, indexed by the entity to which they will be added.
@@ -356,6 +356,11 @@ export class TWThingTransformer implements TWCodeTransformer {
     thingShapes: string[] = [];
 
     /**
+     * Used for DataShapes. An array of dataShapes shapes that this dataShape extends from
+     */
+    dataShapes: string[] = [];
+
+    /**
      * The generic argument specified for the thing template, if any.
      */
     genericArgument?: string;
@@ -633,7 +638,6 @@ Failed parsing at: \n${node.getText()}\n\n`);
         } else if (isThingTemplate) {
             return TWEntityKind.ThingTemplate;
         } else if (isDataShape) {
-            this.throwErrorForNode(classNode, `Data shape inheritance is not yet supported.`);
             return TWEntityKind.DataShape;
         }
 
@@ -1428,24 +1432,38 @@ Failed parsing at: \n${node.getText()}\n\n`);
                     }
                 }
             }
-            else if (heritage.expression.kind == ts.SyntaxKind.CallExpression) {
-                // Call expression base classes can only be things or thing templates
-                this.entityKind = this.entityKindOfClassNode(classNode);
+            else if (ts.isCallExpression(heritage.expression)) {
+                // Call expression base classes can only be things, thing templates and datashapes
 
-                if (this.entityKind != TWEntityKind.Thing && this.entityKind != TWEntityKind.ThingTemplate) {
-                    this.throwErrorForNode(node, `Extending from expressions is only supported on Things and ThingTemplates.`);
+                const callNode = heritage.expression;
+                const callExpressionText = callNode.expression.getText();
+                // Ensure that the call signature is of the correct type, and infer the entityKind from it
+                if (['ThingTemplateWithShapes', 'ThingTemplateReference', 'ThingTemplateWithShapesReference'].includes(callNode.expression.getText())) {
+                    this.entityKind = this.entityKindOfClassNode(classNode);
+                    if (this.entityKind != TWEntityKind.Thing && this.entityKind != TWEntityKind.ThingTemplate) {
+                        this.throwErrorForNode(node, `Unknown base class for ${classNode.name}. Thing and ThingTemplate classes must extend from a ThingTemplateWithShapes(...) expression, a ThingTemplateWithShapesReference(...) expression, a ThingTemplateReference(...) expression or a base ThingTemplate class.`);
+                    }
+                }
+                // For dataShapes, infer the entity kind from the callExpressionText
+                if (['DataShapeBase', 'DataShapeBaseReference'].includes(callExpressionText)) {
+                    this.entityKind = TWEntityKind.DataShape;
                 }
 
-                const callNode = heritage.expression as ts.CallExpression;
-                // Ensure that the call signature is of the correct type
-                if (callNode.expression.getText() != 'ThingTemplateWithShapes' && callNode.expression.getText() != 'ThingTemplateReference' && callNode.expression.getText() != 'ThingTemplateWithShapesReference') {
-                    this.throwErrorForNode(node, `Unknown base class for ${classNode.name}. Thing and ThingTemplate classes must extend from a ThingTemplateWithShapes(...) expression, a ThingTemplateWithShapesReference(...) expression, a ThingTemplateReference(...) expression or a base ThingTemplate class.`);
+                if (!this.entityKind) {
+                    this.throwErrorForNode(node, `Could not infer entity kind based on parent class ${callExpressionText}`);
                 }
 
-                if (callNode.expression.getText() == 'ThingTemplateWithShapes' || callNode.expression.getText() == 'ThingTemplateWithShapesReference') {
+                if (callExpressionText == 'DataShapeBase' || callExpressionText == 'DataShapeBaseReference') {
+                    if (!callNode.arguments.length) {
+                        this.throwErrorForNode(node, `The ${callExpressionText}(...) expression must have at least one DataShape parameter.`);
+                    }
+
+                    this.entityKind = TWEntityKind.DataShape;
+                    this.dataShapes = callNode.arguments.map(node => (ts.isStringLiteral(node) ? node.text : node.getText()));
+                } else if (callExpressionText == 'ThingTemplateWithShapes' || callExpressionText == 'ThingTemplateWithShapesReference') {
                     // Ensure that each parameter is of the correct type
                     if (!callNode.arguments.length) {
-                        this.throwErrorForNode(node, `The ThingTemplateWithShapes(...) expression must have at least one ThingTemplate parameter.`);
+                        this.throwErrorForNode(node, `The ${callExpressionText}(...) expression must have at least one ThingTemplate parameter.`);
                     }
 
                     const thingTemplateNode = callNode.arguments[0];
@@ -1483,14 +1501,8 @@ Failed parsing at: \n${node.getText()}\n\n`);
                                                     callNode.arguments[0].getText();
                     }
     
-                    this.thingShapes = callNode.arguments.slice(1, callNode.arguments.length).map(node => {
-                        if (node.kind == ts.SyntaxKind.StringLiteral) {
-                            return (node as ts.StringLiteral).text;
-                        }
-                        else {
-                            return node.getText();
-                        }
-                    });
+                    this.thingShapes = callNode.arguments.slice(1, callNode.arguments.length)
+                                            .map(node => (ts.isStringLiteral(node) ? node.text : node.getText()));
                 }
                 else {
                     if (callNode.arguments.length != 1) this.throwErrorForNode(node, `The ThingTemplateReference(...) expression must have a single string literal parameter.`);
@@ -4444,13 +4456,67 @@ finally {
     }
 
     /**
+     * This method must be called after all files have been processed. 
+     * Executes code that relies on all files having been compiled and information on them being available
+     */
+    firePostTransformActions() {
+        this.validateConstraints();
+        this.handleDataShapeInheritance();
+    }
+
+    /**
+     * Handles extending the list of fields that a dataShape has
+     * with the one present on the parent.
+     * If a field is detected on both the parent and the child, the child definition will be used
+     */
+    private handleDataShapeInheritance(): void {
+        // Only applies to dataShapes
+        if (this.entityKind != TWEntityKind.DataShape) {
+            return;
+        }
+        // Only applies if this dataShape was found to extend other dataShapes
+        if (this.dataShapes.length == 0) {
+            return;
+        }
+
+        const messages = this.store['@diagnosticMessages']!;
+        // Create a new fields array that concatenates the existing fields with the ones on the parents
+        const fieldNames: Record<string, TWDataShapeField> = this.fields.reduce((o, f) => (o[f.name] = f, o), {});
+
+        // Validate that none of the fields exist on any of the parent thing shapes, if defined
+        for (const shape of this.dataShapes) {
+            const transformer = this.store[shape] as TWThingTransformer;
+            if (transformer) {
+                transformer.fields.forEach(f => {
+                    // If the property is already declared on the child, than that definition overrides the one on the parent
+                    if (!fieldNames[f.name]) {
+                        fieldNames[f.name] = f;
+                    } else {
+                        messages.push({
+                            message: `DataShape "${this.className}" contains field "${f.name}" that is also declared on the parent "${shape}". Declaration on the ${this.exportedName} is going to be used.`,
+                            kind: DiagnosticMessageKind.Warning
+                        });
+                    }
+                })
+            } else {
+                messages.push({
+                    message: `DataShapes can only extend other dataShapes declared in the project, and not external ones. DataShape "${this.className}" extends "${shape}".`,
+                    kind: DiagnosticMessageKind.Error
+                });
+            }
+        }
+        // Update the list of fields on the parents
+        this.fields = Object.values(fieldNames);
+    }
+
+    /**
      * This method must be called after all files have been processed. Validates, where
      * possible, that constraints that thingworx expects are met and saves the relevant
      * diagnostic messages in the store.
      * If any constraint violations would prevent the project from being imported in thingworx,
      * an error diagnostic message will be saved in the store.
      */
-    validateConstraints() {
+    private validateConstraints() {
         // Initialize the message store if it doesn't exist
         this.store['@diagnosticMessages'] = this.store['@diagnosticMessages'] || [];
 
