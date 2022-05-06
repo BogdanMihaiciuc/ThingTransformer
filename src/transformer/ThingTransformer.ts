@@ -699,7 +699,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
             }
         } else {
             // Otherwise it may just be a const enum
-            return ((this.context as any).getEmitResolver() as ts.TypeChecker).getConstantValue(expression as ts.PropertyAccessExpression);
+            return this.program.getTypeChecker().getConstantValue(expression as ts.PropertyAccessExpression);
         }
 
         return undefined;

@@ -1,3 +1,5 @@
+Resolves an issue where using the transformer with `ts.transform` would throw an error when attempting to resolve constant expressions.
+
 # 1.3.1
 
 Resolves an issue where inline SQL statements would compile into code with syntax errors.
