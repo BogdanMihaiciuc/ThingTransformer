@@ -1,3 +1,7 @@
+# 1.4.0
+
+Adds support for data shape inheritance. [stefan-lacatus](https://github.com/stefan-lacatus))
+
 Resolves an issue where using the transformer with `ts.transform` would throw an error when attempting to resolve constant expressions.
 
 # 1.3.1
