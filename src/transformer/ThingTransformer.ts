@@ -701,7 +701,8 @@ Failed parsing at: \n${node.getText()}\n\n`);
                 // If this is an environment variable, inline it
                 return process.env[value];
             }
-        } else {
+        }
+        else {
             // Otherwise it may just be a const enum
             return this.program.getTypeChecker().getConstantValue(expression as ts.PropertyAccessExpression);
         }
@@ -1879,7 +1880,8 @@ Failed parsing at: \n${node.getText()}\n\n`);
 
                 this.userGroups[group.name] = group;
             }
-        } else {
+        }
+        else {
             // Properties without an initializer default to being treated as users with no extensions
             const user = principal as TWUser;
             user.extensions = {};
@@ -2282,7 +2284,8 @@ Failed parsing at: \n${node.getText()}\n\n`);
             }
             const typeNode = node.type as ts.TypeReferenceNode;
             return TypeScriptPrimitiveTypes.includes(typeNode.kind) ? typeNode.getText() : typeNode.typeName.getText();
-        } else {
+        }
+        else {
             // If a type has not been specified, try to infer it from the context
             const typeChecker = this.program.getTypeChecker();
             const inferredType = typeChecker.getTypeAtLocation(node);
@@ -2537,7 +2540,8 @@ Failed parsing at: \n${node.getText()}\n\n`);
                 else {
                     this.throwErrorForNode(node, 'The type of the service parameter list cannot be resolved.');
                 }
-            } else {
+            }
+            else {
                type = argList.type as ts.TypeLiteralNode;
             }
 
@@ -4488,17 +4492,19 @@ finally {
             const transformer = this.store[shape] as TWThingTransformer;
             if (transformer) {
                 transformer.fields.forEach(f => {
-                    // If the property is already declared on the child, than that definition overrides the one on the parent
+                    // If the property is already declared on the child, then that definition overrides the one on the parent
                     if (!fieldNames[f.name]) {
                         fieldNames[f.name] = f;
-                    } else {
+                    }
+                    else {
                         messages.push({
                             message: `DataShape "${this.className}" contains field "${f.name}" that is also declared on the parent "${shape}". Declaration on the ${this.exportedName} is going to be used.`,
                             kind: DiagnosticMessageKind.Warning
                         });
                     }
                 })
-            } else {
+            }
+            else {
                 messages.push({
                     message: `DataShapes can only extend other dataShapes declared in the project, and not external ones. DataShape "${this.className}" extends "${shape}".`,
                     kind: DiagnosticMessageKind.Error
