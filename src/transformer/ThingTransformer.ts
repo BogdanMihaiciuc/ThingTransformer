@@ -1652,6 +1652,11 @@ Failed parsing at: \n${node.getText()}\n\n`);
         if (node.kind == ts.SyntaxKind.Constructor) {
             this.throwErrorForNode(node, `Constructors are not supported in Thingworx classes.`);
         }
+        
+        // Class members with the declare modifier should be ignored
+        if (node.modifiers?.some(m => m.kind == ts.SyntaxKind.DeclareKeyword)) {
+            return;
+        }
 
         if (node.kind == ts.SyntaxKind.PropertyDeclaration) {
             const propertyDeclarationNode = node as ts.PropertyDeclaration;
