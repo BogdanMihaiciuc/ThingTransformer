@@ -47,6 +47,14 @@ const emitResult = program.emit(undefined, () => {}, undefined, undefined, {
         TWThingTransformerFactory(program, path, true, false, twConfig)
     ]
 });
+
+// Fire post transform actions, which enable features like data shape inheritance
+for (const key in twConfig.store) {
+    // Exclude non-transformer entries
+    if (key.startsWith('@')) continue;
+
+    twConfig.store[key].firePostTransformActions();
+}
 ```
 
 After the emit finishes, the transformers will properties to the `store` object of your twconfig object. This is an object whose keys are the names of the generated entities and their values are each an instance of the transformer. Beyond those related to the actual transformation, the transformer has the following public methods that can be invoked after the program's emit method returns:
