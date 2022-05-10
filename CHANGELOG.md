@@ -4,6 +4,8 @@ Adds support for data shape inheritance. [stefan-lacatus](https://github.com/ste
 
 Resolves an issue where using the transformer with `ts.transform` would throw an error when attempting to resolve constant expressions.
 
+The transformer will no longer emit members with the `declare` modifier.  [stefan-lacatus](https://github.com/stefan-lacatus))
+
 # 1.3.1
 
 Resolves an issue where inline SQL statements would compile into code with syntax errors.
