@@ -27,6 +27,11 @@ export interface TWFieldAspects<T> {
 
 export interface TWDataShapeField<T = any> extends TWFieldBase<T> {
     aspects: TWDataShapeFieldAspects<T>;
+
+    /**
+     * Set to `true` if the field was declared with the `override` keyword.
+     */
+    '@isOverriden'?: boolean;
 }
 
 export interface TWDataShapeFieldAspects<T> extends TWFieldAspects<T> {
