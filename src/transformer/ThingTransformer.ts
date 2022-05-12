@@ -714,10 +714,17 @@ Failed parsing at: \n${node.getText()}\n\n`);
                 // If the emit resolver isn't available (e.g. due to using ts.transform)
                 // Use the type checker to determine if the source object is an enum
                 // and find the initializer for its field
+
+                // NOTE: the type checker also has a getConstantValue method, but this
+                // does not appear to work when directly called against an enum member access
+                // expression
+                
                 const typeChecker = this.program.getTypeChecker();
                 const symbol = typeChecker.getSymbolAtLocation(propertyAccess);
 
                 if (symbol && symbol.declarations) {
+                    // If the symbol has multiple declarations, return the constant value
+                    // of the first one that can be computed, if any
                     for (const declaration of symbol.declarations) {
                         if (
                             ts.isPropertyAccessExpression(declaration) || 
