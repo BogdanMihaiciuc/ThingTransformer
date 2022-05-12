@@ -704,7 +704,34 @@ Failed parsing at: \n${node.getText()}\n\n`);
         }
         else {
             // Otherwise it may just be a const enum
-            return this.program.getTypeChecker().getConstantValue(expression as ts.PropertyAccessExpression);
+            const emitResolver: ts.TypeChecker = (this.context as any).getEmitResolver();
+
+            if (emitResolver) {
+                // The emit resolver is able to get the constant value directly
+                return emitResolver.getConstantValue(propertyAccess);
+            }
+            else {
+                // If the emit resolver isn't available (e.g. due to using ts.transform)
+                // Use the type checker to determine if the source object is an enum
+                // and find the initializer for its field
+                const typeChecker = this.program.getTypeChecker();
+                const symbol = typeChecker.getSymbolAtLocation(propertyAccess);
+
+                if (symbol && symbol.declarations) {
+                    for (const declaration of symbol.declarations) {
+                        if (
+                            ts.isPropertyAccessExpression(declaration) || 
+                            ts.isEnumMember(declaration) || 
+                            ts.isElementAccessExpression(declaration)
+                        ) {
+                            const constantValue = typeChecker.getConstantValue(declaration);
+                            if (constantValue) {
+                                return constantValue;
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         return undefined;
