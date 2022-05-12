@@ -1960,6 +1960,12 @@ Failed parsing at: \n${node.getText()}\n\n`);
             property.ordinal = parseInt(ordinal);
         }
 
+        // If the field was declared with the override keyword, store this
+        // so that a warning is not generated for it
+        if (node.modifiers?.some(m => m.kind == ts.SyntaxKind.OverrideKeyword)) {
+            property['@isOverriden'] = true;
+        }
+
         // Ensure that the base type is one of the Thingworx Base Types
         if (!(baseType in TWBaseTypes)) {
             this.throwErrorForNode(node, `Unknown baseType for property ${property.name}: ${baseType}`);
@@ -4536,6 +4542,9 @@ finally {
                         fieldNames[f.name] = f;
                     }
                     else {
+                        // Only warn if the field is not explicitly overriden.
+                        if (fieldNames[f.name]['@isOverriden']) return;
+
                         messages.push({
                             message: `DataShape "${this.className}" contains field "${f.name}" that is also declared on the parent "${shape}". Declaration on the ${this.exportedName} is going to be used.`,
                             kind: DiagnosticMessageKind.Warning
@@ -5533,7 +5542,7 @@ finally {
             ordinal++;
             
             for (const key in field) {
-                if (key == 'aspects') continue;
+                if (key == 'aspects' || key.startsWith('@')) continue;
 
                 fieldDefinition.$[key] = field[key]
             }
