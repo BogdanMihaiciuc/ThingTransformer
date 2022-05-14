@@ -4100,6 +4100,12 @@ Failed parsing at: \n${node.getText()}\n\n`);
         const helpers = ts.getEmitHelpers((this as any).source) || [];
         const helpersToInline = new Set<ts.EmitHelper>();
 
+        // Some helper dependencies are not always included, if they
+        // are introduced due to customized code
+        // NOTE: Because getAllUnscopedEmitHelpers is private, this needs to be retested
+        // whenever typescript is updated
+        const allHelpers = (ts as any).getAllUnscopedEmitHelpers?.() as Map<string, ts.EmitHelper>;
+
         // Add helpers used by the global functions called by this method
         for (const functionName of method['@globalFunctions']) {
             const fn = this.store['@globalFunctions']?.[functionName];
@@ -4193,10 +4199,25 @@ Failed parsing at: \n${node.getText()}\n\n`);
         let size;
         do {
             size = helpersToInline.size;
-            if (helpersToInline.size) for (const helper of [...helpersToInline]) {
-                if (dependencies[helper.name]) for (const dependency of dependencies[helper.name]) {
-                    for (const rootHelper of helpers) {
-                        if (rootHelper.name == dependency) helpersToInline.add(rootHelper);
+            if (helpersToInline.size) {
+                for (const helper of [...helpersToInline]) {
+                    if (!dependencies[helper.name]) continue;
+                    for (const dependency of dependencies[helper.name]) {
+                        // Look for the dependencies in the locally added helpers
+                        let addedDepdency = false;
+                        for (const rootHelper of helpers) {
+                            if (rootHelper.name == dependency) {
+                                helpersToInline.add(rootHelper);
+                                addedDepdency = true;
+                                break;
+                            }
+                        }
+
+                        // If the dependency wasn't added, look for it in all possible helpers
+                        const dependentHelper = allHelpers.get(dependency);
+                        if (dependentHelper) {
+                            helpersToInline.add(dependentHelper);
+                        }
                     }
                 }
             }
