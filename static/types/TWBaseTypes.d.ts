@@ -748,7 +748,7 @@ declare function DataShapeBase<
     T13 extends Constructor<DataShapeBase> | {} = {},
     > (
         mix1: T1,
-        mix2: T2,
+        mix2?: T2,
         mix3?: T3,
         mix4?: T4,
         mix5?: T5,
@@ -810,7 +810,7 @@ declare function DataShapeBaseReference<
     T13 extends keyof DataShapes | {} = {},
     > (
         mix1: T1,
-        mix2: T2,
+        mix2?: T2,
         mix3?: T3,
         mix4?: T4,
         mix5?: T5,
