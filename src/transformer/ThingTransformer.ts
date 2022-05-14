@@ -3326,6 +3326,17 @@ Failed parsing at: \n${node.getText()}\n\n`);
                     const filename = path.normalize(sourceFile.fileName);
                     const name = functionDeclaration.name?.text;
 
+                    // Validate that the source file is not global code
+                    const firstStatement = sourceFile.statements[0];
+                    if (ts.isExpressionStatement(firstStatement) && ts.isStringLiteralLike(firstStatement.expression)) {
+                        const text = firstStatement.expression.text;
+                        const components = text.split(' ');
+                        if (components[0] == 'use' && components[1] != 'strict') {
+                            // If the function is part of global code, it does not need inlining
+                            break;
+                        }
+                    }
+
                     // Validate that the source is part of the repo; in multi project mode
                     // this can also be a global function declared in a different project
                     if (!filename.startsWith(this.repoPath)) break;

@@ -8,6 +8,8 @@ The transformer will no longer emit members with the `declare` modifier.  [stefa
 
 Resolves an issue where the `__values` helper was in some cases not inlined, preventing the use of transpiled es6 features.
 
+Resolves an issue where having global functions enabled would also cause the transformer to inline functions declared in global code.
+
 # 1.3.1
 
 Resolves an issue where inline SQL statements would compile into code with syntax errors.
