@@ -361,6 +361,11 @@ export class TWThingTransformer implements TWCodeTransformer {
     dataShapes: string[] = [];
 
     /**
+     * A flag that is set to `true` after copying the base data shapes' fields to this data shape.
+     */
+    dataShapeInheritanceProcessed = false;
+
+    /**
      * The generic argument specified for the thing template, if any.
      */
     genericArgument?: string;
@@ -4525,6 +4530,8 @@ finally {
         return result;
     }
 
+    //#region Post transform actions
+
     /**
      * This method must be called after all files have been processed. 
      * Executes code that relies on all files having been compiled and information on them being available
@@ -4544,10 +4551,14 @@ finally {
         if (this.entityKind != TWEntityKind.DataShape) {
             return;
         }
+
         // Only applies if this dataShape was found to extend other dataShapes
         if (this.dataShapes.length == 0) {
             return;
         }
+
+        // If this data shape's inherited fields were already added, stop
+        if (this.dataShapeInheritanceProcessed) return;
 
         const messages = this.store['@diagnosticMessages']!;
         // Create a new fields array that concatenates the existing fields with the ones on the parents
@@ -4557,6 +4568,12 @@ finally {
         for (const shape of this.dataShapes) {
             const transformer = this.store[shape] as TWThingTransformer;
             if (transformer) {
+                // If inheritance was not processed for this base data shape, do it now
+                // to ensure that this data shape also inherits its inherited fields
+                if (!transformer.dataShapeInheritanceProcessed) {
+                    transformer.handleDataShapeInheritance();
+                }
+
                 transformer.fields.forEach(f => {
                     // If the property is already declared on the child, then that definition overrides the one on the parent
                     if (!fieldNames[f.name]) {
@@ -4567,7 +4584,7 @@ finally {
                         if (fieldNames[f.name]['@isOverriden']) return;
 
                         messages.push({
-                            message: `DataShape "${this.className}" contains field "${f.name}" that is also declared on the parent "${shape}". Declaration on the ${this.exportedName} is going to be used.`,
+                            message: `DataShape "${this.className}" contains field "${f.name}" that is also declared on the parent "${shape}". Declaration on the ${this.exportedName} is going to be used. Use the override keyword to suppress this message.`,
                             kind: DiagnosticMessageKind.Warning
                         });
                     }
@@ -4580,8 +4597,12 @@ finally {
                 });
             }
         }
+
         // Update the list of fields on the parents
         this.fields = Object.values(fieldNames);
+
+        // Mark inheritance as done
+        this.dataShapeInheritanceProcessed = true;
     }
 
     /**
@@ -4718,6 +4739,10 @@ finally {
             }
         }
     }
+
+    //#endregion
+
+    //#region XML Output
 
     /**
      * Returns an object representing the given infotable, that can be converted to an XML tag
@@ -5844,6 +5869,8 @@ finally {
 
         return (new Builder()).buildObject(XML);
     }
+
+    //#endregion
 
     /**
      * @deprecated - Use `toDeclaration` instead.
