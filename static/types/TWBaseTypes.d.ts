@@ -678,6 +678,7 @@ declare function ThingTemplateWithShapes<
 
 type ThingTemplateInstance<T extends keyof ThingTemplates> = ThingTemplates[T]["__thingTemplateType"];
 type ThingShapeInstance<T extends keyof ThingShapes> = ThingShapes[T]["__thingShapeType"];
+type DataShapeInstance<T extends keyof DataShapes> = DataShapes[T]["__dataShapeType"];
 
 /**
  * A variant of the `ThingTemplateWithShapes` mixin that uses key names, making it possible to use templates
@@ -728,6 +729,115 @@ declare function ThingTemplateWithShapesReference<
         (T13 extends keyof ThingShapes ? ThingShapeInstance<T13> : T13)
     );
 
+/**
+ * DataShape base class that enables inheritance.
+ */
+declare function DataShapeBase<
+    T1 extends Constructor<DataShapeBase>, 
+    T2 extends Constructor<DataShapeBase> | {} = {},
+    T3 extends Constructor<DataShapeBase> | {} = {},
+    T4 extends Constructor<DataShapeBase> | {} = {},
+    T5 extends Constructor<DataShapeBase> | {} = {},
+    T6 extends Constructor<DataShapeBase> | {} = {},
+    T7 extends Constructor<DataShapeBase> | {} = {},
+    T8 extends Constructor<DataShapeBase> | {} = {},
+    T9 extends Constructor<DataShapeBase> | {} = {},
+    T10 extends Constructor<DataShapeBase> | {} = {},
+    T11 extends Constructor<DataShapeBase> | {} = {},
+    T12 extends Constructor<DataShapeBase> | {} = {},
+    T13 extends Constructor<DataShapeBase> | {} = {},
+    > (
+        mix1: T1,
+        mix2?: T2,
+        mix3?: T3,
+        mix4?: T4,
+        mix5?: T5,
+        mix6?: T6,
+        mix7?: T7,
+        mix8?: T8,
+        mix9?: T9,
+        mix10?: T10,
+        mix11?: T11,
+        mix12?: T12,
+        mix13?: T13,
+    ): 
+    (T1 extends Constructor<DataShapeBase> ? Statics<T1> : {}) & 
+    (T2 extends Constructor<DataShapeBase> ? Statics<T2> : {}) &
+    (T3 extends Constructor<DataShapeBase> ? Statics<T3> : {}) &
+    (T4 extends Constructor<DataShapeBase> ? Statics<T4> : {}) &
+    (T5 extends Constructor<DataShapeBase> ? Statics<T5> : {}) &
+    (T6 extends Constructor<DataShapeBase> ? Statics<T6> : {}) &
+    (T7 extends Constructor<DataShapeBase> ? Statics<T7> : {}) &
+    (T8 extends Constructor<DataShapeBase> ? Statics<T8> : {}) &
+    (T9 extends Constructor<DataShapeBase> ? Statics<T9> : {}) &
+    (T10 extends Constructor<DataShapeBase> ? Statics<T10> : {}) &
+    (T11 extends Constructor<DataShapeBase> ? Statics<T11> : {}) &
+    (T12 extends Constructor<DataShapeBase> ? Statics<T12> : {}) &
+    (T13 extends Constructor<DataShapeBase> ? Statics<T13> : {}) &
+    (new (...args: T1 extends Constructor<DataShapeBase> ? ConstructorParameters<T1> : never[]) => (
+        (T1 extends Constructor<DataShapeBase> ? InstanceType<T1> : T1) &
+        (T2 extends Constructor<DataShapeBase> ? InstanceType<T2> : T2) &
+        (T3 extends Constructor<DataShapeBase> ? InstanceType<T3> : T3) &
+        (T4 extends Constructor<DataShapeBase> ? InstanceType<T4> : T4) &
+        (T5 extends Constructor<DataShapeBase> ? InstanceType<T5> : T5) &
+        (T6 extends Constructor<DataShapeBase> ? InstanceType<T6> : T6) &
+        (T7 extends Constructor<DataShapeBase> ? InstanceType<T7> : T7) &
+        (T8 extends Constructor<DataShapeBase> ? InstanceType<T8> : T8) &
+        (T9 extends Constructor<DataShapeBase> ? InstanceType<T9> : T9) &
+        (T10 extends Constructor<DataShapeBase> ? InstanceType<T10> : T10) &
+        (T11 extends Constructor<DataShapeBase> ? InstanceType<T11> : T11) &
+        (T12 extends Constructor<DataShapeBase> ? InstanceType<T12> : T12) &
+        (T13 extends Constructor<DataShapeBase> ? InstanceType<T13> : T13)
+    ));
+
+/**
+ * Variant of DataShapeBase that allows referencing dataShapes by their name instead of their identifier
+ * Note that only dataShapes declared in this project can be referenced.
+ */
+declare function DataShapeBaseReference<
+    T1 extends keyof DataShapes, 
+    T2 extends keyof DataShapes | {} = {},
+    T3 extends keyof DataShapes | {} = {},
+    T4 extends keyof DataShapes | {} = {},
+    T5 extends keyof DataShapes | {} = {},
+    T6 extends keyof DataShapes | {} = {},
+    T7 extends keyof DataShapes | {} = {},
+    T8 extends keyof DataShapes | {} = {},
+    T9 extends keyof DataShapes | {} = {},
+    T10 extends keyof DataShapes | {} = {},
+    T11 extends keyof DataShapes | {} = {},
+    T12 extends keyof DataShapes | {} = {},
+    T13 extends keyof DataShapes | {} = {},
+    > (
+        mix1: T1,
+        mix2?: T2,
+        mix3?: T3,
+        mix4?: T4,
+        mix5?: T5,
+        mix6?: T6,
+        mix7?: T7,
+        mix8?: T8,
+        mix9?: T9,
+        mix10?: T10,
+        mix11?: T11,
+        mix12?: T12,
+        mix13?: T13,
+    ): 
+    (new (...args: any[]) =>
+        (DataShapeInstance<T1>) &
+        (T2 extends keyof DataShapes ? DataShapeInstance<T2> : T2) &
+        (T3 extends keyof DataShapes ? DataShapeInstance<T3> : T3) &
+        (T4 extends keyof DataShapes ? DataShapeInstance<T4> : T4) &
+        (T5 extends keyof DataShapes ? DataShapeInstance<T5> : T5) &
+        (T6 extends keyof DataShapes ? DataShapeInstance<T6> : T6) &
+        (T7 extends keyof DataShapes ? DataShapeInstance<T7> : T7) &
+        (T8 extends keyof DataShapes ? DataShapeInstance<T8> : T8) &
+        (T9 extends keyof DataShapes ? DataShapeInstance<T9> : T9) &
+        (T10 extends keyof DataShapes ? DataShapeInstance<T10> : T10) &
+        (T11 extends keyof DataShapes ? DataShapeInstance<T11> : T11) &
+        (T12 extends keyof DataShapes ? DataShapeInstance<T12> : T12) &
+        (T13 extends keyof DataShapes ? DataShapeInstance<T13> : T13)
+    );
 // #endregion
 
 // #region Creation assertions

@@ -47,6 +47,14 @@ const emitResult = program.emit(undefined, () => {}, undefined, undefined, {
         TWThingTransformerFactory(program, path, true, false, twConfig)
     ]
 });
+
+// Fire post transform actions, which enable features like data shape inheritance
+for (const key in twConfig.store) {
+    // Exclude non-transformer entries
+    if (key.startsWith('@')) continue;
+
+    twConfig.store[key].firePostTransformActions();
+}
 ```
 
 After the emit finishes, the transformers will properties to the `store` object of your twconfig object. This is an object whose keys are the names of the generated entities and their values are each an instance of the transformer. Beyond those related to the actual transformation, the transformer has the following public methods that can be invoked after the program's emit method returns:
@@ -98,7 +106,7 @@ To build the project, run `npm run build` in the root of the project. This will 
 ### Contributors
 
  - [dwil618](https://github.com/dwil618): support for min/max aspects and date initializers.
- - [stefan-lacatus](https://github.com/stefan-lacatus): support for inferred types in property declarations, method helpers, bug fixes, support for the `@exported` decorator and API generation
+ - [stefan-lacatus](https://github.com/stefan-lacatus): support for inferred types in property declarations, method helpers, bug fixes, support for the `@exported` decorator and API generation, data shape inheritance, `declare` modifier on members
 
 #  License
 
