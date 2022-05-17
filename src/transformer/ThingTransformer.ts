@@ -640,9 +640,11 @@ Failed parsing at: \n${node.getText()}\n\n`);
 
         if (isThing) {
             return TWEntityKind.Thing;
-        } else if (isThingTemplate) {
+        }
+        else if (isThingTemplate) {
             return TWEntityKind.ThingTemplate;
-        } else if (isDataShape) {
+        }
+        else if (isDataShape) {
             return TWEntityKind.DataShape;
         }
 
@@ -1500,7 +1502,8 @@ Failed parsing at: \n${node.getText()}\n\n`);
 
                     this.entityKind = TWEntityKind.DataShape;
                     this.dataShapes = callNode.arguments.map(node => (ts.isStringLiteral(node) ? node.text : node.getText()));
-                } else if (callExpressionText == 'ThingTemplateWithShapes' || callExpressionText == 'ThingTemplateWithShapesReference') {
+                }
+                else if (callExpressionText == 'ThingTemplateWithShapes' || callExpressionText == 'ThingTemplateWithShapesReference') {
                     // Ensure that each parameter is of the correct type
                     if (!callNode.arguments.length) {
                         this.throwErrorForNode(node, `The ${callExpressionText}(...) expression must have at least one ThingTemplate parameter.`);
@@ -2614,13 +2617,22 @@ Failed parsing at: \n${node.getText()}\n\n`);
                 const typeNode = type.type as ts.TypeReferenceNode;
                 
                 if (!typeNode) {
-                    this.throwErrorForNode(node, `No base type specified for parameter ${parameter.name}.`);
+                    this.throwErrorForNode(node, `No base type specified for parameter '${parameter.name}'.`);
                 }
 
                 parameter.aspects.isRequired = !type.questionToken;
-                const baseType = TypeScriptPrimitiveTypes.includes(typeNode.kind) ? typeNode.getText() : typeNode.typeName.getText();
+                let baseType;
+                if (TypeScriptPrimitiveTypes.includes(typeNode.kind)) {
+                    baseType = typeNode.getText();
+                }
+                else {
+                    if (!typeNode.typeName) {
+                        this.throwErrorForNode(node, `Cannot obtain base type for service paramter '${parameter.name}'.`);
+                    }
+                    baseType = typeNode.typeName.getText();
+                }
                 if (!(baseType in TWBaseTypes)) {
-                    this.throwErrorForNode(node, `Unknown base type ${baseType} specified for parameter ${parameter.name}.`);
+                    this.throwErrorForNode(node, `Unknown base type '${baseType}' specified for parameter '${parameter.name}'.`);
                 }
                 parameter.baseType = TWBaseTypes[baseType];
 
