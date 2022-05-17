@@ -640,9 +640,11 @@ Failed parsing at: \n${node.getText()}\n\n`);
 
         if (isThing) {
             return TWEntityKind.Thing;
-        } else if (isThingTemplate) {
+        }
+        else if (isThingTemplate) {
             return TWEntityKind.ThingTemplate;
-        } else if (isDataShape) {
+        }
+        else if (isDataShape) {
             return TWEntityKind.DataShape;
         }
 
@@ -1500,7 +1502,8 @@ Failed parsing at: \n${node.getText()}\n\n`);
 
                     this.entityKind = TWEntityKind.DataShape;
                     this.dataShapes = callNode.arguments.map(node => (ts.isStringLiteral(node) ? node.text : node.getText()));
-                } else if (callExpressionText == 'ThingTemplateWithShapes' || callExpressionText == 'ThingTemplateWithShapesReference') {
+                }
+                else if (callExpressionText == 'ThingTemplateWithShapes' || callExpressionText == 'ThingTemplateWithShapesReference') {
                     // Ensure that each parameter is of the correct type
                     if (!callNode.arguments.length) {
                         this.throwErrorForNode(node, `The ${callExpressionText}(...) expression must have at least one ThingTemplate parameter.`);
@@ -2621,7 +2624,8 @@ Failed parsing at: \n${node.getText()}\n\n`);
                 let baseType;
                 if (TypeScriptPrimitiveTypes.includes(typeNode.kind)) {
                     baseType = typeNode.getText();
-                } else {
+                }
+                else {
                     if (!typeNode.typeName) {
                         this.throwErrorForNode(node, `Cannot obtain base type for service paramter '${parameter.name}'.`);
                     }
