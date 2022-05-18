@@ -2294,7 +2294,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
             }
 
             if (![TWBaseTypes.INTEGER, TWBaseTypes.LONG, TWBaseTypes.NUMBER].includes(property.baseType)) {
-                this.throwErrorForNode(node, 'The minimum value decorator can only be used with numeric properties.');
+                this.throwErrorForNode(node, 'The unit decorator can only be used with numeric properties.');
             }
 
             property.aspects.units = argument;
@@ -2314,6 +2314,8 @@ Failed parsing at: \n${node.getText()}\n\n`);
                 property.aspects.dataChangeThreshold = dataChangeArguments[1].getText();
             }
         }
+
+        property.category = this.getCategoryForNode(node);
 
         this.runtimePermissions = this.mergePermissionListsForNode([this.runtimePermissions].concat(this.permissionsOfNode(node, node.name.text)), node);
 
@@ -2415,6 +2417,8 @@ Failed parsing at: \n${node.getText()}\n\n`);
 
             event.remoteBinding.sourceName = (arg as ts.StringLiteral).text;
         }
+
+        event.category = this.getCategoryForNode(node);
 
         this.runtimePermissions = this.mergePermissionListsForNode([this.runtimePermissions].concat(this.permissionsOfNode(node, node.name.text)), node);
 
@@ -2793,6 +2797,9 @@ Failed parsing at: \n${node.getText()}\n\n`);
 
             this.deploymentEndpoints.push(`Things/${this.exportedName}/Services/${service.name}`);
         }
+
+        // Read the category value from the decorator
+        service.category = this.getCategoryForNode(node);
 
         this.runtimePermissions = this.mergePermissionListsForNode([this.runtimePermissions].concat(this.permissionsOfNode(node, service.name)), node);
 
@@ -4495,6 +4502,23 @@ finally {
 
             this.configuration[name] = table;
         }
+    }
+
+    /**
+     * Extract the value of the category decorator on the specified node, if it exists
+     * @param node Class property or method declaration to extract data from
+     * @returns Value of the argument of the category
+     */
+    private getCategoryForNode(node: ts.MethodDeclaration | ts.PropertyDeclaration): string {
+        if (this.hasDecoratorNamed('category', node)) {
+            const argument = this.literalArgumentOfDecoratorNamed('category', node);
+
+            if (!argument) {
+                this.throwErrorForNode(node, 'The category decorator must have a string literal as its argument');
+            }
+            return argument;
+        }
+        return '';
     }
 
     /**
