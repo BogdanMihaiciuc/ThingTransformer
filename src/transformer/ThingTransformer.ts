@@ -3120,6 +3120,10 @@ Failed parsing at: \n${node.getText()}\n\n`);
             this.throwErrorForNode(node, `The @deploy decorator cannot be used on subscriptions.`);
         }
 
+        if (this.hasDecoratorNamed('category', node)) {
+            this.throwErrorForNode(node, `The @category decorator cannot be used on subscriptions.`);
+        }
+
         if (this.debug) {
             this.debugMethodNodes.set(node, subscription);
         }
