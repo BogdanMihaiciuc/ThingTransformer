@@ -1,4 +1,8 @@
+# 1.4.5
+
 Improved the error messages that appear when declaring a service parameter with certain unsupported types. [stefan-lacatus](https://github.com/stefan-lacatus))
+
+Adds support for the `@category` decorator to specify the category of properties, events and services. [stefan-lacatus](https://github.com/stefan-lacatus))
 
 When the type of an expression in an inline SQL statement can't be directly determined, the transformer will now use the primitive type that the expression can be assigned to, if an appropriate one exists, to reduce the need of using type assertions.
 
