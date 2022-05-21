@@ -1,8 +1,8 @@
 # 1.4.5
 
-Improved the error messages that appear when declaring a service parameter with certain unsupported types. [stefan-lacatus](https://github.com/stefan-lacatus))
+Improved the error messages that appear when declaring a service parameter with certain unsupported types. ([stefan-lacatus](https://github.com/stefan-lacatus))
 
-Adds support for the `@category` decorator to specify the category of properties, events and services. [stefan-lacatus](https://github.com/stefan-lacatus))
+Adds support for the `@category` decorator to specify the category of properties, events and services. ([stefan-lacatus](https://github.com/stefan-lacatus))
 
 When the type of an expression in an inline SQL statement can't be directly determined, the transformer will now use the primitive type that the expression can be assigned to, if an appropriate one exists, to reduce the need of using type assertions.
 
@@ -10,11 +10,11 @@ Resolves an issue where the type inferrence for the inline SQL parameters when b
 
 # 1.4.0
 
-Adds support for data shape inheritance. [stefan-lacatus](https://github.com/stefan-lacatus))
+Adds support for data shape inheritance. ([stefan-lacatus](https://github.com/stefan-lacatus))
 
 Resolves an issue where using the transformer with `ts.transform` would throw an error when attempting to resolve constant expressions.
 
-The transformer will no longer emit members with the `declare` modifier.  [stefan-lacatus](https://github.com/stefan-lacatus))
+The transformer will no longer emit members with the `declare` modifier.  ([stefan-lacatus](https://github.com/stefan-lacatus))
 
 Resolves an issue where the `__values` helper was in some cases not inlined, preventing the use of transpiled es6 features.
 
