@@ -67,6 +67,11 @@ type NonMethod<Source> = { [K in keyof Source]: Source[K] extends Function ? nev
 type Events<Source> = { [K in keyof Source]: Source[K] extends EVENT<any> ? K : never}[keyof Source];
 
 /**
+ * Can be applied to properties, services events and subscriptions to set the ThingWorx category
+ */
+declare function category(value: string): <T extends GenericThing>(target: T, key: string, descriptor?: TypedPropertyDescriptor<unknown> | TypedPropertyDescriptor<(...args: any[]) => any>) => void;
+
+/**
  * When applied to a property, this makes the property persistent.
  */
 declare function persistent<T extends GenericThing, P>(target: T, key: string, descriptor?: TypedPropertyDescriptor<P extends Function ? never : P>): void;
