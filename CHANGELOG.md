@@ -1,5 +1,9 @@
 Improved the error messages that appear when declaring a service parameter with certain unsupported types. [stefan-lacatus](https://github.com/stefan-lacatus))
 
+When the type of an expression in an inline SQL statement can't be directly determined, the transformer will now use the primitive type that the expression can be assigned to, if an appropriate one exists, to reduce the need of using type assertions.
+
+Resolves an issue where the type inferrence for the inline SQL parameters when building with the `--debug` argument, while working for non-debug builds.
+
 # 1.4.0
 
 Adds support for data shape inheritance. [stefan-lacatus](https://github.com/stefan-lacatus))
