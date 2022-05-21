@@ -157,6 +157,11 @@ interface TWCodeTransformer {
     _debugBreakpointCounter: number;
 
     /**
+     * A map used to keep track of replacement nodes generated for debugging and their original nodes.
+     */
+    _debugMethodNodeReplacements: WeakMap<ts.Node, ts.Node>;
+
+    /**
      * An array of breakpoint locations that have been added in a debug build.
      */
     breakpoints: Breakpoint[];
@@ -3197,10 +3202,13 @@ Failed parsing at: \n${node.getText()}\n\n`);
 
             // If a parameters array is specified, create a parameter from the expression
             if (parameters) {
+                // If the expression is a debug replacement, get the type of the original expression
+                const argumentExpression = this._debugMethodNodeReplacements.has(expression) ? this._debugMethodNodeReplacements.get(expression)! : expression;
+
                 // If the expression has an explicit type assertion, use the specified type
                 let baseType;
-                if (expression.kind == ts.SyntaxKind.AsExpression || expression.kind == ts.SyntaxKind.TypeAssertionExpression) {
-                    const type = (expression as ts.AsExpression).type;
+                if (ts.isAsExpression(argumentExpression) || ts.isTypeAssertionExpression(argumentExpression)) {
+                    const type = argumentExpression.type;
                     if (ts.isTypeReferenceNode(type)) {
                         // Exclude any generics from type references
                         baseType = TWBaseTypes[type.typeName.getText()];
@@ -3210,7 +3218,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
                     }
                 }
                 else {
-                    baseType = this.getBaseTypeOfExpression(expression);
+                    baseType = this.getBaseTypeOfExpression(argumentExpression as ts.Expression);
                 }
 
                 const parameter: TWServiceParameter = {
@@ -3223,7 +3231,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
 
                 // If the base type cannot be determined, throw
                 if (!parameter.baseType) {
-                    this.throwErrorForNode(expression, `The base type of the expression cannot be inferred; consider adding an explicit type assertion`);
+                    this.throwErrorForNode(argumentExpression, `The base type of the expression cannot be inferred; consider adding an explicit type assertion`);
                 }
 
                 parameters.push(parameter);
@@ -3392,6 +3400,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
             debug: this.debug,
             breakpointLocations: debugInformation.breakpointLocations,
             breakpoints: debugInformation.breakpoints,
+            _debugMethodNodeReplacements: new WeakMap,
             context: this.context,
             nodeReplacementMap: new WeakMap,
             program: this.program,
@@ -3962,6 +3971,11 @@ Failed parsing at: \n${node.getText()}\n\n`);
     }
 
     /**
+     * A map used to keep track of the replacement nodes generated for debugging and their original nodes.
+     */
+    _debugMethodNodeReplacements: WeakMap<ts.Node, ts.Node> = new WeakMap;
+
+    /**
      * Visits a method or global function node for a debug build, adding in debug statements where possible.
      * @param node          The method or function node.
      * @param fn            The object containing information about the global function, if this is invoked
@@ -3971,7 +3985,17 @@ Failed parsing at: \n${node.getText()}\n\n`);
      * @returns             The transformed node.
      */
     visitDebugMethodNode(this: TWCodeTransformer, node: ts.Node, fn?: GlobalFunction, service?: TWServiceDefinition | TWSubscriptionDefinition): ts.Node | undefined {
-        node = ts.visitEachChild(node, n => this.visitDebugMethodNode(n, fn, service), this.context);
+        node = ts.visitEachChild(node, n => {
+            const replacementNode = this.visitDebugMethodNode(n, fn, service);
+
+            // If visiting returns a replacement, store a reference to the original node it replaces
+            // for the cases where the transformer needs to access the original node
+            if (replacementNode && replacementNode != n) {
+                this._debugMethodNodeReplacements.set(replacementNode, n);
+            }
+
+            return replacementNode;
+        }, this.context);
 
         // If this visits global function nodes, evaluate the node to extract information about the function.
         if (fn) {
@@ -3979,8 +4003,9 @@ Failed parsing at: \n${node.getText()}\n\n`);
         }
 
         // If the node has been marked for replacement, return its replacement directly
-        if (this.nodeReplacementMap.get(node)) {
-            return this.nodeReplacementMap.get(node)!;
+        const replacementNode = this.nodeReplacementMap.get(node);
+        if (replacementNode) {
+            return replacementNode!;
         }
 
         // If the node has a generic code replacement available, return its replacement directly
