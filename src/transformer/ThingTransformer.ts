@@ -1946,14 +1946,17 @@ Failed parsing at: \n${node.getText()}\n\n`);
     visitDataShapeField(node: ts.PropertyDeclaration) {
         const baseType = this.getTypeOfPropertyDeclaration(node);
 
+        // The name must be an identifier as computed property names
+        // are not required to be compile time constants
         const property = {} as TWDataShapeField;
         if (node.name.kind != ts.SyntaxKind.Identifier) {
-            this.throwErrorForNode(node, `Computed property names are not supported in Thingwrox classes.`);
+            this.throwErrorForNode(node, `Computed property names are not supported in Thingworx classes.`);
         }
 
         // First obtain the name of the property
         property.name = node.name.text;
 
+        // Use the JSDoc comments as the description for this field
         property.description = this.documentationOfNode(node);
 
         // Create the generic aspects, required for all properties
@@ -1962,9 +1965,13 @@ Failed parsing at: \n${node.getText()}\n\n`);
             property.aspects.isPrimaryKey = true;
         }
 
+        // If the ordinal decorator is used, apply it to the field
         const ordinal = this.numericArgumentOfDecoratorNamed('ordinal', node);
         if (ordinal) {
-            if (!parseInt(ordinal)) this.throwErrorForNode(node, `Non numeric value specified in ordinal decorator for property ${property.name}: ${baseType}`);
+            if (!parseInt(ordinal)) {
+                // If the ordinal decorator exists but has a non-numeric arguments throw an error
+                this.throwErrorForNode(node, `Non numeric value specified in ordinal decorator for property ${property.name}: ${baseType}`);
+            }
             property.ordinal = parseInt(ordinal);
         }
 
@@ -1980,12 +1987,15 @@ Failed parsing at: \n${node.getText()}\n\n`);
         }
         property.baseType = TWBaseTypes[baseType];
 
-        // INFOTABLE can optionally take the data shape as a type argument
+        // TODO: Extract this from here and the other places it's used
+        // into a separate method
         if (TWBaseTypes[baseType] == 'INFOTABLE') {
+            // INFOTABLE can optionally take the data shape as a type argument
             const typeArguments = (node.type as ts.TypeReferenceNode)?.typeArguments;
             if (typeArguments) {
                 if (typeArguments.length != 1) this.throwErrorForNode(node, `Unknown generics specified for property ${property.name}: ${property.baseType}`);
 
+                // A string literal type can be used for the `InfoTableReference` type
                 if (typeArguments[0].kind == ts.SyntaxKind.LiteralType) {
                     property.aspects.dataShape = ((typeArguments[0] as ts.LiteralTypeNode).literal as ts.StringLiteral).text;
                 }
@@ -1994,8 +2004,8 @@ Failed parsing at: \n${node.getText()}\n\n`);
                 }
             }
         }
-        // THINGNAME can optionally take the thing template name and/or thing shape name as a type argument
         else if (TWBaseTypes[baseType] == 'THINGNAME') {
+            // THINGNAME can optionally take the thing template name and/or thing shape name as a type argument
             const typeArguments = (node.type as ts.TypeReferenceNode)?.typeArguments;
 
             if (typeArguments && typeArguments.length) {
@@ -2466,9 +2476,15 @@ Failed parsing at: \n${node.getText()}\n\n`);
     visitEvent(node: ts.PropertyDeclaration) {
         const event = {} as TWEventDefinition;
 
-        if (node.name.kind != ts.SyntaxKind.Identifier) this.throwErrorForNode(node, 'Event names cannot be computed names.');
+        // Extract the node's name to use as the event's name
+        // Only identifiers are supported because computed names are not required to be
+        // compile time constants
+        if (node.name.kind != ts.SyntaxKind.Identifier) {
+            this.throwErrorForNode(node, 'Event names cannot be computed names.');
+        }
         event.name = (node.name as ts.Identifier).text;
 
+        // Use the JSDoc comments as the description for this event
         event.description = this.documentationOfNode(node);
 
         // Events cannot be overriden
@@ -2476,8 +2492,10 @@ Failed parsing at: \n${node.getText()}\n\n`);
             this.throwErrorForNode(node, 'Events cannot be overriden');
         }
 
+        // The event should ideally have a type argument that specifies the data shape to use
         const typeNode = node.type as ts.TypeReferenceNode;
         if (typeNode.typeArguments && typeNode.typeArguments.length) {
+            // Both a literal string or direct class name may be used here
             if (typeNode.typeArguments[0].kind == ts.SyntaxKind.LiteralType) {
                 event.dataShape = ((typeNode.typeArguments[0] as ts.LiteralTypeNode).literal as ts.StringLiteral).text;
             }
@@ -2487,6 +2505,8 @@ Failed parsing at: \n${node.getText()}\n\n`);
         }
 
         if (this.hasDecoratorNamed('remoteEvent', node)) {
+            // If the remoteEvent decorator is used, extract its argument which represents the source name
+            // of the remote event
             event.remoteBinding = {
                 name: event.name,
                 sourceName: ''
@@ -2494,19 +2514,33 @@ Failed parsing at: \n${node.getText()}\n\n`);
 
             const args = this.argumentsOfDecoratorNamed('remoteEvent', node)!;
 
-            if (!args.length || !args) this.throwErrorForNode(node, 'The remote event decorator must have a single argument.');
+            // The decorator must have exactly one argument
+            if (!args.length || !args) {
+                this.throwErrorForNode(node, 'The remote event decorator must have a single argument.');
+            }
             const arg = args[0];
 
-            if (arg.kind != ts.SyntaxKind.StringLiteral) this.throwErrorForNode(node, 'The argument for the remoteEvent decorator must be a string literal');
+            // The argument must be a string literal
+            // TODO: This should support other compile time constants as well
+            if (arg.kind != ts.SyntaxKind.StringLiteral) {
+                this.throwErrorForNode(node, 'The argument for the remoteEvent decorator must be a string literal');
+            }
 
+            // Use the value of the argument as the source name aspect
             event.remoteBinding.sourceName = (arg as ts.StringLiteral).text;
         }
 
+        // Merge the permissions declared on this event into this entity's permissions
         this.runtimePermissions = this.mergePermissionListsForNode([this.runtimePermissions].concat(this.permissionsOfNode(node, node.name.text)), node);
 
         this.events.push(event);
     }
 
+    /**
+     * Returns the comment text of the given JSDoc or JSDocTag node.
+     * @param node      The node for which to get the description.
+     * @returns         The comment text if it could be extracted, `undefined` otherwise.
+     */
     getDescription(node?: ts.JSDoc | ts.JSDocTag): string | undefined {
         if (typeof node?.comment != 'string') {
             return node?.comment?.reduce((acc, val) => acc + val.text, "");
@@ -2524,26 +2558,40 @@ Failed parsing at: \n${node.getText()}\n\n`);
             return this.visitSubscription(node);
         }
 
+        // Create the service definition object
         const service = {
             aspects: {},
             '@globalFunctions': new Set,
             '@methodHelpers': new Set
         } as TWServiceDefinition;
-        if (node.modifiers) for (const modifier of node.modifiers) {
-            if (modifier.kind == ts.SyntaxKind.AsyncKeyword) {
-                service.aspects = {isAsync: true};
+
+        // Extract the attributes expressed through modifiers
+        // Currently only async is used
+        if (node.modifiers) {
+            for (const modifier of node.modifiers) {
+                if (modifier.kind == ts.SyntaxKind.AsyncKeyword) {
+                    service.aspects = {isAsync: true};
+                }
             }
         }
         const originalNode = node;
 
+        // Extract the node's name to use as the service's name
+        // Only identifiers are supported because computed names are not required to be
+        // compile time constants
+        if (node.name.kind != ts.SyntaxKind.Identifier) {
+            this.throwErrorForNode(node, 'Service names cannot be computed property names.');
+        }
+        service.name = (node.name as ts.Identifier).text;
+
+        service.isAllowOverride = !this.hasDecoratorNamed('final', node);
+
         // Check for either the override decorator or keyword
         let hasOverrideDecorator = this.hasDecoratorNamed('override', node);
         let hasOverrideKeyword = node.modifiers?.some(m => m.kind == ts.SyntaxKind.OverrideKeyword);
-
-        if (node.name.kind != ts.SyntaxKind.Identifier) this.throwErrorForNode(node, 'Service names cannot be computed property names.');
-        service.name = (node.name as ts.Identifier).text;
-        service.isAllowOverride = !this.hasDecoratorNamed('final', node);
         service.isOverriden = hasOverrideKeyword || hasOverrideDecorator;
+
+        // Set defaults for aspects that can't be applied through typescript
         service.isLocalOnly = false;
         service.isPrivate = false;
         service.isOpen = false;
@@ -2566,35 +2614,45 @@ Failed parsing at: \n${node.getText()}\n\n`);
             // Decorators can't be applied to abstract methods, instead, by convention, the body of the remote
             // service will be ignored
 
-            // Remote services cannot have any other type indentifies, such as SQL decorators
+            // Remote services cannot have any other type indentifiers, such as SQL decorators
             if (isSQLService) {
                 this.throwErrorForNode(node, `The service "${service.name}" cannot be both a remote and a SQL service.`);
             }
 
-            //if (!node.modifiers) this.throwErrorForNode(node, 'Remote services must be declared abstract.');
-            /*const isAbstract = node.modifiers.some(modifier => modifier.kind == ts.SyntaxKind.AbstractKeyword);
-            if (!isAbstract) this.throwErrorForNode(node, 'Remote services must be declared abstract.');*/
-
+            // Get the arguments of the service
             const args = this.argumentsOfDecoratorNamed('remoteService', node)!;
 
+            // The source name must be a compile time constant
+            const sourceName = ts.isStringLiteralLike(args[0]) ? args[0].text : this.constantValueOfExpression(args[0]);
+            if (!sourceName || typeof sourceName != 'string') {
+                this.throwErrorForNode(node, `The source name must be a compile time string constant.`);
+            }
+
+            // Create a remote binding for the service, with defaults for the optional properties
             service.remoteBinding = {
                 name: service.name,
-                sourceName: (args[0] as ts.StringLiteral).text,
+                sourceName,
                 timeout: 0,
                 enableQueue: false
             }
 
+            // If the second argument is specified, get the additional details from it
             if (args.length == 2) {
+                // The second argument must be an object literal with compile time constant properties
                 if (args[1].kind != ts.SyntaxKind.ObjectLiteralExpression) {
                     this.throwErrorForNode(node, 'Remote service binding aspects must be specified as an object literal.');
                 }
 
+                // Visit each property in the object literal
                 const aspects = args[1] as ts.ObjectLiteralExpression;
                 for (const bindingAspect of aspects.properties) {
+
+                    // The value must be an assignment to a literal
                     if (bindingAspect.kind != ts.SyntaxKind.PropertyAssignment) {
                         this.throwErrorForNode(node, 'The aspects of a remote binding decorator must be literals.');
                     }
 
+                    // The name must be a direct identifier
                     if (bindingAspect.name.kind != ts.SyntaxKind.Identifier) {
                         this.throwErrorForNode(node, 'Computed property names cannot be used in decorator parameters.');
                     }
@@ -2604,6 +2662,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
                     // Undefined aspect values should continue to use the default values
                     if (bindingAspect.initializer.kind == ts.SyntaxKind.UndefinedKeyword) continue;
 
+                    // Update the appropriate aspect based on the key name
                     switch (name) {
                         case 'enableQueue':
                             service.remoteBinding.enableQueue = bindingAspect.initializer.getText() == 'true';
@@ -2628,6 +2687,8 @@ Failed parsing at: \n${node.getText()}\n\n`);
             this.visitSQLService(node, service);
         }
         else {
+            // For non-sql and non-remote services, mark the service for code visiting so that the appropriate
+            // substitutions can occur (e.g. inlining SQL, extracting global functions and so on)
             service.code = node.body!.getText();
             if (this.debug) {
                 this.debugMethodNodes.set(node, service);
@@ -2644,11 +2705,15 @@ Failed parsing at: \n${node.getText()}\n\n`);
         else if (node.parameters.length) {
             service.parameterDefinitions = [];
 
+            // The single argument must be a destructured object in order to support the way services are invoked and
+            // the way that arguments are used in code
             const argList = node.parameters[0];
             if (argList.name.kind != ts.SyntaxKind.ObjectBindingPattern) {
                 this.throwErrorForNode(node, 'The parameter of a service must be a destructured object.');
             }
 
+            // The object must have a type definition to be able to assign the appropriate types to the parameters
+            // in the service definition
             if (!argList.type) {
                 this.throwErrorForNode(node, 'The parameter of a service must be typed.');
             }
@@ -2660,6 +2725,8 @@ Failed parsing at: \n${node.getText()}\n\n`);
             let type: ts.TypeLiteralNode;
 
             if (argList.type.kind == ts.SyntaxKind.TypeReference) {
+                // If the type is specified as a reference to a type or interface, use the type checker
+                // to determine its declared fields
                 const typeChecker = this.program.getTypeChecker();
                 const symbol = typeChecker.getTypeAtLocation(argList.type);
                 if (symbol) {
@@ -2669,6 +2736,8 @@ Failed parsing at: \n${node.getText()}\n\n`);
                         this.throwErrorForNode(node, 'The type of the service parameter list must be a literal or interface.');
                     }
 
+                    // Get the type elements and convert them to a type literal node that can be visited in the same way
+                    // as if the type were declared directly inline
                     const declarations = literalType.getProperties().flatMap(p => p.declarations).filter(d => !!d) as ts.Declaration[];
                     const typeElements = declarations.filter(d => ts.isTypeElement(d)) as ts.TypeElement[];
                     type = ts.factory.createTypeLiteralNode(typeElements);
@@ -2684,44 +2753,64 @@ Failed parsing at: \n${node.getText()}\n\n`);
             const args = argList.name as ts.ObjectBindingPattern;
             const argTypes = type;
 
+            // All declared type arguments must be used
             if (args.elements.length != argTypes.members.length) {
                 this.throwErrorForNode(node, 'All service parameters must be destructured.');
             }
 
+            // Parse each argument
             for (const arg of args.elements) {
+                // Initialize the parameter object
                 const parameter = {aspects: {}} as TWServiceParameter;
-                if (arg.name.kind != ts.SyntaxKind.Identifier) this.throwErrorForNode(node, 'Service parameter names cannot be computed property names.');
+
+                // The name is required to be an identifier
+                if (arg.name.kind != ts.SyntaxKind.Identifier) {
+                    this.throwErrorForNode(node, 'Service parameter names cannot be computed property names.');
+                }
 
                 parameter.name = arg.name.getText();
+
                 // Find the accompanying type for this parameter
                 const type = argTypes.members.find(t => t.name!.getText() == parameter.name) as ts.PropertySignature;
-                if (!type) this.throwErrorForNode(node, `Parameter ${parameter.name} is untyped.`);
+                if (!type) {
+                    this.throwErrorForNode(node, `Parameter ${parameter.name} is untyped.`);
+                }
 
+                // The type must be a type reference; literal types are not supported directly,
+                // but primitive types are handled separately below, despite the type assertion here
                 const typeNode = type.type as ts.TypeReferenceNode;
                 
                 if (!typeNode) {
                     this.throwErrorForNode(node, `No base type specified for parameter '${parameter.name}'.`);
                 }
 
+                // Is required is mapped to the standard typescript question token
                 parameter.aspects.isRequired = !type.questionToken;
+
                 let baseType;
                 if (TypeScriptPrimitiveTypes.includes(typeNode.kind)) {
+                    // Support the use of primitive types instead of the associated thingworx types
                     baseType = typeNode.getText();
                 }
                 else {
+                    // If the type is not a primitive, get the name of the type reference
                     if (!typeNode.typeName) {
                         this.throwErrorForNode(node, `Cannot obtain base type for service paramter '${parameter.name}'.`);
                     }
                     baseType = typeNode.typeName.getText();
                 }
+
+                // Ensure that there is a mapping between the extracted type and a compatible thingworx type
                 if (!(baseType in TWBaseTypes)) {
                     this.throwErrorForNode(node, `Unknown base type '${baseType}' specified for parameter '${parameter.name}'.`);
                 }
                 parameter.baseType = TWBaseTypes[baseType];
 
                 if (arg.initializer) {
+                    // If the argument has an initializer, set it as the default value
                     if (arg.initializer.kind == ts.SyntaxKind.PropertyAccessExpression) {
-                        // Const enums need to be resolved early on
+
+                        // Const enums or environment variables need to be resolved early on
                         parameter.aspects.defaultValue = this.constantValueOfExpression(arg.initializer as ts.PropertyAccessExpression);
 
                         // If the value is not a compile time constant, it is not a valid initializer
@@ -2730,6 +2819,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
                         }
                     }
                     else if (ts.isNewExpression(arg.initializer) && ts.isIdentifier(arg.initializer.expression) && arg.initializer.expression.escapedText == 'Date') {
+                        // Handle initializer for dates, which are expressed as `new Date()`, with a compile time constant argument
                         if (arg.initializer.arguments && arg.initializer.arguments.length == 1 && ts.isStringLiteral(arg.initializer.arguments[0])) {
                             parameter.aspects.defaultValue = new Date(arg.initializer.arguments[0].text).toISOString();
                         }
@@ -2738,45 +2828,58 @@ Failed parsing at: \n${node.getText()}\n\n`);
                         }
                     }
                     else {
+                        // For all other cases, try to use the expression text directly
+                        // TODO: For JSON values, this should be able to handle the cases where a javascript
+                        // compatible but non-JSON compatible notation is used
                         parameter.aspects.defaultValue = (arg.initializer as ts.LiteralExpression).text || arg.initializer.getText();
                     }
                 }
 
-                // INFOTABLE can optionally take the data shape as a type argument
+                // Handle the cases where generic type arguments need to be used as aspects
                 if (TWBaseTypes[baseType] == 'INFOTABLE') {
+                    // INFOTABLE can optionally take the data shape as a type argument
                     const typeNode = type.type! as ts.NodeWithTypeArguments;
                     const typeArguments = typeNode.typeArguments;
                     if (typeArguments) {
+                        // Infotable must take a single type argument
                         if (typeArguments.length != 1) this.throwErrorForNode(node, `Unknown generics specified for parameter ${parameter.name}: ${parameter.baseType}`);
 
                         if (typeArguments[0].kind == ts.SyntaxKind.LiteralType) {
+                            // A literal type is supported for the InfoTableReference type
                             parameter.aspects.dataShape = ((typeArguments[0] as ts.LiteralTypeNode).literal as ts.StringLiteral).text;
                         }
                         else {
+                            // Otherwise a class name is used directly
                             parameter.aspects.dataShape = typeArguments[0].getText();
                         }
                     }
                 }
-                // THINGNAME can optionally take the thing template name and/or thing shape name as a type argument
                 else if (TWBaseTypes[baseType] == 'THINGNAME') {
+                    // THINGNAME can optionally take the thing template name and/or thing shape name as a type argument
                     const typeNode = type.type! as ts.NodeWithTypeArguments;
                     const typeArguments = typeNode.typeArguments;
 
                     if (typeArguments && typeArguments.length) {
+                        // More than two arguments are not supported
                         if (typeArguments.length > 2) this.throwErrorForNode(node, `Unknown generics specified for parameter ${parameter.name}: ${parameter.baseType}`);
 
                         const thingTemplate = typeArguments[0];
                         if (thingTemplate.kind == ts.SyntaxKind.LiteralType) {
+                            // A non-literal type likely means undefined so this type should be ignored
+                            // TODO: This should throw for non-undefined non-literal types
                             parameter.aspects.thingTemplate = ((thingTemplate as ts.LiteralTypeNode).literal as ts.StringLiteral).text;
                         }
 
                         const thingShape = typeArguments[1];
                         if (thingShape && thingShape.kind == ts.SyntaxKind.LiteralType) {
+                            // If a second argument is defined and is a literal type, it represents the thing shape
+                            // TODO: This should throw for non-literal types
                             parameter.aspects.thingShape = ((thingShape as ts.LiteralTypeNode).literal as ts.StringLiteral).text;
                         }
                     }
                 }
 
+                // Add the parameter to the service definition
                 service.parameterDefinitions.push(parameter);
             }
 
@@ -2792,14 +2895,18 @@ Failed parsing at: \n${node.getText()}\n\n`);
             ));
         }
         else {
+            // If no arguments are defined, set the parameter definitions to an empty array
             service.parameterDefinitions = [];
         }
 
         if (!node.type) {
             if (!service.aspects.isAsync) {
+                // For non-async services, the return type must be specified
+                // TODO: Use type checker to make use of the inferred return type, if it can be used
                 this.throwErrorForNode(originalNode, 'The return type of non-async services must be specified.');
             }
             else {
+                // For async services, the return type is not used
                 service.resultType = {} as TWServiceParameter;
                 service.resultType.name = 'result';
                 service.resultType.baseType = 'NOTHING';
@@ -2809,8 +2916,8 @@ Failed parsing at: \n${node.getText()}\n\n`);
             service.resultType = {} as TWServiceParameter;
             service.resultType.name = 'result';
 
-            // Don't care about the return type of async services
             if (service.aspects.isAsync) {
+                // Don't care about the return type of async services
                 service.resultType.baseType = 'NOTHING';
                 if (node.type) {
                     this.throwErrorForNode(originalNode, 'Async services must not have a return type annotation.');
@@ -2819,13 +2926,14 @@ Failed parsing at: \n${node.getText()}\n\n`);
             else {
                 const typeNode = node.type as ts.TypeReferenceNode;
 
+                // The type must be either a primitive type or a type reference node
                 const baseType = TypeScriptReturnPrimitiveTypes.includes(typeNode.kind) ? typeNode.getText() : typeNode.typeName.getText();
                 if (!(baseType in TWBaseTypes)) {
                     this.throwErrorForNode(originalNode, `Unknown base type ${baseType} specified for service return type.`);
                 }
 
-                // INFOTABLE can optionally take the data shape as a type argument
                 if (TWBaseTypes[baseType] == 'INFOTABLE') {
+                    // INFOTABLE can optionally take the data shape as a type argument, using the same logic as above
                     const typeNode = node.type! as ts.NodeWithTypeArguments;
                     service.resultType.aspects = service.resultType.aspects || {};
                     const typeArguments = typeNode.typeArguments;
@@ -2840,9 +2948,9 @@ Failed parsing at: \n${node.getText()}\n\n`);
                         }
                     }
                 }
-                // THINGNAME can optionally take the thing template name and/or thing shape name as a type argument, however
-                // this is not supported by Thingworx in service results, so it is ignored
                 else if (TWBaseTypes[baseType] == 'THINGNAME') {
+                    // THINGNAME can optionally take the thing template name and/or thing shape name as a type argument, however
+                    // this is not supported by Thingworx in service results, so it is ignored
                     const typeNode = node.type! as ts.NodeWithTypeArguments;
                     service.resultType.aspects = service.resultType.aspects || {};
                 }
@@ -2850,29 +2958,33 @@ Failed parsing at: \n${node.getText()}\n\n`);
             }
         }
 
+        // Use the JSDoc comments as the service documentation
         const documentation = (ts as any).getJSDocCommentsAndTags(node) as ts.Node[];
 
-        if (documentation && documentation.length) for (const documentationNode of documentation) {
-            // Get the first JSDocComment
-            if (documentationNode.kind == ts.SyntaxKind.JSDocComment) {
+        if (documentation && documentation.length) {
+            for (const documentationNode of documentation) {
+                // Get the first JSDocComment
+                if (documentationNode.kind != ts.SyntaxKind.JSDocComment) continue;
                 // Its text represents the service description
                 const JSDocComment = documentationNode as ts.JSDoc;
                 service.description = this.getDescription(JSDocComment) || '';
 
                 // The various tags represent the parameter and result type descriptions
-                if (JSDocComment.tags) for (const tag of JSDocComment.tags) {
-                    // The return tag can be applied directly to the result type
-                    if (tag.kind == ts.SyntaxKind.JSDocReturnTag) {
-                        service.resultType.description = this.getDescription(tag) || '';
-                    }
-                    // For parameters it is necessary to match each parameter to its corresponding tag
-                    else if (tag.kind == ts.SyntaxKind.JSDocParameterTag) {
-                        const parameterTag = tag as ts.JSDocParameterTag;
+                if (JSDocComment.tags) {
+                    for (const tag of JSDocComment.tags) {
+                        if (tag.kind == ts.SyntaxKind.JSDocReturnTag) {
+                            // The return tag can be applied directly to the result type
+                            service.resultType.description = this.getDescription(tag) || '';
+                        }
+                        else if (tag.kind == ts.SyntaxKind.JSDocParameterTag) {
+                            // For parameters it is necessary to match each parameter to its corresponding tag
+                            const parameterTag = tag as ts.JSDocParameterTag;
 
-                        for (const parameter of service.parameterDefinitions) {
-                            if (parameterTag.name.getText() == parameter.name) {
-                                parameter.description = this.getDescription(parameterTag) || '';
-                                break;
+                            for (const parameter of service.parameterDefinitions) {
+                                if (parameterTag.name.getText() == parameter.name) {
+                                    parameter.description = this.getDescription(parameterTag) || '';
+                                    break;
+                                }
                             }
                         }
                     }
@@ -2889,6 +3001,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
             this.deploymentEndpoints.push(`Things/${this.exportedName}/Services/${service.name}`);
         }
 
+        // Merge any declared permissions into this entity's permissions
         this.runtimePermissions = this.mergePermissionListsForNode([this.runtimePermissions].concat(this.permissionsOfNode(node, service.name)), node);
 
         this.services.push(service);
@@ -3165,33 +3278,46 @@ Failed parsing at: \n${node.getText()}\n\n`);
             this.throwErrorForNode(node, 'Subscriptions cannot be overriden');
         }
 
+        // Subscriptions cannot have documentation for arguments and cannot have a return type
+        // so that the entire JSDoc documentation can be used directly
         subscription.description = this.documentationOfNode(node);
 
         if (this.hasDecoratorNamed('localSubscription', node)) {
+            // A local subscription refers to the entity it's declared on, so it doesn't need a source argument
             subscription.sourceType = this.entityKind as unknown as TWSubscriptionSourceKind;
 
+            // All arguments of this decorator must be literal strings
             const localArguments = this.argumentsOfDecoratorNamed('localSubscription', node)!;
             for (const arg of localArguments) {
                 if (arg.kind != ts.SyntaxKind.StringLiteral) this.throwErrorForNode(node, 'The arguments of the localSubscription decorator must be string literals.');
             }
 
+            // The first argument is the event to which to subscribe
             subscription.eventName = (localArguments[0] as ts.StringLiteral).text;
 
+            // The second argument, if specified, only applies to the data change event
+            // and represents the source property
             if (subscription.eventName == 'DataChange') {
                 subscription.sourceProperty = (localArguments[1] as ts.StringLiteral).text;
             }
         }
         else {
+            // For subscriptions to other entities, the source type may only be thing
             subscription.sourceType = TWSubscriptionSourceKind.Thing;
 
+            // All arguments of this decorator must be literal strings
             const localArguments = this.argumentsOfDecoratorNamed('subscription', node)!;
             for (const arg of localArguments) {
                 if (arg.kind != ts.SyntaxKind.StringLiteral) this.throwErrorForNode(node, 'The arguments of the subscription decorator must be string literals.');
             }
 
+            // The first argument is the name of the thing to which to subscribe
             subscription.source = (localArguments[0] as ts.StringLiteral).text;
+            // The second argument is the name of the event to which to subscribe
             subscription.eventName = (localArguments[1] as ts.StringLiteral).text;
 
+            // The second argument, if specified, only applies to the data change event
+            // and represents the source property
             if (subscription.eventName == 'DataChange') {
                 subscription.sourceProperty = (localArguments[2] as ts.StringLiteral).text;
             }
@@ -3199,15 +3325,19 @@ Failed parsing at: \n${node.getText()}\n\n`);
 
         subscription.code = node.body!.getText();
 
+        // Merge this subscription's declared permissions into this entity's permissions
         const permissions = this.permissionsOfNode(node);
         if (Object.keys(permissions).length) {
             this.throwErrorForNode(node, `Permission decorators are not allowed for subscriptions.`);
         }
 
+        // Deploy is defined as applicable to methods, but subscriptions cannot be used for it
+        // because there is no way to trigger them on demand without triggering the associated event
         if (this.hasDecoratorNamed('deploy', node)) {
             this.throwErrorForNode(node, `The @deploy decorator cannot be used on subscriptions.`);
         }
 
+        // Mark this node for visiting for code replacements
         if (this.debug) {
             this.debugMethodNodes.set(node, subscription);
         }
