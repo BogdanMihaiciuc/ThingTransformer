@@ -2351,7 +2351,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
      * @param expression        The expression whose type should be inferred.
      * @returns                 A string representing the thingwor xbase type of the expression.
      */
-    private getBaseTypeOfExpression(expression: ts.Expression): string {
+    private getBaseTypeOfExpression(expression: ts.Expression): string | undefined {
         const typeChecker = this.program.getTypeChecker();
         const inferredType = typeChecker.getTypeAtLocation(expression);
         let typeName = typeChecker.typeToString(inferredType);
@@ -2373,7 +2373,90 @@ Failed parsing at: \n${node.getText()}\n\n`);
             typeName = 'TWJSON';
         }
 
-        return TWBaseTypes[typeName];
+        // Map the inferred type to a thingworx base type
+        const type = TWBaseTypes[typeName];
+
+        if (!type) {
+            // If the type could not determined, try to map to a primitive type
+            const flags = inferredType.flags;
+
+            // Test using the flags whether the type can be represented by a primitive type
+            // It looks like related flags such as StringLike, StringLiteral and String do not have common bits
+            // so it is necessary to check each separately
+            if ((flags & ts.TypeFlags.StringLike) == ts.TypeFlags.StringLike) {
+                return 'STRING';
+            }
+            else if ((flags & ts.TypeFlags.NumberLike) == ts.TypeFlags.NumberLike) {
+                return 'NUMBER';
+            }
+            else if ((flags & ts.TypeFlags.BooleanLike) == ts.TypeFlags.BooleanLike) {
+                return 'BOOLEAN';
+            }
+            else if ((flags & ts.TypeFlags.String) == ts.TypeFlags.String) {
+                return 'STRING';
+            }
+            else if ((flags & ts.TypeFlags.Number) == ts.TypeFlags.Number) {
+                return 'NUMBER';
+            }
+            else if ((flags & ts.TypeFlags.Boolean) == ts.TypeFlags.Boolean) {
+                return 'BOOLEAN';
+            }
+            else if ((flags & ts.TypeFlags.StringLiteral) == ts.TypeFlags.StringLiteral) {
+                return 'STRING';
+            }
+            else if ((flags & ts.TypeFlags.NumberLiteral) == ts.TypeFlags.NumberLiteral) {
+                return 'NUMBER';
+            }
+            else if ((flags & ts.TypeFlags.BooleanLiteral) == ts.TypeFlags.BooleanLiteral) {
+                return 'BOOLEAN';
+            }
+            else if ((flags & ts.TypeFlags.Union) == ts.TypeFlags.Union) {
+                if (!inferredType.isUnion()) {
+                    return;
+                }
+
+                // If the type is a type union, a valid type would need the union to all have the same type
+                const types = inferredType.types;
+                if (!types) return;
+
+                // If the types are of the same kind, AND all the flags together and they
+                // should AND with the appropriate TypeLike flag at the end
+                let finalFlags = types[0]?.flags || 0;
+                for (const type of types) {
+                    finalFlags &= type.flags;
+                }
+
+                if ((finalFlags & ts.TypeFlags.StringLike) == ts.TypeFlags.StringLike) {
+                    return 'STRING';
+                }
+                else if ((finalFlags & ts.TypeFlags.NumberLike) == ts.TypeFlags.NumberLike) {
+                    return 'NUMBER';
+                }
+                else if ((finalFlags & ts.TypeFlags.BooleanLike) == ts.TypeFlags.BooleanLike) {
+                    return 'BOOLEAN';
+                }
+                else if ((finalFlags & ts.TypeFlags.String) == ts.TypeFlags.String) {
+                    return 'STRING';
+                }
+                else if ((finalFlags & ts.TypeFlags.Number) == ts.TypeFlags.Number) {
+                    return 'NUMBER';
+                }
+                else if ((finalFlags & ts.TypeFlags.Boolean) == ts.TypeFlags.Boolean) {
+                    return 'BOOLEAN';
+                }
+                else if ((finalFlags & ts.TypeFlags.StringLiteral) == ts.TypeFlags.StringLiteral) {
+                    return 'STRING';
+                }
+                else if ((finalFlags & ts.TypeFlags.NumberLiteral) == ts.TypeFlags.NumberLiteral) {
+                    return 'NUMBER';
+                }
+                else if ((finalFlags & ts.TypeFlags.BooleanLiteral) == ts.TypeFlags.BooleanLiteral) {
+                    return 'BOOLEAN';
+                }
+            }
+        }
+
+        return type;
     }
 
     /**
