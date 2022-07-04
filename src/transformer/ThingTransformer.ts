@@ -3592,7 +3592,7 @@ Failed parsing at: \n${node.getText()}\n\n`);
                         // If this function is defined in a different file and hasn't yet been processed, do it now
                         // This is required because otherwise, in the after phase, there will be no reference to this
                         // function that can be inlined
-                        if (filename != this.filename) {
+                        if (this.filename && filename != path.normalize(this.filename)) {
                             if (!this.store['@globalFunctions']?.[name]) {
                                 this.compileGlobalFunction(functionDeclaration);
                             }
