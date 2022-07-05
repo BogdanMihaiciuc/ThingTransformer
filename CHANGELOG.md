@@ -1,3 +1,7 @@
+# 1.4.6
+
+Resolves an issue where using recursive global functions would lead to a compilation error when building on windows systems. ([elena-bi](https://github.com/elena-bi))
+
 # 1.4.5
 
 Improved the error messages that appear when declaring a service parameter with certain unsupported types. ([stefan-lacatus](https://github.com/stefan-lacatus))
