@@ -1,3 +1,7 @@
+# 1.4.7
+
+Resolves a typing issue where the not equal filter was being called NEQ instead of NE and added the missing NOTLIKE filter. ([stefan-lacatus](https://github.com/stefan-lacatus))
+
 # 1.4.6
 
 Resolves an issue where using recursive global functions would lead to a compilation error when building on windows systems. ([elena-bi](https://github.com/elena-bi))
