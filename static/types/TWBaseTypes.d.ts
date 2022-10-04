@@ -379,7 +379,7 @@ declare interface AndOrQueryFilter<T> {
 }
 
 type SingleValueFilter<T> = keyof T extends infer K ? K extends keyof T ? {
-    type: 'EQ' | 'NEQ' | 'LIKE' | 'GT' | 'LT' | 'LE' | 'GE'
+    type: 'EQ' | 'NE' | 'LIKE' | 'GT' | 'LT' | 'LE' | 'GE' | 'NOTLIKE';
     fieldName: K;
     value: T[K];
 } : never : never;
