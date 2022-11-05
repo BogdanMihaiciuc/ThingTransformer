@@ -4291,21 +4291,23 @@ Failed parsing at: \n${node.getText()}\n\n`);
                 }
             }
 
-            result = '\n' + result;
+            let methodHelpers = '';
             if (this.methodHelpers.methodName && method['@methodHelpers'].has('METHOD_NAME')) {
-                result = `const METHOD_NAME = "${name}";\n` + result;
+                methodHelpers += `const METHOD_NAME = "${name}";\n`;
             }
             if (this.methodHelpers.className && method['@methodHelpers'].has('CLASS_NAME')) {
-                result = `const CLASS_NAME = "${entity.className}";\n` + result;
+                methodHelpers += `const CLASS_NAME = "${entity.className}";\n`;
             }
             if (this.methodHelpers.filePath && method['@methodHelpers'].has('FILE_PATH')) {
                 // Relativize the path to the file, to contain it to the project directory
                 const relativeFilePath = entity.projectName + '' + entity.filename?.replace(entity.root, '');
-                result = `const FILE_PATH = "${relativeFilePath}";\n` + result;
+                methodHelpers += `const FILE_PATH = "${relativeFilePath}";\n`;
             }
             if (this.methodHelpers.logPrefix && method['@methodHelpers'].has('LOG_PREFIX')) {
-                result = "const LOG_PREFIX = " + this.methodHelpers.logPrefix  + ";\n" + result;
+                // Because the LOG_PREFIX may reference the other helpers, append it at the end
+                methodHelpers += "const LOG_PREFIX = " + this.methodHelpers.logPrefix + ";\n";
             }
+            result = methodHelpers + result;
         }
         return result;
     }
