@@ -1,3 +1,7 @@
+# 1.4.8
+
+Resolves an issue where the `LOG_PREFIX` constant was delcared before the other log helpers which prevented it from referencing them. ([stefan-lacatus](https://github.com/stefan-lacatus))
+
 # 1.4.7
 
 Resolves a typing issue where the not equal filter was being called NEQ instead of NE and added the missing NOTLIKE filter. ([stefan-lacatus](https://github.com/stefan-lacatus))
