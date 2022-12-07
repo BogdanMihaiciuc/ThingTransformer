@@ -1,6 +1,6 @@
 import * as ts from 'typescript';
 import { InlineSQL, MethodHelpers, TWConfig } from '../configuration/TWConfig';
-import { TWEntityKind, TWPropertyDefinition, TWServiceDefinition, TWEventDefinition, TWSubscriptionDefinition, TWBaseTypes, TWPropertyDataChangeKind, TWFieldBase, TWPropertyRemoteBinding, TWPropertyRemoteFoldKind, TWPropertyRemotePushKind, TWPropertyRemoteStartKind, TWPropertyBinding, TWSubscriptionSourceKind, TWServiceParameter, TWDataShapeField, TWConfigurationTable, TWRuntimePermissionsList, TWVisibility, TWExtractedPermissionLists, TWRuntimePermissionDeclaration, TWPrincipal, TWPermission, TWUser, TWUserGroup, TWPrincipalBase, TWOrganizationalUnit, TWConnection, TWDataThings, TWInfoTable, GlobalFunction, GlobalFunctionReference, DiagnosticMessage, DiagnosticMessageKind, TWThing } from './TWCoreTypes';
+import { TWEntityKind, TWPropertyDefinition, TWServiceDefinition, TWEventDefinition, TWSubscriptionDefinition, TWBaseTypes, TWPropertyDataChangeKind, TWFieldBase, TWPropertyRemoteBinding, TWPropertyRemoteFoldKind, TWPropertyRemotePushKind, TWPropertyRemoteStartKind, TWPropertyBinding, TWSubscriptionSourceKind, TWServiceParameter, TWDataShapeField, TWConfigurationTable, TWRuntimePermissionsList, TWVisibility, TWExtractedPermissionLists, TWRuntimePermissionDeclaration, TWPrincipal, TWPermission, TWUser, TWUserGroup, TWPrincipalBase, TWOrganizationalUnit, TWConnection, TWDataThings, TWInfoTable, GlobalFunction, GlobalFunctionReference, DiagnosticMessage, DiagnosticMessageKind, TWThing, TraceKind, TraceNodeInformation } from './TWCoreTypes';
 import { Breakpoint } from './DebugTypes';
 import { Builder } from 'xml2js';
 import * as fs from 'fs';
@@ -141,6 +141,11 @@ interface TWCodeTransformer {
     debug?: boolean;
 
     /**
+     * Set to `true` if a trace build should be generated.
+     */
+    trace: boolean;
+
+    /**
      * When set to `true`, function declarations in the global scope will be permitted.
      */
     globalFunctionsEnabled?: boolean;
@@ -170,6 +175,11 @@ interface TWCodeTransformer {
      * A map of existing breakpoint locations.
      */
     breakpointLocations: { [key: number]: { [key:number]: boolean } };
+
+    /**
+     * A map used to associate additional information to trace measurement nodes.
+     */
+    _traceNodes: WeakMap<ts.Node, TraceNodeInformation>;
 
     /**
      * An object containing instances of the transformer.
@@ -272,7 +282,41 @@ interface TWCodeTransformer {
      * @param targetNode        When `expression` is `undefined`, the node from which to get the position information.
      * @returns                 A typescript expression.
      */
-    commaCheckpointExpression(this: TWCodeTransformer, expression: ts.Expression | undefined, targetNode?: ts.Node): ts.Expression
+    commaCheckpointExpression(this: TWCodeTransformer, expression: ts.Expression | undefined, targetNode?: ts.Node): ts.Expression;
+
+    /**
+     * Returns an expression that wraps the specified call expresion in a trace expression, measuring
+     * the time it takes to execute.
+     * @param expression        The expression to measure.
+     * @param sourceNode        If specified, a node that contains the original position information for the expression.
+     * @returns                 A trace expression.
+     */
+     traceExpression(this: TWCodeTransformer, expression: ts.CallExpression, sourceNode?: ts.Node): ts.Expression;
+
+     /**
+      * Returns a string literal that represents the name by which the specified
+      * expression should be reprsented in the profile report.
+      * @param expression    The node whose name should be determined.
+      * @returns             A string literal containing the expression's name.
+      */
+     traceNameOfNode(this: TWCodeTransformer, expression: ts.Node): ts.StringLiteral;
+
+     /**
+      * Returns an expression that is used as an argument for the trace position of the specified node.
+      * @param node              The node whose position should be determined.
+      * @param sourceNode        When `node` is a synthetic node, this represents the orgiinal node
+      *                          that actually contains the positioning information.
+      * @returns                 An expression that contains the line number, or the undefined keyword
+      *                          if the position could not be determined.
+      */
+     tracePositionOfNode(this: TWCodeTransformer, node: ts.Node, sourceNode?: ts.Node): ts.Expression;
+
+     /**
+      * Adds a measurement block around the specified try/catch statement.
+      * @param tryStatement      The try/catch statement.
+      * @returns                 A replacement try/catch statement.
+      */
+     traceMeasurementTryBlock(tryStatement: ts.TryStatement): ts.TryStatement;
 
 }
 
@@ -574,9 +618,17 @@ export class TWThingTransformer implements TWCodeTransformer {
     debugMethodNodes: WeakMap<ts.Node, TWServiceDefinition | TWSubscriptionDefinition> = new WeakMap;
 
     /**
-     * Set to `true` if this transformer should generate debugging information.
+     * Set to `true` if this transformer should generate debugging information. Debugging information includes
+     * calls to the debugger runtime used to determine if execution should pause as well as information about
+     * where in the source files execution is currently at.
      */
     debug?: boolean;
+
+    /**
+     * Set to `true` if this transformer should generate tracing information. When tracing information is enabled,
+     * all function calls are prefixed and suffixed by code that measures how long they take.
+     */
+    trace: boolean = false;
 
     /**
      * An array of breakpoint locations that have been added in a debug build.
@@ -611,9 +663,16 @@ export class TWThingTransformer implements TWCodeTransformer {
         const limit = Error.stackTraceLimit;
         try {
             Error.stackTraceLimit = 0;
-            const {line, character} = node.getSourceFile().getLineAndCharacterOfPosition(node.getStart());
-            throw new Error(`Error in file ${node.getSourceFile().fileName}:${line},${character}\n\n${error}\n
-Failed parsing at: \n${node.getText()}\n\n`);
+            const sourceFile = node.getSourceFile() || this.sourceFile;
+            try {
+                const {line, character} = sourceFile.getLineAndCharacterOfPosition(node.getStart());
+                throw new Error(`Error in file ${sourceFile.fileName}:${line},${character}\n\n${error}\n
+    Failed parsing at: \n${node.getText()}\n\n`);
+            }
+            catch (e) {
+                // For synthetic nodes, the line and character positions cannot be determined
+                throw new Error(`Error in file ${sourceFile?.fileName}\n\n${error}\n`);
+            }
         }
         finally {
             Error.stackTraceLimit = limit;
@@ -3411,11 +3470,13 @@ Failed parsing at: \n${node.getText()}\n\n`);
         const transformer: TWCodeTransformer = {
             _debugBreakpointCounter: debugInformation._debugBreakpointCounter,
             debug: this.debug,
+            trace: this.trace,
             breakpointLocations: debugInformation.breakpointLocations,
             breakpoints: debugInformation.breakpoints,
             _debugMethodNodeReplacements: new WeakMap,
             context: this.context,
             nodeReplacementMap: new WeakMap,
+            _traceNodes: new WeakMap,
             program: this.program,
             repoPath: this.repoPath,
             filename: source.fileName,
@@ -3433,7 +3494,11 @@ Failed parsing at: \n${node.getText()}\n\n`);
             visitCodeNode: this.visitCodeNode,
             visitDebugMethodNode: this.visitDebugMethodNode,
             visitGlobalFunctionNode: this.visitGlobalFunctionNode,
-            visitMethodNode: this.visitMethodNode
+            visitMethodNode: this.visitMethodNode,
+            traceExpression: this.traceExpression,
+            traceNameOfNode: this.traceNameOfNode,
+            tracePositionOfNode: this.tracePositionOfNode,
+            traceMeasurementTryBlock: this.traceMeasurementTryBlock,
         };
 
         return transformer;
@@ -3700,6 +3765,19 @@ Failed parsing at: \n${node.getText()}\n\n`);
 
         this.evaluateGlobalFunctionNode(node, fn);
 
+        // If the node is a call expression, decorate it for tracing if enabled
+        if (this.trace && node.kind == ts.SyntaxKind.CallExpression) {
+            return this.traceExpression(node as ts.CallExpression);
+        }
+
+        // If the node is a try/catch statement with a catch block, decorate it for tracing if enabled
+        if (this.trace && node.kind == ts.SyntaxKind.TryStatement) {
+            const tryNode = node as ts.TryStatement;
+            if (tryNode.catchClause) {
+                return this.traceMeasurementTryBlock(tryNode);
+            }
+        }
+
         return node;
     }
 
@@ -3927,7 +4005,17 @@ Failed parsing at: \n${node.getText()}\n\n`);
      * @returns             The transformed node.
      */
     visitMethodNode(this: TWCodeTransformer, node: ts.Node, service?: TWServiceDefinition | TWSubscriptionDefinition): ts.Node | undefined {
-        node = ts.visitEachChild(node, n => this.visitMethodNode(n, service), this.context);
+        node = ts.visitEachChild(node, n => {
+            const replacementNode = this.visitMethodNode(n, service);
+
+            // If visiting returns a replacement, store a reference to the original node it replaces
+            // for the cases where the transformer needs to access the original node
+            if (replacementNode && replacementNode != n) {
+                this._debugMethodNodeReplacements.set(replacementNode, n);
+            }
+
+            return replacementNode;
+        }, this.context);
 
         // If the node has been marked for replacement, return its replacement directly
         if (this.nodeReplacementMap.get(node)) {
@@ -3947,8 +4035,15 @@ Failed parsing at: \n${node.getText()}\n\n`);
             case ts.SyntaxKind.CallExpression:
                 const n11 = node as ts.CallExpression;
 
+                let replacementCallExpression: ts.Expression = n11;
+
+                // If tracing is enabled, wrap this call expression in a trace expression
+                if (this.trace) {
+                    replacementCallExpression = this.traceExpression(n11);
+                }
+
                 // If global functions are not enabled, there's no need to inline global functions
-                if (!this.globalFunctionsEnabled) return node;
+                if (!this.globalFunctionsEnabled) return replacementCallExpression;
 
                 // If a service is specified, add references to global functions to it so that they can be inlined afterwards
                 if (service) {
@@ -3958,7 +4053,15 @@ Failed parsing at: \n${node.getText()}\n\n`);
                     }
                 }
 
-                return node;
+                return replacementCallExpression;
+            case ts.SyntaxKind.TryStatement:
+                const n12 = node as ts.TryStatement;
+
+                // For a try/catch block, add a measurement block in trace builds
+                if (n12.catchClause && this.trace) {
+                    return this.traceMeasurementTryBlock(n12);
+                }
+                break;
             case ts.SyntaxKind.TaggedTemplateExpression:
                 // Tagged templates can represent SQL statements which need to be replaced by service calls
                 const template = node as ts.TaggedTemplateExpression;
@@ -3966,7 +4069,13 @@ Failed parsing at: \n${node.getText()}\n\n`);
                 if (service) {
                     // If a replacement is found, return it; when the service argument is provided
                     const replacement = (this as TWThingTransformer).visitTaggedTemplateLiteralNode(template, service);
+
                     if (replacement) {
+                        // In trace builds, also measure this block
+                        if (this.trace) {
+                            return this.traceExpression(replacement, template);
+                        }
+
                         return replacement;
                     }
                 }
@@ -4085,20 +4194,47 @@ Failed parsing at: \n${node.getText()}\n\n`);
                         case ts.SyntaxKind.PropertyDeclaration:
                         case ts.SyntaxKind.VariableDeclaration:
                         case ts.SyntaxKind.ExpressionStatement:
+                            if (this.trace) {
+                                return this.traceExpression(n11);
+                            }
                             return n11;
                         case ts.SyntaxKind.BinaryExpression:
                             const parent = n11.parent as ts.BinaryExpression;
                             if (parent.right == n11 && parent.operatorToken.kind == ts.SyntaxKind.EqualsToken) {
+                                if (this.trace) {
+                                    return this.traceExpression(n11);
+                                }
                                 return n11;
                             }
                     }
                 }
-                return this.commaCheckpointExpression(n11);
+
+                // If tracing is enabled, wrap this call expression in a trace expression and
+                // then wrap the trace expression in a checkpoint expression
+                let traceNode: ts.Expression = n11;
+                if (this.trace) {
+                    traceNode = this.traceExpression(n11);
+                }
+
+                return this.commaCheckpointExpression(traceNode, n11);
             case ts.SyntaxKind.Identifier:
                 const n12 = node as ts.Identifier;
+
+                // The __d identifier is reserved in debug builds as it refers to the debugger runtime
                 if (n12.text == '__d') {
                     this.throwErrorForNode(node, `The "__d" identifier is reserved for the debugger in debug builds.`);
                 }
+
+                // The __r identifier is reserved in trace builds as it refers to the profiler
+                if (n12.text == '__r' && this.trace) {
+                    this.throwErrorForNode(node, `The "__r" identifier is reserved in trace builds.`);
+                }
+
+                // The __ret identifier is reserved in trace builds as it refers to function return values
+                if (n12.text == '__ret' && this.trace) {
+                    this.throwErrorForNode(node, `The "__ret" identifier is reserved in trace builds.`)
+                }
+
                 // For identifiers, verify if they represent helper names and if they do add them
                 // as dependencies
                 if (MethodHelperIdentifiers.includes(n12.text)) {
@@ -4114,13 +4250,223 @@ Failed parsing at: \n${node.getText()}\n\n`);
                     // a thing transformer rather than a code transformer
                     const replacement = (this as TWThingTransformer).visitTaggedTemplateLiteralNode(template, service);
                     if (replacement) {
+                        // In trace builds, also measure this block
+                        if (this.trace) {
+                            return this.commaCheckpointExpression(
+                                this.traceExpression(replacement, template),
+                                node
+                            );
+                        }
+
                         return this.commaCheckpointExpression(replacement, node);
                     }
+                }
+                return node;
+            case ts.SyntaxKind.TryStatement:
+                const n13 = node as ts.TryStatement;
+                if (n13.catchClause && this.trace) {
+                    return this.traceMeasurementTryBlock(n13);
                 }
                 return node;
         }
 
         return node;
+    }
+
+    /**
+     * Returns a string literal that represents the name by which the specified
+     * expression should be reprsented in the profile report.
+     * @param expression    The epxression whose name should be determined.
+     * @returns             A string literal containing the expression's name.
+     */
+    traceNameOfNode(this: TWCodeTransformer, expression: ts.Node): ts.StringLiteral {
+        switch (expression.kind) {
+            case ts.SyntaxKind.Identifier:
+                // For identifiers (global functions), just return the identifier directly
+                return ts.factory.createStringLiteral((expression as ts.Identifier).text);
+            case ts.SyntaxKind.PropertyAccessExpression:
+                // For property access, return the name of the property
+                return this.traceNameOfNode((expression as ts.PropertyAccessExpression).name);
+            case ts.SyntaxKind.TaggedTemplateExpression:
+                // For tagged template expressions, these are currently always inline SQL
+                return ts.factory.createStringLiteral('<SQL>');
+            default:
+                try {
+                    // For other kinds, return the entire expression as text
+                    return ts.factory.createStringLiteral(expression.getText());
+                }
+                catch (e) {
+                    // For synthetic nodes, this information doesn't exist, so just return <computed>
+                    // TODO: There should be a better way to handle this
+                    return ts.factory.createStringLiteral('<computed>');
+                }
+        }
+    }
+
+    /**
+     * A map used to associate additional information to trace nodes.
+     */
+    _traceNodes: WeakMap<ts.Node, TraceNodeInformation> = new WeakMap;
+
+    /**
+     * Returns an expression that is used as an argument for the trace position of the specified node.
+     * @param node              The node whose position should be determined.
+     * @param sourceNode        When `node` is a synthetic node, this represents the orgiinal node
+     *                          that actually contains the positioning information.
+     * @returns                 An expression that contains the line number, or the undefined keyword
+     *                          if the position could not be determined.
+     */
+    tracePositionOfNode(this: TWCodeTransformer, node: ts.Node, sourceNode?: ts.Node): ts.Expression {
+        let positionNode: ts.Node | undefined = node;
+
+        if (!positionNode || positionNode.pos == -1 || positionNode.end == -1) {
+            // If the expression is a synthetic node, attempt to use the target node instead
+            if (sourceNode) {
+                positionNode = sourceNode;
+            }
+        }
+
+        // If the node is a synthetic node, try to obtain the position at the closest non-synthetic parent
+        while (positionNode) {
+            if (positionNode.pos == -1 || positionNode.end == -1) {
+                positionNode = positionNode.parent;
+            }
+            else {
+                break;
+            }
+        }
+
+        // If a position cannot be determined, use the undefined keyword
+        if (!positionNode) {
+            return ts.factory.createIdentifier('undefined');
+        }
+
+        const startPosition = positionNode.getStart(this.sourceFile, false);
+        const start = ts.getLineAndCharacterOfPosition(this.sourceFile!, startPosition);
+
+        return ts.factory.createNumericLiteral(start.line);
+    }
+
+    /**
+     * Returns an expression that wraps the specified call expresion in a trace expression, measuring
+     * the time it takes to execute.
+     * @param expression        The expression to measure.
+     * @param sourceNode        If specified, a node that contains the original positioning information of the expression.
+     * @returns                 A trace expression.
+     */
+    traceExpression(this: TWCodeTransformer, expression: ts.CallExpression, sourceNode?: ts.Node): ts.Expression {
+        // Determine where the called expression is coming from, to apply an appropriate color
+        // to the measured block at runtime.
+        const symbol = this.program.getTypeChecker().getSymbolAtLocation(sourceNode || expression.expression);
+        let kind = TraceKind.Unknown;
+        if (symbol) {
+            const files = symbol.getDeclarations()?.map(d => d.getSourceFile().fileName) || [];
+
+            // Standard library files are in either node_modules/typescript or node_modules/@type
+            if (files.some(f => {
+                return f.includes('node_modules/typescript') || f.includes('node_modules/@type');
+            })) {
+                kind = TraceKind.Standard;
+            }
+
+            // Standard thingworx files are in static/types
+            if (files.some(f => f.includes('static/types'))) {
+                kind = TraceKind.Thingworx;
+            }
+
+            // Imported files are in tw_imports
+            if (files.some(f => f.includes('tw_imports'))) {
+                kind = TraceKind.Import;
+            }
+
+            // Project files start with src
+            if (files.some(f => f.startsWith(this.repoPath + 'src'))) {
+                kind = TraceKind.Project;
+            }
+        }
+
+        // Associate the additional information object to the node.
+        let information: Partial<TraceNodeInformation> = {
+            callExpression: expression,
+            delaysParentMeasurement: false
+        };
+
+        this._traceNodes.set(expression, information as TraceNodeInformation);
+
+        // The expression will look like the following:
+        // (__r.begin(<name>), __ret = <expression>, __r.finish(), __ret)
+        return ts.factory.createCommaListExpression([
+            // __r.begin(<name>)
+            information.traceStartNode = ts.factory.createCallExpression(
+                ts.factory.createPropertyAccessExpression(
+                    ts.factory.createIdentifier('__r'),
+                    'begin'
+                ),
+                undefined,
+                [
+                    this.traceNameOfNode(sourceNode || expression.expression),
+                    ts.factory.createStringLiteral(this.filename || ''),
+                    this.tracePositionOfNode(expression, sourceNode),
+                    ts.factory.createStringLiteral(kind)
+                ]
+            ),
+            // __ret = expression
+            ts.factory.createAssignment(
+                ts.factory.createIdentifier('__ret'),
+                expression
+            ),
+            // __r.finish
+            information.traceEndNode = ts.factory.createCallExpression(
+                ts.factory.createPropertyAccessExpression(
+                    ts.factory.createIdentifier('__r'),
+                    'finish'
+                ),
+                undefined,
+                []
+            ),
+            // __ret
+            ts.factory.createIdentifier('__ret'),
+        ]);
+    }
+
+    /**
+     * Adds a measurement block around the specified try/catch statement. The specified
+     * try statement must have a catch clause.
+     * @param tryStatement      The try/catch statement.
+     * @returns                 A replacement try/catch statement.
+     */
+    traceMeasurementTryBlock(tryStatement: ts.TryStatement): ts.TryStatement {
+        return ts.factory.createTryStatement(
+            ts.factory.createBlock(
+                [ts.factory.createExpressionStatement(
+                    ts.factory.createCallExpression(
+                        ts.factory.createPropertyAccessExpression(
+                            ts.factory.createIdentifier('__r'),
+                            'retain'
+                        ),
+                        undefined,
+                        []
+                    )
+                ),...tryStatement.tryBlock.statements],
+                true
+            ),
+            ts.factory.createCatchClause(
+                tryStatement.catchClause!.variableDeclaration,
+                ts.factory.createBlock(
+                    [ts.factory.createExpressionStatement(
+                        ts.factory.createCallExpression(
+                            ts.factory.createPropertyAccessExpression(
+                                ts.factory.createIdentifier('__r'),
+                                'release'
+                            ),
+                            undefined,
+                            []
+                        )
+                    ) as ts.Statement].concat(tryStatement.catchClause!.block.statements)
+                )
+            ),
+            tryStatement.finallyBlock
+        )
     }
 
     /**
@@ -4567,15 +4913,45 @@ Failed parsing at: \n${node.getText()}\n\n`);
 
                 // In debug mode, additional code is added to activate and deactivate the debugger
                 if (this.debug) {
+
+                    // TODO: With all the options enabled, this code is starting to be difficult to maintain and will need to be refactored
+
                     service.code = `
 const __d = BMDebuggerRuntime.localDebugger(); 
 const __dLogger = __d.getLogger();
 __d.retainForService({name: ${JSON.stringify(service.name)}, filename: ${JSON.stringify(entity.sourceFile?.fileName)}, scopeStack: []}); 
+${this.trace ? `
+const __r = BMProfilerRuntime.localProfiler;
+var __ret;
+
+__r.retain();
+__r.beginImplicit(${JSON.stringify(service.name)}, ${JSON.stringify(entity.sourceFile?.fileName)});
+` : ''}
 try { 
     var result = (function (logger) {${service.code}}).apply(me, [__dLogger]);
+    ${this.trace ? `__r.finishImplicit(); ` : ''}
 } 
-finally { 
-    __d.release(); 
+finally {
+    ${this.trace ? `
+        __r.release();
+    ` : ''}
+    __d.release();
+}`;
+                }
+                else if (this.trace) {
+                    service.code = `
+const __r = BMProfilerRuntime.localProfiler;
+var __ret;
+
+__r.retain();
+__r.beginImplicit(${JSON.stringify(service.name)}, ${JSON.stringify(entity.sourceFile?.fileName)});
+try { 
+    var result = (function () {${service.code}}).apply(me);
+    __r.finishImplicit(); 
+} 
+finally {
+    __r.release();
+
 }`;
                 }
                 else {
@@ -4590,13 +4966,40 @@ finally {
                     subscription.code = `
 const __d = BMDebuggerRuntime.localDebugger(); 
 const __dLogger = __d.getLogger();
-__d.retainForService({name: ${JSON.stringify(subscription.name)}, filename: ${JSON.stringify(entity.sourceFile?.fileName)}, scopeStack: []}); 
+__d.retainForService({name: ${JSON.stringify(subscription.name)}, filename: ${JSON.stringify(entity.sourceFile?.fileName)}, scopeStack: []});
+${this.trace ? `
+const __r = BMProfilerRuntime.localProfiler;
+var __ret;
+
+__r.retain();
+__r.beginImplicit(${JSON.stringify(subscription.name)}, ${JSON.stringify(entity.sourceFile?.fileName)});
+` : ''}
 try { 
     (function (logger) {${subscription.code}}).apply(me, [__dLogger]);
+    ${this.trace ? `__r.finishImplicit();` : ''}
 } 
-finally { 
+finally {
+    ${this.trace ? `
+        __r.release();
+    ` : ''}
     __d.release(); 
 }`;
+                }
+                else if (this.trace) {
+                    subscription.code = `
+const __r = BMProfilerRuntime.localProfiler;
+var __ret;
+
+__r.retain();
+__r.beginImplicit(${JSON.stringify(subscription.name)}, ${JSON.stringify(entity.sourceFile?.fileName)});
+try { 
+    (function () {${transpiledBody}}).apply(me);
+    __r.finishImplicit(); 
+} 
+finally {
+    __r.release();
+
+}`
                 }
                 else {
                     //const body = ts.createPrinter().printNode(ts.EmitHint.Unspecified, node.body, (this as any).source);
@@ -6280,6 +6683,7 @@ export function TWThingTransformerFactory(program: ts.Program, root: string, aft
                 transformer.autoGenerateDataShapeOrdinals = project.autoGenerateDataShapeOrdinals || false;
                 transformer.store = project.store;
                 transformer.debug = project.debug;
+                transformer.trace = project.trace || false;
                 transformer.generateThingInstances = project.generateThingInstances;
                 transformer.methodHelpers = project.methodHelpers;
                 transformer.globalFunctionsEnabled = project.globalFunctions;
@@ -6288,27 +6692,42 @@ export function TWThingTransformerFactory(program: ts.Program, root: string, aft
         }
     
         return (node: ts.SourceFile) => {
-            // Exclude files that originate from other projects, whose path does not contain
-            // this project's root path
-            if (transformer.isAutoProject && !path.normalize(node.fileName).startsWith(rootPath)) {
-                return node;
-            }
+            try {
+                if (typeof project == 'object') {
+                    if (!after) {
+                        project.transformerWillStartFile?.(node.fileName);
+                    }
+                }
 
-            if (!after && transformer.debug) {
-                // When running in debug mode, a different transformer may have already visited parts of this
-                // transformer's file and added debug information to it
-                // If that has happened, load the debug state saved by that transformer
-                if (transformer.store['@debugInformation']?.[node.fileName]) {
-                    const debugStore = transformer.store['@debugInformation'][node.fileName];
-                    Object.assign(transformer, {
-                        _debugBreakpointCounter: debugStore._debugBreakpointCounter,
-                        breakpointLocations: debugStore.breakpointLocations,
-                        breakpoints: debugStore.breakpoints,
-                    });
+                // Exclude files that originate from other projects, whose path does not contain
+                // this project's root path
+                if (transformer.isAutoProject && !path.normalize(node.fileName).startsWith(rootPath)) {
+                    return node;
+                }
+    
+                if (!after && (transformer.debug || transformer.trace)) {
+                    // When running in debug mode, a different transformer may have already visited parts of this
+                    // transformer's file and added debug information to it
+                    // If that has happened, load the debug state saved by that transformer
+                    if (transformer.store['@debugInformation']?.[node.fileName]) {
+                        const debugStore = transformer.store['@debugInformation'][node.fileName];
+                        Object.assign(transformer, {
+                            _debugBreakpointCounter: debugStore._debugBreakpointCounter,
+                            breakpointLocations: debugStore.breakpointLocations,
+                            breakpoints: debugStore.breakpoints,
+                        });
+                    }
+                }
+    
+                return ts.visitNode(node, node => transformer.visit(node));
+            }
+            finally {
+                if (typeof project == 'object') {
+                    if (after) {
+                        project.transformerDidFinishFile?.(node.fileName);
+                    }
                 }
             }
-
-            return ts.visitNode(node, node => transformer.visit(node))
         };
     }
 }
