@@ -2460,7 +2460,7 @@ declare class MachineTemplate extends GenericThing {
 	 * @param thingShapeName Thing shape name
 	 * @return Implements Shape
 	 */
-	ImplementsShape(args?:{thingShapeName?: THINGSHAPENAME}): BOOLEAN;
+	ImplementsShape<K extends THINGSHAPENAME>(args?:{thingShapeName?: K}): this is ThingShapes[K]['__thingShapeType'];
 
 	/**
 	 * Get the current property values for this thing as VTQ
@@ -2751,7 +2751,7 @@ declare class MachineTemplate extends GenericThing {
 	 * @param thingTemplateName Thing template name
 	 * @return Is Derived From Template
 	 */
-	IsDerivedFromTemplate(args?:{thingTemplateName?: THINGTEMPLATENAME}): BOOLEAN;
+	IsDerivedFromTemplate<K extends THINGTEMPLATENAME>(args?:{thingTemplateName?: K}): this is ThingTemplates[K]['__thingTemplateType'];
 
 	/**
 	 * Store properties of this thing to a stream
@@ -6540,7 +6540,7 @@ declare class GenericThing {
 	 * @param thingShapeName Thing shape name
 	 * @return Implements Shape
 	 */
-	ImplementsShape(args?:{thingShapeName?: THINGSHAPENAME}): BOOLEAN;
+	ImplementsShape<K extends THINGSHAPENAME>(args?:{thingShapeName?: K}): this is ThingShapes[K]['__thingShapeType'];
 
 	/**
 	 * Get the current property values for this thing as VTQ
@@ -6831,7 +6831,7 @@ declare class GenericThing {
 	 * @param thingTemplateName Thing template name
 	 * @return Is Derived From Template
 	 */
-	IsDerivedFromTemplate(args?:{thingTemplateName?: THINGTEMPLATENAME}): BOOLEAN;
+	IsDerivedFromTemplate<K extends THINGTEMPLATENAME>(args?:{thingTemplateName?: K}): this is ThingTemplates[K]['__thingTemplateType'];
 
 	/**
 	 * Store properties of this thing to a stream
