@@ -1,3 +1,25 @@
+# 1.5
+
+Added a type guard to the `ImplementsShape` and `IsDerivedFromTemplate` to improve type inferrence when using these to test.
+
+For example, the compiler will now correctly infer that the thing is a `Connectable` in the example below.
+
+```ts
+const thing = Things[name];
+
+if (thing.ImplementsShape({thingShapeName: 'Connectable'})) {
+    logger.debug(`${name} connection status: ${thing.isConnected}`); // <- Not a type error
+}
+```
+
+Added support for generating trace builds that can be used with the `BMProfiler` extension.
+
+It is now possible to specify two optional callbacks via the configuration object:
+ - `transformerWillStartFile(name: string): void` is invoked before the transformer starts processing a file in the "before" phase.
+ - `transformerDidFinishFile(name: string): void` is invoked after the transformer finishes processing a file in the "after" phaase.
+
+The configuration object now includes an additional `copyEntities` property. It is not directly used by the transformer, but is used by the cli tools to make it possible to include arbitrary XML entities to be included the built extension.
+
 # 1.4.8
 
 Resolves an issue where the `LOG_PREFIX` constant was delcared before the other log helpers which prevented it from referencing them. ([stefan-lacatus](https://github.com/stefan-lacatus))
