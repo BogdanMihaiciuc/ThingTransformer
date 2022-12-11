@@ -633,9 +633,19 @@ export interface TraceNodeInformation {
     traceStartNode: ts.CallExpression;
 
     /**
+     * The assignment expression that assigns the return value.
+     */
+    assignmentNode: ts.AssignmentExpression<ts.EqualsToken>;
+
+    /**
      * The call expression that finishes the measurement.
      */
     traceEndNode: ts.CallExpression;
+
+    /**
+     * The return node.
+     */
+    returnNode: ts.Identifier;
 
     /**
      * A flag that is used to determine whether this measurement should delay the parent measurement's

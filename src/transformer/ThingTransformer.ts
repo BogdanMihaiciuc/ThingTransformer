@@ -16,6 +16,42 @@ declare global {
 }
 
 /**
+ * Creates and returns a retain statement that creates a new measurement block
+ * for profiling.
+ * @returns         A retain statement.
+ */
+function CreateTraceRetainStatement(): ts.ExpressionStatement {
+    return ts.factory.createExpressionStatement(
+        ts.factory.createCallExpression(
+            ts.factory.createPropertyAccessExpression(
+                ts.factory.createIdentifier('__r'),
+                'retain'
+            ),
+            undefined,
+            []
+        )
+    )
+}
+
+/**
+ * Creates and returns a releases statement that closes a measurement block
+ * for profiling.
+ * @returns         A release statement.
+ */
+function CreateTraceReleaseStatement(): ts.ExpressionStatement {
+    return ts.factory.createExpressionStatement(
+        ts.factory.createCallExpression(
+            ts.factory.createPropertyAccessExpression(
+                ts.factory.createIdentifier('__r'),
+                'release'
+            ),
+            undefined,
+            []
+        )
+    )
+}
+
+/**
  * The interface for a store object that is used to hold references to transformers
  * and various project-wide information that should be shared between the transformers.
  */
@@ -3773,9 +3809,7 @@ export class TWThingTransformer implements TWCodeTransformer {
         // If the node is a try/catch statement with a catch block, decorate it for tracing if enabled
         if (this.trace && node.kind == ts.SyntaxKind.TryStatement) {
             const tryNode = node as ts.TryStatement;
-            if (tryNode.catchClause) {
-                return this.traceMeasurementTryBlock(tryNode);
-            }
+            return this.traceMeasurementTryBlock(tryNode);
         }
 
         return node;
@@ -4019,7 +4053,16 @@ export class TWThingTransformer implements TWCodeTransformer {
 
         // If the node has been marked for replacement, return its replacement directly
         if (this.nodeReplacementMap.get(node)) {
-            return this.nodeReplacementMap.get(node)!;
+            return this.nodeReplacementMap.get(node);
+        }
+
+        // This works around an issue where having default values specified on parameters changes the node
+        // TODO: Need to figure out why the node actually gets changed
+        if (node.kind == ts.SyntaxKind.Parameter && 'original' in node) {
+            const originalNode = (node as any).original as ts.Node;
+            if (this.nodeReplacementMap.get(originalNode)) {
+                return this.nodeReplacementMap.get(originalNode);
+            }
         }
 
         // If the node has a generic code replacement available, return its replacement directly
@@ -4058,7 +4101,7 @@ export class TWThingTransformer implements TWCodeTransformer {
                 const n12 = node as ts.TryStatement;
 
                 // For a try/catch block, add a measurement block in trace builds
-                if (n12.catchClause && this.trace) {
+                if (this.trace) {
                     return this.traceMeasurementTryBlock(n12);
                 }
                 break;
@@ -4128,6 +4171,15 @@ export class TWThingTransformer implements TWCodeTransformer {
         const replacementNode = this.nodeReplacementMap.get(node);
         if (replacementNode) {
             return replacementNode!;
+        }
+
+        // This works around an issue where having default values specified on parameters changes the node
+        // TODO: Need to figure out why the node actually gets changed
+        if (node.kind == ts.SyntaxKind.Parameter && 'original' in node) {
+            const originalNode = (node as any).original as ts.Node;
+            if (this.nodeReplacementMap.get(originalNode)) {
+                return this.nodeReplacementMap.get(originalNode);
+            }
         }
 
         // If the node has a generic code replacement available, return its replacement directly
@@ -4264,7 +4316,7 @@ export class TWThingTransformer implements TWCodeTransformer {
                 return node;
             case ts.SyntaxKind.TryStatement:
                 const n13 = node as ts.TryStatement;
-                if (n13.catchClause && this.trace) {
+                if (this.trace) {
                     return this.traceMeasurementTryBlock(n13);
                 }
                 return node;
@@ -4359,6 +4411,7 @@ export class TWThingTransformer implements TWCodeTransformer {
         // to the measured block at runtime.
         const symbol = this.program.getTypeChecker().getSymbolAtLocation(sourceNode || expression.expression);
         let kind = TraceKind.Unknown;
+        const projectPath = path.join(this.repoPath, 'src');
         if (symbol) {
             const files = symbol.getDeclarations()?.map(d => d.getSourceFile().fileName) || [];
 
@@ -4380,7 +4433,7 @@ export class TWThingTransformer implements TWCodeTransformer {
             }
 
             // Project files start with src
-            if (files.some(f => f.startsWith(this.repoPath + 'src'))) {
+            if (files.some(f => f.startsWith(projectPath))) {
                 kind = TraceKind.Project;
             }
         }
@@ -4391,11 +4444,50 @@ export class TWThingTransformer implements TWCodeTransformer {
             delaysParentMeasurement: false
         };
 
-        this._traceNodes.set(expression, information as TraceNodeInformation);
+        // Any child trace expression within this call expression, except for those in
+        // functions should delay this measurement
+
+        const self = this;
+
+        /**
+         * Visits the specified node and its descendants and causes any trace nodes to delay their parent measurements.
+         * @param node      The node to visit.
+         */
+        function visitCallExpressionSubNode(node: ts.Node): ts.Node {
+            // If this node has a trace associated with it, cause it to delay the parent measurement, unless it's a function
+            if (node.kind == ts.SyntaxKind.FunctionDeclaration || node.kind == ts.SyntaxKind.FunctionExpression) {
+                return node;
+            }
+
+            const traceInformation = self._traceNodes.get(node);
+            if (traceInformation && !traceInformation.delaysParentMeasurement) {
+                node = ts.visitEachChild(node, visitCallExpressionSubNode, self.context);
+
+                traceInformation.delaysParentMeasurement = true;
+                return self.context.factory.updateCommaListExpression(
+                    node as ts.CommaListExpression,
+                    [
+                        self.context.factory.updateCallExpression(
+                            traceInformation.traceStartNode,
+                            traceInformation.traceStartNode.expression,
+                            traceInformation.traceStartNode.typeArguments,
+                            [...traceInformation.traceStartNode.arguments, ts.factory.createTrue()]
+                        ),
+                        traceInformation.assignmentNode,
+                        traceInformation.traceEndNode,
+                        traceInformation.returnNode
+                    ]
+                )
+            }
+
+            return ts.visitEachChild(node, visitCallExpressionSubNode, self.context);
+        }
+
+        expression = ts.visitEachChild(expression, visitCallExpressionSubNode, this.context);
 
         // The expression will look like the following:
         // (__r.begin(<name>), __ret = <expression>, __r.finish(), __ret)
-        return ts.factory.createCommaListExpression([
+        const traceExpression = ts.factory.createCommaListExpression([
             // __r.begin(<name>)
             information.traceStartNode = ts.factory.createCallExpression(
                 ts.factory.createPropertyAccessExpression(
@@ -4411,7 +4503,7 @@ export class TWThingTransformer implements TWCodeTransformer {
                 ]
             ),
             // __ret = expression
-            ts.factory.createAssignment(
+            information.assignmentNode = ts.factory.createAssignment(
                 ts.factory.createIdentifier('__ret'),
                 expression
             ),
@@ -4425,47 +4517,65 @@ export class TWThingTransformer implements TWCodeTransformer {
                 []
             ),
             // __ret
-            ts.factory.createIdentifier('__ret'),
+            information.returnNode = ts.factory.createIdentifier('__ret'),
         ]);
+
+        this._traceNodes.set(traceExpression, information as TraceNodeInformation);
+        return traceExpression;
     }
 
     /**
-     * Adds a measurement block around the specified try/catch statement. The specified
-     * try statement must have a catch clause.
+     * Adds a measurement block around the specified try/catch statement.
      * @param tryStatement      The try/catch statement.
      * @returns                 A replacement try/catch statement.
      */
     traceMeasurementTryBlock(tryStatement: ts.TryStatement): ts.TryStatement {
+        // If the statement just has a catch or finally block, it is only necessary to
+        // release the started measurement block at the start of that block.
+        // If the statement has both a catch and a finally block, it is required to
+        // release the measurement block at the start of the catch clause, then start a new
+        // one that is closed at the beginning of the finally block
+        let catchClause = tryStatement.catchClause;
+        let finallyBlock = tryStatement.finallyBlock;
+        if (catchClause) {
+            if (finallyBlock) {
+                // With both catch and finally, catch closes then starts a measurement block
+                catchClause = ts.factory.createCatchClause(
+                    catchClause.variableDeclaration,
+                    ts.factory.createBlock([
+                        CreateTraceReleaseStatement(),
+                        CreateTraceRetainStatement(),
+                        ...catchClause.block.statements
+                    ])
+                );
+            }
+            else {
+                // Otherwise, it's only needed to release the current block
+                catchClause = ts.factory.createCatchClause(
+                    catchClause.variableDeclaration,
+                    ts.factory.createBlock([
+                        CreateTraceReleaseStatement(),
+                        ...catchClause.block.statements
+                    ])
+                );
+            }
+        }
+
+        if (finallyBlock) {
+            // Regardless of how it appears, finally only needs to close the current measurement block
+            finallyBlock = ts.factory.createBlock([
+                CreateTraceReleaseStatement(),
+                ...finallyBlock.statements
+            ]);
+        }
+
         return ts.factory.createTryStatement(
-            ts.factory.createBlock(
-                [ts.factory.createExpressionStatement(
-                    ts.factory.createCallExpression(
-                        ts.factory.createPropertyAccessExpression(
-                            ts.factory.createIdentifier('__r'),
-                            'retain'
-                        ),
-                        undefined,
-                        []
-                    )
-                ),...tryStatement.tryBlock.statements],
-                true
-            ),
-            ts.factory.createCatchClause(
-                tryStatement.catchClause!.variableDeclaration,
-                ts.factory.createBlock(
-                    [ts.factory.createExpressionStatement(
-                        ts.factory.createCallExpression(
-                            ts.factory.createPropertyAccessExpression(
-                                ts.factory.createIdentifier('__r'),
-                                'release'
-                            ),
-                            undefined,
-                            []
-                        )
-                    ) as ts.Statement].concat(tryStatement.catchClause!.block.statements)
-                )
-            ),
-            tryStatement.finallyBlock
+            ts.factory.createBlock([
+                CreateTraceRetainStatement(),
+                ...tryStatement.tryBlock.statements
+            ], true),
+            catchClause,
+            finallyBlock
         )
     }
 
@@ -4925,7 +5035,7 @@ const __r = BMProfilerRuntime.localProfiler;
 var __ret;
 
 __r.retain();
-__r.beginImplicit(${JSON.stringify(service.name)}, ${JSON.stringify(entity.sourceFile?.fileName)});
+__r.beginImplicit(${JSON.stringify(service.name)}, ${JSON.stringify(entity.sourceFile?.fileName)}, undefined, "project");
 ` : ''}
 try { 
     var result = (function (logger) {${service.code}}).apply(me, [__dLogger]);
@@ -4944,7 +5054,7 @@ const __r = BMProfilerRuntime.localProfiler;
 var __ret;
 
 __r.retain();
-__r.beginImplicit(${JSON.stringify(service.name)}, ${JSON.stringify(entity.sourceFile?.fileName)});
+__r.beginImplicit(${JSON.stringify(service.name)}, ${JSON.stringify(entity.sourceFile?.fileName)}, undefined, "project");
 try { 
     var result = (function () {${service.code}}).apply(me);
     __r.finishImplicit(); 
@@ -4972,7 +5082,7 @@ const __r = BMProfilerRuntime.localProfiler;
 var __ret;
 
 __r.retain();
-__r.beginImplicit(${JSON.stringify(subscription.name)}, ${JSON.stringify(entity.sourceFile?.fileName)});
+__r.beginImplicit(${JSON.stringify(subscription.name)}, ${JSON.stringify(entity.sourceFile?.fileName)}, undefined, "project");
 ` : ''}
 try { 
     (function (logger) {${subscription.code}}).apply(me, [__dLogger]);
@@ -4991,7 +5101,7 @@ const __r = BMProfilerRuntime.localProfiler;
 var __ret;
 
 __r.retain();
-__r.beginImplicit(${JSON.stringify(subscription.name)}, ${JSON.stringify(entity.sourceFile?.fileName)});
+__r.beginImplicit(${JSON.stringify(subscription.name)}, ${JSON.stringify(entity.sourceFile?.fileName)}, undefined, "project");
 try { 
     (function () {${transpiledBody}}).apply(me);
     __r.finishImplicit(); 
