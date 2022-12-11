@@ -143,6 +143,30 @@ export interface TWConfig {
     debug?: boolean;
 
     /**
+     * A flag that, when enabled, will cause a trace build to be generated.
+     */
+    trace?: boolean;
+
+    /**
+     * When enabled, any xml files in the source folder will be copied to the build output.
+     */
+    copyEntities?: boolean;
+
+    /**
+     * An optional callback that is invoked before the transformer begins processing
+     * a file.
+     * @param name The name of the file that will be processed.
+     */
+    transformerWillStartFile?(name: string): void;
+
+    /**
+     * An optional callback that is invoked after the transformer has finished processing
+     * a file.
+     * @param name The name of the file that has been processed.
+     */
+    transformerDidFinishFile?(name: string): void;
+
+    /**
      * An object holding transformer instances and global metadata.
      */
     store: {

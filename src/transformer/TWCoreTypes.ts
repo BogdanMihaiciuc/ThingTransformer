@@ -1,5 +1,6 @@
 import type { Node, SourceFile } from 'typescript';
 import type { EmitHelper } from 'typescript';
+import ts = require('typescript');
 
 export interface TWInfoTable {
     dataShape: {
@@ -581,4 +582,74 @@ export interface DiagnosticMessage {
      * If file is specified, the column number for which this diagnostic message was generated.
      */
     column?: number;
+}
+
+/**
+ * An enum that contains the kinds of events that are traced, which is used
+ * to quickly identify the source of the event.
+ */
+export enum TraceKind {
+
+    /**
+     * Indicates that the event source could not be found.
+     */
+    Unknown = 'unknown',
+
+    /**
+     * Indicates that the event source is the standard javascript library.
+     */
+    Standard = 'standard',
+
+    /**
+     * Indicates that the event source is a standard thingworx entity.
+     */
+    Thingworx = 'thingworx',
+
+    /**
+     * Indicates that the event source is an imported project entity.
+     */
+    Import = 'import',
+
+    /**
+     * Indicates that the event source is an entity in the project.
+     */
+    Project = 'project',
+}
+
+/**
+ * An interface that describes an object that contains information
+ * about a trace measurement comma expression.
+ */
+export interface TraceNodeInformation {
+
+    /**
+     * The call expression that is measured.
+     */
+    callExpression: ts.CallExpression;
+
+    /**
+     * The call expression that starts the measurement.
+     */
+    traceStartNode: ts.CallExpression;
+
+    /**
+     * The assignment expression that assigns the return value.
+     */
+    assignmentNode: ts.AssignmentExpression<ts.EqualsToken>;
+
+    /**
+     * The call expression that finishes the measurement.
+     */
+    traceEndNode: ts.CallExpression;
+
+    /**
+     * The return node.
+     */
+    returnNode: ts.Identifier;
+
+    /**
+     * A flag that is used to determine whether this measurement should delay the parent measurement's
+     * start timestamp.
+     */
+    delaysParentMeasurement: boolean;
 }
