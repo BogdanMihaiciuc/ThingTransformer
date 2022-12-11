@@ -85,6 +85,11 @@
             "description": "Contains option for how inline SQL statements are handled.",
             "markdownDescription": "Contains option for how inline SQL statements are handled."
         },
+        "copyEntities": {
+            "type": "boolean",
+            "description": "When enabled, any XML files in the project's src directory will be copied to the build output directory.",
+            "markdownDescription": "When enabled, any XML files in the project's src directory will be copied to the build output directory."
+        },
         "minimumThingWorxVersion": {
             "type": "string",
             "description": "The minimum thingworx version on which the project may be installed.",
