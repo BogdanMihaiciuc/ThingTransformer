@@ -20,9 +20,11 @@ It is now possible to specify two optional callbacks via the configuration objec
 
 The configuration object now includes an additional `copyEntities` property. It is not directly used by the transformer, but is used by the cli tools to make it possible to include arbitrary XML entities to be included the built extension.
 
+Resolves an issue where specifying the default value of a service argument would sometimes cause incorrect code to be emitted.
+
 # 1.4.8
 
-Resolves an issue where the `LOG_PREFIX` constant was delcared before the other log helpers which prevented it from referencing them. ([stefan-lacatus](https://github.com/stefan-lacatus))
+Resolves an issue where the `LOG_PREFIX` constant was declared before the other log helpers which prevented it from referencing them. ([stefan-lacatus](https://github.com/stefan-lacatus))
 
 # 1.4.7
 
