@@ -82,6 +82,11 @@ declare function persistent<T extends GenericThing, P>(target: T, key: string, d
 declare function logged<T extends GenericThing, P>(target: T, key: string, descriptor?: TypedPropertyDescriptor<P extends Function ? never : P>): void;
 
 /**
+ * When applied to a property, this makes the property indexed.
+ */
+declare function indexed<T extends GenericThing, P>(target: T, key: string, descriptor?: TypedPropertyDescriptor<P extends Function ? never : P>): void;
+
+/**
  * When applied to a numeric property or data shape field, this sets the property's minimum value aspect.
  * @param minimumValue      The minimum value to set. This must be a numeric literal.
  */
