@@ -386,6 +386,20 @@ declare function denyInstance(...args: (UserEntity | GroupEntity | Permission)[]
 declare function allowInstance(...args: (UserEntity | GroupEntity | Permission)[]): <T extends new (...args) => unknown>(target: T) => void;
 
 /**
+ * A decorator that can be used to deny specific permissions on an instance of an entity.
+ * @param args      A comma separated list of users, user groups and permissions, in any order.
+ * @param name      The name of the member to which the permission applies.
+ */
+declare function denyInstance(name: string, ...args: (UserEntity | GroupEntity | Permission)[]): <T extends new (...args) => unknown>(target: T) => void;
+
+/**
+ * A decorator that can be used to allow specific permissions on an instance of an entity.
+ * @param args      A comma separated list of users, user groups and permissions, in any order.
+ * @param name      The name of the member to which the permission applies.
+ */
+declare function allowInstance(name: string, ...args: (UserEntity | GroupEntity | Permission)[]): <T extends new (...args) => unknown>(target: T) => void;
+
+/**
  * A decorator that can be used to make an entity visible for a set of given organizations.
  * @param args      A comma separated list of organizations.
  */
