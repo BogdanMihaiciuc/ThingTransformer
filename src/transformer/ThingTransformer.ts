@@ -1,6 +1,6 @@
 import * as ts from 'typescript';
 import { InlineSQL, MethodHelpers, TWConfig } from '../configuration/TWConfig';
-import { TWEntityKind, TWPropertyDefinition, TWServiceDefinition, TWEventDefinition, TWSubscriptionDefinition, TWBaseTypes, TWPropertyDataChangeKind, TWFieldBase, TWPropertyRemoteBinding, TWPropertyRemoteFoldKind, TWPropertyRemotePushKind, TWPropertyRemoteStartKind, TWPropertyBinding, TWSubscriptionSourceKind, TWServiceParameter, TWDataShapeField, TWConfigurationTable, TWRuntimePermissionsList, TWVisibility, TWExtractedPermissionLists, TWRuntimePermissionDeclaration, TWPrincipal, TWPermission, TWUser, TWUserGroup, TWPrincipalBase, TWOrganizationalUnit, TWConnection, TWDataThings, TWInfoTable, GlobalFunction, GlobalFunctionReference, DiagnosticMessage, DiagnosticMessageKind, TWThing, TraceKind, TraceNodeInformation } from './TWCoreTypes';
+import { TWEntityKind, TWPropertyDefinition, TWServiceDefinition, TWEventDefinition, TWSubscriptionDefinition, TWBaseTypes, TWPropertyDataChangeKind, TWFieldBase, TWPropertyRemoteBinding, TWPropertyRemoteFoldKind, TWPropertyRemotePushKind, TWPropertyRemoteStartKind, TWPropertyBinding, TWSubscriptionSourceKind, TWServiceParameter, TWDataShapeField, TWConfigurationTable, TWRuntimePermissionsList, TWVisibility, TWExtractedPermissionLists, TWRuntimePermissionDeclaration, TWPrincipal, TWPermission, TWUser, TWUserGroup, TWPrincipalBase, TWOrganizationalUnit, TWConnection, TWDataThings, TWInfoTable, GlobalFunction, GlobalFunctionReference, DiagnosticMessage, DiagnosticMessageKind, TWThing, TraceKind, TraceNodeInformation, DeploymentEndpoint } from './TWCoreTypes';
 import { Breakpoint } from './DebugTypes';
 import { Builder } from 'xml2js';
 import * as fs from 'fs';
@@ -633,7 +633,7 @@ export class TWThingTransformer implements TWCodeTransformer {
     /**
      * An array of endpoints that should be invoked after deployment.
      */
-    deploymentEndpoints: string[] = [];
+    deploymentEndpoints: DeploymentEndpoint[] = [];
 
     /**
      * A weak map that contains a mapping between nodes that have been marked for replacement before
@@ -2254,6 +2254,7 @@ export class TWThingTransformer implements TWCodeTransformer {
         if (node.decorators) {
             if (this.hasDecoratorNamed('persistent', node)) property.aspects.isPersistent = true;
             if (this.hasDecoratorNamed('logged', node)) property.aspects.isLogged = true;
+            if (this.hasDecoratorNamed('indexed', node)) property.aspects.isIndexed = true;
         }
 
         // The readonly aspect uses the typescript built-in readonly keyword
@@ -3099,11 +3100,15 @@ export class TWThingTransformer implements TWCodeTransformer {
 
         // If this service should be used for deployment, add its endpoint
         if (this.hasDecoratorNamed('deploy', originalNode)) {
-            if (this.entityKind != TWEntityKind.Thing) {
+            if (
+                this.entityKind != TWEntityKind.Thing &&
+                this.entityKind != TWEntityKind.ThingTemplate &&
+                this.entityKind != TWEntityKind.ThingShape
+            ) {
                 this.throwErrorForNode(originalNode, `The @deploy decorator can only be used on thing services.`);
             }
 
-            this.deploymentEndpoints.push(`Things/${this.exportedName}/Services/${service.name}`);
+            this.deploymentEndpoints.push({name: this.exportedName!, service: service.name, kind: this.entityKind});
         }
 
         // Read the category value from the decorator
