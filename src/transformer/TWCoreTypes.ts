@@ -50,6 +50,7 @@ export interface TWPropertyDefinition<T = any> extends TWFieldBase<T> {
 export interface TWPropertyAspects<T> extends TWFieldAspects<T> {
     isPersistent?: boolean;
     isLogged?: boolean;
+    isIndexed?: boolean;
     isReadOnly?: boolean;
     isRemote?: boolean;
     dataChangeType: TWPropertyDataChangeKind;
@@ -480,6 +481,28 @@ export interface TWOrganizationalUnit {
     description?: string;
     name: string;
     members: TWMemberBase[];
+}
+
+/**
+ * An interface that describes a service that is marked with the `@deploy` decorator.
+ */
+export interface DeploymentEndpoint {
+
+    /**
+     * The kind of entity.
+     */
+    kind: TWEntityKind;
+
+    /**
+     * The name of the entity.
+     */
+    name: string;
+
+    /**
+     * The name of the service.
+     */
+    service: string;
+
 }
 
 /**

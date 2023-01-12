@@ -1,3 +1,11 @@
+# 1.5.1
+
+For the `allowInstance` and `denyInstance` decorators, an optional resource may now be specified.
+
+Adds support for a new `@indexed` decorator that can be used to mark a property as indexed.
+
+The transformer will no longer throw when the `@deploy` decorator is specified on templates or shapes. Additionally, the `deploymentEndpoints` property is now an array of objects that contains the entity names, service names and entity kinds for the services marked with the decorator.
+
 # 1.5
 
 Added a type guard to the `ImplementsShape` and `IsDerivedFromTemplate` to improve type inferrence when using these to test.

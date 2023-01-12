@@ -82,6 +82,11 @@ declare function persistent<T extends GenericThing, P>(target: T, key: string, d
 declare function logged<T extends GenericThing, P>(target: T, key: string, descriptor?: TypedPropertyDescriptor<P extends Function ? never : P>): void;
 
 /**
+ * When applied to a property, this makes the property indexed.
+ */
+declare function indexed<T extends GenericThing, P>(target: T, key: string, descriptor?: TypedPropertyDescriptor<P extends Function ? never : P>): void;
+
+/**
  * When applied to a numeric property or data shape field, this sets the property's minimum value aspect.
  * @param minimumValue      The minimum value to set. This must be a numeric literal.
  */
@@ -384,6 +389,20 @@ declare function denyInstance(...args: (UserEntity | GroupEntity | Permission)[]
  * @param args      A comma separated list of users, user groups and permissions, in any order.
  */
 declare function allowInstance(...args: (UserEntity | GroupEntity | Permission)[]): <T extends new (...args) => unknown>(target: T) => void;
+
+/**
+ * A decorator that can be used to deny specific permissions on an instance of an entity.
+ * @param args      A comma separated list of users, user groups and permissions, in any order.
+ * @param name      The name of the member to which the permission applies.
+ */
+declare function denyInstance(name: string, ...args: (UserEntity | GroupEntity | Permission)[]): <T extends new (...args) => unknown>(target: T) => void;
+
+/**
+ * A decorator that can be used to allow specific permissions on an instance of an entity.
+ * @param args      A comma separated list of users, user groups and permissions, in any order.
+ * @param name      The name of the member to which the permission applies.
+ */
+declare function allowInstance(name: string, ...args: (UserEntity | GroupEntity | Permission)[]): <T extends new (...args) => unknown>(target: T) => void;
 
 /**
  * A decorator that can be used to make an entity visible for a set of given organizations.
