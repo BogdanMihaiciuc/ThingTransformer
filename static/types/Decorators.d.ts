@@ -9,6 +9,16 @@ declare type Table<T extends DataShapeBase> = undefined;
 declare type MultiRowTable<T extends DataShapeBase> = undefined;
 
 /**
+ * Specifies that the decorated entity should only be emitted if the specified environment variable
+ * exists and doesn't have the value `"false"`.
+ * 
+ * If the specified environment variable is missing or the value is `"false"`, the decorated entity
+ * will not be emitted.
+ * @param variable      The environment variable to test.
+ */
+declare function ifenv(variable: unknown): <T extends new (...args) => any>(target: T) => void;
+
+/**
  * A decorator that can be applied to any entity to create a configuration table for it. This decorator
  * takes a single argument that represents the configuration table definition as a class expression.
  * @param tables        The configuration tables definition.
@@ -36,7 +46,7 @@ declare function valueStream(stream: KeysOfType<Things, ValueStream>): <T extend
 
 /**
  * Specifies that the name of the entity should be different from the name of the class.
- * @param identifier    The identigier to use.
+ * @param identifier    The identifier to use.
  */
 declare function exportName(identifier: string): <T extends new (...args) => any>(target: T) => void;
 

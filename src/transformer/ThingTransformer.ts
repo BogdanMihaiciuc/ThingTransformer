@@ -274,7 +274,7 @@ interface TWCodeTransformer {
      * @param node          The node to visit.
      * @returns             The source node, if no replacement is necessary, otherwise a node to replace it.
      */
-    visitCodeNode(this: TWCodeTransformer, node: ts.Node): ts.Node;
+    visitCodeNode(this: TWCodeTransformer, node: ts.Node): ts.Node | undefined;
 
     /**
      * Visits a node that is part of a global function declaration.
@@ -282,7 +282,7 @@ interface TWCodeTransformer {
      * @param fn        The object containing information about the global function.
      * @returns         The transformed node.
      */
-    visitGlobalFunctionNode(this: TWCodeTransformer, node: ts.Node, fn: GlobalFunction): ts.Node;
+    visitGlobalFunctionNode(this: TWCodeTransformer, node: ts.Node, fn: GlobalFunction): ts.Node | undefined;
 
     /**
      * Visits a method node for a release build, performing replacements and extracting references to functions.
@@ -1516,6 +1516,39 @@ export class TWThingTransformer implements TWCodeTransformer {
             const classNode = node as ts.ClassDeclaration;
             if (this.hasClassDefinition) {
                 this.throwErrorForNode(node, `Only a single class may be declared in Thingworx files.`);
+            }
+
+            this.hasClassDefinition = true;
+
+            // If the class should not be emitted, skip it
+            if (this.hasDecoratorNamed('ifenv', node)) {
+                const args = this.argumentsOfDecoratorNamed('ifenv', node);
+
+                // Ensure that the decorator has a single environment variable argument
+                if (!args || args.length != 1) {
+                    this.throwErrorForNode(node, `The @ifenv decorator must take a single environment variable argument.`);
+                }
+
+                const arg = args[0];
+                if (!ts.isPropertyAccessExpression(arg)) {
+                    this.throwErrorForNode(node, `The @ifenv decorator must take a single environment variable argument.`);
+                }
+
+                const variable = arg.name.text;
+                const expression = arg.expression;
+
+                if (!ts.isPropertyAccessExpression(expression)) {
+                    this.throwErrorForNode(node, `The @ifenv decorator must take a single environment variable argument.`);
+                }
+
+                if (expression.name.text != 'env' || expression.expression.getText() != 'process') {
+                    this.throwErrorForNode(node, `The @ifenv decorator must take a single environment variable argument.`);
+                }
+
+                // If the variable is not defined, or "false", don't emit this class
+                if (!process.env[variable] || process.env[variable] == 'false') {
+                    return;
+                }
             }
 
             this.classNode = classNode;
@@ -3761,7 +3794,7 @@ export class TWThingTransformer implements TWCodeTransformer {
      * @param node          The node to visit.
      * @returns             The source node, if no replacement is necessary, otherwise a node to replace it.
      */
-    visitCodeNode(this: TWCodeTransformer, node: ts.Node): ts.Node {
+    visitCodeNode(this: TWCodeTransformer, node: ts.Node): ts.Node | undefined {
         // This function performs the replacements that are common to services and functions
         // in both debug and release modes
         // Currently this is just inlining constant values, but this may expand in the future
@@ -3784,6 +3817,50 @@ export class TWThingTransformer implements TWCodeTransformer {
                     return node;
                 }
                 break;
+            case ts.SyntaxKind.IfStatement:
+                // Strip out tests for environment variables and const enum members when they are "false"
+                // When they are true, remove the else branch, if defined
+                const ifStatement = node as ts.IfStatement;
+                const condition = ifStatement.expression;
+
+                let removeIf = false;
+                let removeElse = false;
+
+                // By the time this gets called, the condition will have been inlined
+                if (ts.isStringLiteral(condition) || condition.kind == ts.SyntaxKind.TrueKeyword || condition.kind == ts.SyntaxKind.FalseKeyword) {
+
+                    // For false and "false" values, remove the if branch
+                    if (ts.isStringLiteral(condition) && condition.text === 'false') {
+                        removeIf = true;
+                    }
+                    else if (condition.kind == ts.SyntaxKind.FalseKeyword) {
+                        removeIf = true;
+                    }
+                    // For true and "true" values, remove the else branch
+                    else if (ts.isStringLiteral(condition)) {
+                        removeElse = true;
+                    }
+                    else if (condition.kind == ts.SyntaxKind.TrueKeyword) {
+                        removeElse = true;
+                    }
+                }
+
+                if (removeIf) {
+                    if (ifStatement.elseStatement) {
+                        // If the if statement had an else branch, return it as a block to replace it
+                        return ifStatement.elseStatement;
+                    }
+                    else {
+                        // Otherwise completely remove the node
+                        return undefined;
+                    }
+                }
+                else if (removeElse) {
+                    // If the else statement should be removed, return the then block directly
+                    return ifStatement.thenStatement;
+                }
+
+                break;
         }
 
         return node;
@@ -3795,7 +3872,7 @@ export class TWThingTransformer implements TWCodeTransformer {
      * @param fn        The object containing information about the global function.
      * @returns         The transformed node.
      */
-    visitGlobalFunctionNode(this: TWCodeTransformer, node: ts.Node, fn: GlobalFunction): ts.Node {
+    visitGlobalFunctionNode(this: TWCodeTransformer, node: ts.Node, fn: GlobalFunction): ts.Node | undefined {
         node = ts.visitEachChild(node, n => this.visitGlobalFunctionNode(n, fn), this.context);
 
         // If the node has a generic code replacement available, return its replacement directly
