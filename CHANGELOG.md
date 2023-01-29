@@ -1,3 +1,41 @@
+# 1.6
+
+The transformer will now remove if branches when testing against compile time constants with a value of `"false"` or `false`. Additionally it will remove else branches when testing against compile time constants with a value of `"true"` or `true`.
+
+For example, the following branch will be removed if the `FEATURE_ENABLED` environment variable being tested is `"false"`:
+
+```ts
+if (process.env.FEATURE_ENABLED) {
+    this.ProcessData();
+}
+```
+
+The following branch will also be removed:
+```ts
+if ("false") {
+    logger.debug("Received message");
+}
+```
+
+Only simple expressions are currently considered for this feature, so the following branch will not be removed:
+
+```ts
+if (process.env.FEATURE_ENABLED == 'true') {
+    this.ProcessData();
+}
+```
+
+Added a new `@ifenv` decorator that can used to only emit certain entities when an environment variable is defined. For example, the following thing will only be emitted when the value of the `DEVELOPMENT` env variable being tested is `"true"`.
+
+```ts
+@ifenv(process.env.DEVELOPMENT)
+@ThingDefinition class DebugScripts extends GenericThing {
+    ...
+}
+```
+
+When the value of the tested environment variable is `"false"`, neither the entity nor its collection declaration are emitted. This means that compilation will fail if any other entity references it via its collection, even if the accessing entity is also set to not be emitted.
+
 # 1.5.1
 
 For the `allowInstance` and `denyInstance` decorators, an optional resource may now be specified.
