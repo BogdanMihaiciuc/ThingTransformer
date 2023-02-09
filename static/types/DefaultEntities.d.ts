@@ -14970,7 +14970,7 @@ declare interface ThingTemplates {
 	Database: ThingTemplateEntity<Database>;
 
 	/**
-	 * Database connection via persistence provider and who enable transaction management SQL.
+	 * Database connection via persistence provider and who enable SQL transaction management.
 	 */
 	SQLThing: ThingTemplateEntity<SQLThing>;
 
