@@ -14970,6 +14970,11 @@ declare interface ThingTemplates {
 	Database: ThingTemplateEntity<Database>;
 
 	/**
+	 * Database connection via persistence provider and who enable SQL transaction management.
+	 */
+	SQLThing: ThingTemplateEntity<SQLThing>;
+
+	/**
 	 * A lock that can be acquired and released by threads.
 	 */
 	LockTemplate: ThingTemplateEntity<LockTemplate>;
