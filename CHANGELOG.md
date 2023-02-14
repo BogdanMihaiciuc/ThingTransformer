@@ -1,3 +1,7 @@
+# 1.6.1
+
+Added the type definitions for the `SQLThing` thing template. ([s-amory](https://github.com/s-amory))
+
 # 1.6
 
 The transformer will now remove if branches when testing against compile time constants with a value of `"false"` or `false`. Additionally it will remove else branches when testing against compile time constants with a value of `"true"` or `true`.

@@ -462,6 +462,25 @@ declare class Database extends GenericThing {
 	lastConnection: DATETIME;
 
 }
+declare class SQLThing extends GenericThing {
+
+
+	/**
+	 * Last connection error
+	 */
+	lastConnectionError: STRING;
+
+	/**
+	 * Flag indicating if connected or not
+	 */
+	isConnected: BOOLEAN;
+
+	/**
+	 * Last connection time
+	 */
+	lastConnection: DATETIME;
+
+}
 declare class LockTemplate extends GenericThing {
 
 	/**
