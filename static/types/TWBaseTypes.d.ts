@@ -100,7 +100,7 @@ declare interface JSONInfoTable<T> {
 
 type INFOTABLE<T = any> = T & InfoTable<T>;
 type InfoTableReference<T extends keyof DataShapes> = DataShapes[T]['__dataShapeType'] & InfoTable<DataShapes[T]['__dataShapeType']>;
-type ValueCollectionConvertible<T> = Partial<T> | ValueCollection<T>;
+type ValueCollectionConvertible<T> = Struct<T> | ValueCollection<T>;
 
 declare class InfoTable<T = any> {
     private constructor();
@@ -433,6 +433,12 @@ type QueryFilter<T> = AndOrQueryFilter<T> |
 
 declare const _event: unique symbol;
 
+declare const process: {
+    env: {
+        [key: string]: string | undefined;
+    }
+}
+
 type NOTHING = void;
 type STRING<T extends string = string> = T;
 type NUMBER<T extends number = number> = T;
@@ -519,7 +525,7 @@ type KeysOfType<Source, Type> = { [K in keyof Source]: Source[K] extends Type ? 
 /**
  * An object type containing all non-method properties of the specified type.
  */
-type Struct<Source> = { [K in NonMethod<Source>] : Source[K] };
+type Struct<Source> = { [K in keyof Source as Source[K] extends Function ? never : K] : Source[K] };
 
 // #endregion
 

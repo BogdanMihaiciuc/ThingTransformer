@@ -1,3 +1,29 @@
+# 1.7
+
+Adds limited support for using the `super` keyword to invoke the base class implementation of a service when overridden by a thing or template. Currently only methods that are known at compile time support this, and only when both the subclass and superclass are part of the project.
+
+Resolves an issue where the transformer did not generate the proper breakpoint locations for global functions.
+
+Improved the positioning of generated breakpoint locations. These will now be more often placed on the same line in which a statement begins, rather than the position where the previous statement ends.
+
+Resolves an issue where constant enum members used in global functions were not inlined.
+
+When referencing environment variables that are not defined when building, the transformer will now replace them with the `undefined` keyword rather than retaining the original source code. Additionally, the transformer will generate a warning diagnostic message whenever such environment variables are encountered.
+
+Added support for breakpoints on caught or uncaught exceptions when creating debug builds.
+
+Debug builds will now generate breakpoint locations prior to throw statements. This will also more accurately allow the debugger to highlight where an exception was thrown.
+
+Updated the `Struct` type to retain modifiers defined on the types it is applied to.
+
+Updated the `ValueCollectionCovertible` type to use `Struct` rather than `Partial`. This will now make it an error to add a row without specifying all required fields.
+
+Added type definitions for enviornment variables. This will allow projects to use them without having to include the node typings, which include a lot of additional symbols that can't actually be used.
+
+Resolves an issue where arrow functions were not properly downleveled to bound functions.
+
+Resolves an issue where shadowing a service parameter caused unexpected behaviour at runtime.
+
 # 1.6.1
 
 Added the type definitions for the `SQLThing` thing template. ([s-amory](https://github.com/s-amory))

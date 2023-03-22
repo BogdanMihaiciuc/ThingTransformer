@@ -52,6 +52,11 @@ function CreateTraceReleaseStatement(): ts.ExpressionStatement {
 }
 
 /**
+ * A value that signifies that the inlined value of a constant should be `undefined`.
+ */
+const ConstantValueUndefined = {};
+
+/**
  * The interface for a store object that is used to hold references to transformers
  * and various project-wide information that should be shared between the transformers.
  */
@@ -80,6 +85,17 @@ export interface TransformerStore {
             _debugBreakpointCounter: number;
             breakpoints: Breakpoint[];
             breakpointLocations: { [key: number]: { [key:number]: boolean } };
+            breakpointPositions: { [key: number]: boolean };
+        }
+    }
+
+    /**
+     * A store that is used to keep track of which super methods are called on each class
+     * and under which name their base implementation is duplicated.
+     */
+    '@superImplementations'?: {
+        [key: string]: {
+            [key: string]: string;
         }
     }
 
@@ -97,6 +113,10 @@ export interface TransformerStore {
             _debugBreakpointCounter: number;
             breakpoints: Breakpoint[];
             breakpointLocations: { [key: number]: { [key:number]: boolean } };
+        }
+    } | {
+        [key: string]: {
+            [key: string]: string;
         }
     } | DiagnosticMessage[] | undefined;
 }
@@ -152,7 +172,9 @@ interface TWCodeTransformer {
     program: ts.Program;
 
     /**
-     * The typescript transformation context.
+     * The typescript transformation context. For root transformers this is provided by TypeScript,
+     * for code transformers created to process a subset of a source file this represents the context
+     * of the parent transformer.
      */
     context: ts.TransformationContext;
 
@@ -208,9 +230,14 @@ interface TWCodeTransformer {
     breakpoints: Breakpoint[];
 
     /**
-     * A map of existing breakpoint locations.
+     * A map of existing breakpoint locations, expressed in line and column numbers within the file.
      */
     breakpointLocations: { [key: number]: { [key:number]: boolean } };
+
+    /**
+     * A map of existing breakpoint positions, expressed in character positions within the file.
+     */
+    breakpointPositions: { [key: number]: boolean };
 
     /**
      * A map used to associate additional information to trace measurement nodes.
@@ -223,11 +250,25 @@ interface TWCodeTransformer {
     store: TransformerStore;
 
     /**
-     * Returns a new code transformer that can be used to transform nodes in the given source file.
-     * @param source        The source file for which a transfomer should be returned.
-     * @returns             A code transformer.
+     * A line offset to add to breakpoint locations.
      */
-    codeTransformerForSource(this: TWCodeTransformer, source: ts.SourceFile): TWCodeTransformer;
+    lineOffset: number;
+
+    /**
+     * If specified, this represents the original position of the root node processed by this code transformer,
+     * in the source file from which it originated.
+     */
+    positionOffset?: number;
+
+    /**
+     * Returns a new code transformer that can be used to transform nodes in the given source file.
+     * @param source            The source file for which a transfomer should be returned.
+     * @param lineOffset        A line offset to add when creating breakpoint locations.
+     * @param positionOffset    An optional position offset to use to determine the original location of property access
+     *                          expressions that might need to be inlined.
+     * @returns                 A code transformer.
+     */
+    codeTransformerForSource(this: TWCodeTransformer, source: ts.SourceFile, lineOffset: number, positionOffset?: number): TWCodeTransformer;
 
     /**
      * Returns the constant value of the given property access expression so that it can be inlined.
@@ -321,6 +362,14 @@ interface TWCodeTransformer {
     commaCheckpointExpression(this: TWCodeTransformer, expression: ts.Expression | undefined, targetNode?: ts.Node): ts.Expression;
 
     /**
+     * Adds a notification around the specified try/catch statement, allowing the debugger
+     * to know that any exception thrown in the block will be caught.
+     * @param tryStatement      The try/catch statement.
+     * @returns                 A replacement try/catch statement.
+     */
+    debugTryBlock(tryStatement: ts.TryStatement): ts.TryStatement;
+
+    /**
      * Returns an expression that wraps the specified call expresion in a trace expression, measuring
      * the time it takes to execute.
      * @param expression        The expression to measure.
@@ -353,6 +402,15 @@ interface TWCodeTransformer {
       * @returns                 A replacement try/catch statement.
       */
      traceMeasurementTryBlock(tryStatement: ts.TryStatement): ts.TryStatement;
+
+    /**
+     * Tests whether the specified call expression represents a call to a method on the caller's
+     * superclass and if its, it replaces the method invoked with the orginal superclass implementation.
+     * @param call          The call to potentially replace with the original superclass method call.
+     * @returns             A replacement call expression, if the specified expression is call to a superclass
+     *                      method, the original code otherwise.
+     */
+    superCallExpression(this: TWCodeTransformer, call: ts.CallExpression): ts.CallExpression;
 
 }
 
@@ -631,6 +689,11 @@ export class TWThingTransformer implements TWCodeTransformer {
     store!: TransformerStore;
 
     /**
+     * An offset to add to breakpoint line locations.
+     */
+    lineOffset = 0;
+
+    /**
      * An array of endpoints that should be invoked after deployment.
      */
     deploymentEndpoints: DeploymentEndpoint[] = [];
@@ -672,9 +735,14 @@ export class TWThingTransformer implements TWCodeTransformer {
     breakpoints: Breakpoint[] = [];
 
     /**
-     * A map of existing breakpoint locations.
+     * A map of existing breakpoint locations, expressed in line and column numbers within the file.
      */
     breakpointLocations: { [key: number]: { [key:number]: boolean } } = {};
+
+    /**
+     * A map of existing breakpoint locations, expressed in character positions within the file.
+     */
+    breakpointPositions = {};
 
     /**
      * If enabled, when generating the declarations for a thing template or thing shape, the transformer
@@ -788,7 +856,8 @@ export class TWThingTransformer implements TWCodeTransformer {
      * A constant value that must be inlined can occur because of a const enum member or because of
      * an environment variable.
      * @param expression    The expression whose constant value should be evaluated.
-     * @returns             The constant value if it could be resolved, `undefined` otherwise.
+     * @returns             The constant value if it could be resolved, `undefined` otherwise. If the constant
+     *                      value itself should be `undefined`, the constant `ConstantValueUndefined` will be returned.
      */
     constantValueOfExpression(this: TWCodeTransformer, expression: ts.Expression): unknown {
         if (expression.kind != ts.SyntaxKind.PropertyAccessExpression) return undefined;
@@ -805,6 +874,21 @@ export class TWThingTransformer implements TWCodeTransformer {
             const sourceExpressionValue = sourceExpression.name.text;
 
             if (sourceExpressionSource == 'process' && sourceExpressionValue == 'env') {
+                // If the environment variable is not defined, replace the expression with `undefined
+                if (!(value in process.env)) {
+                    // Log a diagnostic message about this value
+                    const position = this.sourceFile && ts.getLineAndCharacterOfPosition(this.sourceFile, this.positionOffset || 0 + propertyAccess.name.pos);
+                    this.store['@diagnosticMessages'] = this.store['@diagnosticMessages'] || [];
+                    this.store['@diagnosticMessages'].push({
+                        kind: DiagnosticMessageKind.Warning, 
+                        message: `Referenced environment variable ${value} is not defined.`, 
+                        file: this.sourceFile?.fileName,
+                        line: position?.line,
+                        column: position?.character
+                    });
+                    return ConstantValueUndefined;
+                }
+
                 // If this is an environment variable, inline it
                 return process.env[value];
             }
@@ -814,6 +898,47 @@ export class TWThingTransformer implements TWCodeTransformer {
             const emitResolver: ts.TypeChecker = (this.context as any).getEmitResolver();
 
             if (emitResolver) {
+                // If this has an offset defined, determine the actual node to use in the original source file
+                if (this.positionOffset && this.sourceFile) {
+                    let originalNode: ts.PropertyAccessExpression | undefined;
+
+                    /**
+                     * Verifies if the specified node is the original node in the original source file,
+                     * otherwise continues to search for it in the specified node's descendants.
+                     * @param node          The node to verify.
+                     * @returns             The `node` argument.
+                     */
+                    const findNode = (node: ts.Node): void => {
+                        // If the original node was already found, stop searching
+                        if (originalNode) {
+                            return;
+                        }
+
+                        // The original node should have the same syntax kind and position
+                        if (node.kind == ts.SyntaxKind.PropertyAccessExpression && node.pos == this.positionOffset! + expression.pos) {
+                            // And additionally the same text
+                            try {
+                                if (node.getText() == expression.getText()) {
+                                    originalNode = node as ts.PropertyAccessExpression;
+                                }
+                            }
+                            catch (e) {
+                                // getText can fail for certain synthetic nodes, if this happens move on to the next node
+                            }
+                        }
+
+                        ts.forEachChild(node, findNode);
+                    }
+
+                    // Recursively search for the original node in the original source file
+                    ts.forEachChild(this.sourceFile, findNode);
+
+                    // If the source node was found, use it to determine the constant value
+                    if (originalNode) {
+                        return emitResolver.getConstantValue(originalNode);
+                    }
+                }
+
                 // The emit resolver is able to get the constant value directly
                 return emitResolver.getConstantValue(propertyAccess);
             }
@@ -978,6 +1103,8 @@ export class TWThingTransformer implements TWCodeTransformer {
             if (node.kind == ts.SyntaxKind.SourceFile) {
                 (this as any).source = node;
 
+                this.filename = (node as ts.SourceFile).fileName;
+
                 // Check if this file is global code
                 const globalClass = this.getGlobalFileClass(node as ts.SourceFile);
                 if (globalClass) {
@@ -1083,6 +1210,9 @@ export class TWThingTransformer implements TWCodeTransformer {
                     else if (typeof constantValue == 'number') {
                         return ts.factory.createNumericLiteral(constantValue.toString());
                     }
+                    else if (constantValue == ConstantValueUndefined) {
+                        return ts.factory.createIdentifier('undefined');
+                    }
                 }
         
                 /* TODO: Remove, as this is now handled via applied functions
@@ -1090,11 +1220,6 @@ export class TWThingTransformer implements TWCodeTransformer {
                     return this.visitThisNode(node as ts.ThisExpression);
                 }
                 */
-
-                if (this.nodeReplacementMap.get(node)) {
-                    // If the node was already processed and marked for replacement, return its replacement
-                    return this.nodeReplacementMap.get(node);
-                }
 
                 // Upon reaching a method declaration that has been marked for debugging
                 // start processing in reverse.
@@ -1104,6 +1229,11 @@ export class TWThingTransformer implements TWCodeTransformer {
                 // Similar in non-debug mode
                 else if (this.methodNodes.has(node)) {
                     return this.visitMethodNode(node, this.methodNodes.get(node));
+                }
+
+                if (this.nodeReplacementMap.get(node)) {
+                    // If the node was already processed and marked for replacement, return its replacement
+                    return this.nodeReplacementMap.get(node);
                 }
                 
             }
@@ -2024,6 +2154,11 @@ export class TWThingTransformer implements TWCodeTransformer {
                         if (user.extensions[member.name.text] === undefined) {
                             this.throwErrorForNode(node, `Unknown initializer for property.`);
                         }
+
+                        // If the value is `undefined`, replace it with an empty string
+                        if (user.extensions[member.name.text] === ConstantValueUndefined) {
+                            user.extensions[member.name.text] = '';
+                        }
                     }
                     else {
                         user.extensions[member.name.text] = (assignment.initializer as ts.LiteralExpression).text || assignment.initializer.getText();
@@ -2165,6 +2300,11 @@ export class TWThingTransformer implements TWCodeTransformer {
                 if (property.aspects.defaultValue === undefined) {
                     this.throwErrorForNode(node, `Unknown initializer for property.`);
                 }
+
+                // If the value is `undefined`, remove the default value aspect
+                if (property.aspects.defaultValue === ConstantValueUndefined) {
+                    delete property.aspects.defaultValue;
+                }
             }
             else if (ts.isNewExpression(node.initializer) && ts.isIdentifier(node.initializer.expression) && node.initializer.expression.escapedText == 'Date') {
                 if (node.initializer.arguments && node.initializer.arguments.length == 1 && ts.isStringLiteral(node.initializer.arguments[0])) {
@@ -2268,6 +2408,11 @@ export class TWThingTransformer implements TWCodeTransformer {
                 // If the value is not a compile time constant, it is not a valid initializer
                 if (property.aspects.defaultValue === undefined) {
                     this.throwErrorForNode(node, `Unknown initializer for property.`);
+                }
+
+                // If the value is `undefined`, remove the default value aspect
+                if (property.aspects.defaultValue === ConstantValueUndefined) {
+                    delete property.aspects.defaultValue;
                 }
             }
             else if (ts.isNewExpression(node.initializer) && ts.isIdentifier(node.initializer.expression) && node.initializer.expression.escapedText == 'Date') {
@@ -2956,6 +3101,11 @@ export class TWThingTransformer implements TWCodeTransformer {
                         if (parameter.aspects.defaultValue === undefined) {
                             this.throwErrorForNode(arg, `Unknown initializer for argument.`);
                         }
+
+                        // If the value is `undefined`, remove the default value aspect
+                        if (parameter.aspects.defaultValue === ConstantValueUndefined) {
+                            delete parameter.aspects.defaultValue;
+                        }
                     }
                     else if (ts.isNewExpression(arg.initializer) && ts.isIdentifier(arg.initializer.expression) && arg.initializer.expression.escapedText == 'Date') {
                         // Handle initializer for dates, which are expressed as `new Date()`, with a compile time constant argument
@@ -3021,7 +3171,7 @@ export class TWThingTransformer implements TWCodeTransformer {
                 // Add the parameter to the service definition
                 service.parameterDefinitions.push(parameter);
             }
-
+            
             // Mark this node for replacement
             this.nodeReplacementMap.set(originalNode.parameters[0], ts.factory.createParameterDeclaration(
                 undefined,
@@ -3507,14 +3657,18 @@ export class TWThingTransformer implements TWCodeTransformer {
 
     /**
      * Returns a new code transformer that can be used to transform nodes in the given source file.
-     * @param source        The source file for which a transfomer should be returned.
-     * @returns             A code transformer.
+     * @param source            The source file for which a transfomer should be returned.
+     * @param lineOffset        A line offset to add when creating breakpoint locations.
+     * @param positionOffset    An optional position offset to use to determine the original location of property access
+     *                          expressions that might need to be inlined.
+     * @returns                 A code transformer.
      */
-    codeTransformerForSource(this: TWCodeTransformer, source: ts.SourceFile): TWCodeTransformer {
+    codeTransformerForSource(this: TWCodeTransformer, source: ts.SourceFile, lineOffset: number, positionOffset?: number): TWCodeTransformer {
         // In debug mode, get or create the debug information associated with the given file
         const debugInformation = {
             _debugBreakpointCounter: 0,
             breakpointLocations: [],
+            breakpointPositions: {},
             breakpoints: [],
         }
 
@@ -3525,6 +3679,7 @@ export class TWThingTransformer implements TWCodeTransformer {
             Object.assign(debugInformation, {
                 _debugBreakpointCounter: debugStore._debugBreakpointCounter,
                 breakpointLocations: debugStore.breakpointLocations,
+                breakpointPositions: debugStore.breakpointPositions,
                 breakpoints: debugStore.breakpoints,
             });
         }
@@ -3535,6 +3690,7 @@ export class TWThingTransformer implements TWCodeTransformer {
             this.store['@debugInformation'][source.fileName] = {
                 _debugBreakpointCounter: debugInformation._debugBreakpointCounter,
                 breakpointLocations: debugInformation.breakpointLocations,
+                breakpointPositions: debugInformation.breakpointPositions,
                 breakpoints: debugInformation.breakpoints
             };
         }
@@ -3546,6 +3702,7 @@ export class TWThingTransformer implements TWCodeTransformer {
             debug: this.debug,
             trace: this.trace,
             breakpointLocations: debugInformation.breakpointLocations,
+            breakpointPositions: debugInformation.breakpointPositions,
             breakpoints: debugInformation.breakpoints,
             _debugMethodNodeReplacements: new WeakMap,
             context: this.context,
@@ -3559,6 +3716,7 @@ export class TWThingTransformer implements TWCodeTransformer {
             store: this.store,
             codeTransformerForSource: this.codeTransformerForSource,
             commaCheckpointExpression: this.commaCheckpointExpression,
+            debugTryBlock: this.debugTryBlock,
             constantValueOfExpression: this.constantValueOfExpression,
             debugCheckpointExpression: this.debugCheckpointExpression,
             compileGlobalFunction: this.compileGlobalFunction,
@@ -3573,6 +3731,9 @@ export class TWThingTransformer implements TWCodeTransformer {
             traceNameOfNode: this.traceNameOfNode,
             tracePositionOfNode: this.tracePositionOfNode,
             traceMeasurementTryBlock: this.traceMeasurementTryBlock,
+            superCallExpression: this.superCallExpression,
+            lineOffset,
+            positionOffset
         };
 
         return transformer;
@@ -3600,8 +3761,15 @@ export class TWThingTransformer implements TWCodeTransformer {
 
             // TODO: Create new program from function source and compile independently
 
+            // Determine the offset at which to create breakpoints
+            let offset = 0;
+            const functionPosition = functionDeclaration.getStart();
+            if (functionPosition != -1 && functionPosition !== undefined) {
+                offset = ts.getLineAndCharacterOfPosition(sourceFile, functionPosition).line;
+            }
+
             // Create a transformer for the function's source file
-            const transformer = this.codeTransformerForSource(sourceFile);
+            const transformer = this.codeTransformerForSource(sourceFile, offset, functionPosition);
 
             // Build and transform the function
             ts.transpileModule(
@@ -3810,6 +3978,9 @@ export class TWThingTransformer implements TWCodeTransformer {
                     else if (typeof constantValue == 'number') {
                         return ts.factory.createNumericLiteral(constantValue.toString());
                     }
+                    else if (constantValue == ConstantValueUndefined) {
+                        return ts.factory.createIdentifier('undefined');
+                    }
                 }
                 catch (e) {
                     // This will fail for synthetic nodes modified by the transformer, but these will not be
@@ -3817,6 +3988,27 @@ export class TWThingTransformer implements TWCodeTransformer {
                     return node;
                 }
                 break;
+            case ts.SyntaxKind.ArrowFunction:
+                const arrowFunction = node as ts.ArrowFunction;
+                // Arrow functions need to be replaced with bound functions
+                return ts.factory.createCallExpression(
+                    ts.factory.createPropertyAccessExpression(
+                        ts.factory.createParenthesizedExpression(
+                            ts.factory.createFunctionExpression(
+                                arrowFunction.modifiers,
+                                arrowFunction.asteriskToken,
+                                undefined,
+                                arrowFunction.typeParameters,
+                                arrowFunction.parameters,
+                                arrowFunction.type,
+                                ts.isBlock(arrowFunction.body) ? arrowFunction.body : ts.factory.createBlock([ts.factory.createReturnStatement(arrowFunction.body)])
+                            ),
+                        ),
+                        'bind'
+                    ),
+                    undefined,
+                    [ts.factory.createIdentifier('this')]
+                )
             case ts.SyntaxKind.IfStatement:
                 // Strip out tests for environment variables and const enum members when they are "false"
                 // When they are true, remove the else branch, if defined
@@ -3827,13 +4019,16 @@ export class TWThingTransformer implements TWCodeTransformer {
                 let removeElse = false;
 
                 // By the time this gets called, the condition will have been inlined
-                if (ts.isStringLiteral(condition) || condition.kind == ts.SyntaxKind.TrueKeyword || condition.kind == ts.SyntaxKind.FalseKeyword) {
+                if (ts.isStringLiteral(condition) || condition.kind == ts.SyntaxKind.TrueKeyword || condition.kind == ts.SyntaxKind.FalseKeyword || (ts.isIdentifier(condition) && condition.text == 'undefined')) {
 
-                    // For false and "false" values, remove the if branch
+                    // For undefined, false and "false" values, remove the if branch
                     if (ts.isStringLiteral(condition) && condition.text === 'false') {
                         removeIf = true;
                     }
                     else if (condition.kind == ts.SyntaxKind.FalseKeyword) {
+                        removeIf = true;
+                    }
+                    else if (ts.isIdentifier(condition) && condition.text == 'undefined') {
                         removeIf = true;
                     }
                     // For true and "true" values, remove the else branch
@@ -4162,9 +4357,13 @@ export class TWThingTransformer implements TWCodeTransformer {
 
                 let replacementCallExpression: ts.Expression = n11;
 
+                // If this is a call to a superclass implementation, mark the original method as needing
+                // a duplicate implementation and reroute this call to the base implementation
+                replacementCallExpression = this.superCallExpression(n11);
+
                 // If tracing is enabled, wrap this call expression in a trace expression
                 if (this.trace) {
-                    replacementCallExpression = this.traceExpression(n11);
+                    replacementCallExpression = this.traceExpression(replacementCallExpression as ts.CallExpression, n11);
                 }
 
                 // If global functions are not enabled, there's no need to inline global functions
@@ -4323,31 +4522,39 @@ export class TWThingTransformer implements TWCodeTransformer {
                     }
                 }
 
-                if (n11.parent) {
-                    switch (n11.parent.kind) {
-                        case ts.SyntaxKind.PropertyDeclaration:
-                        case ts.SyntaxKind.VariableDeclaration:
-                        case ts.SyntaxKind.ExpressionStatement:
-                            if (this.trace) {
-                                return this.traceExpression(n11);
-                            }
-                            return n11;
-                        case ts.SyntaxKind.BinaryExpression:
-                            const parent = n11.parent as ts.BinaryExpression;
-                            if (parent.right == n11 && parent.operatorToken.kind == ts.SyntaxKind.EqualsToken) {
+                let replacementCallExpression: ts.CallExpression = n11;
+
+                // If this is a call to a superclass implementation, mark the original method as needing
+                // a duplicate implementation and reroute this call to the base implementation
+                replacementCallExpression = this.superCallExpression(n11);
+
+                if (replacementCallExpression == n11) {
+                    if (n11.parent) {
+                        switch (n11.parent.kind) {
+                            case ts.SyntaxKind.PropertyDeclaration:
+                            case ts.SyntaxKind.VariableDeclaration:
+                            case ts.SyntaxKind.ExpressionStatement:
                                 if (this.trace) {
-                                    return this.traceExpression(n11);
+                                    return this.traceExpression(replacementCallExpression, n11);
                                 }
-                                return n11;
-                            }
+                                return replacementCallExpression;
+                            case ts.SyntaxKind.BinaryExpression:
+                                const parent = n11.parent as ts.BinaryExpression;
+                                if (parent.right == n11 && parent.operatorToken.kind == ts.SyntaxKind.EqualsToken) {
+                                    if (this.trace) {
+                                        return this.traceExpression(replacementCallExpression, n11);
+                                    }
+                                    return replacementCallExpression;
+                                }
+                        }
                     }
                 }
 
                 // If tracing is enabled, wrap this call expression in a trace expression and
                 // then wrap the trace expression in a checkpoint expression
-                let traceNode: ts.Expression = n11;
+                let traceNode: ts.Expression = replacementCallExpression;
                 if (this.trace) {
-                    traceNode = this.traceExpression(n11);
+                    traceNode = this.traceExpression(replacementCallExpression, n11);
                 }
 
                 return this.commaCheckpointExpression(traceNode, n11);
@@ -4397,11 +4604,14 @@ export class TWThingTransformer implements TWCodeTransformer {
                 }
                 return node;
             case ts.SyntaxKind.TryStatement:
-                const n13 = node as ts.TryStatement;
+                let n13 = node as ts.TryStatement;
                 if (this.trace) {
-                    return this.traceMeasurementTryBlock(n13);
+                    n13 = this.traceMeasurementTryBlock(n13);
                 }
-                return node;
+                return this.debugTryBlock(n13);
+            case ts.SyntaxKind.ThrowStatement:
+                let n14 = node as ts.ThrowStatement;
+                return ts.factory.createThrowStatement(this.commaCheckpointExpression(n14.expression, n14));
         }
 
         return node;
@@ -4727,35 +4937,47 @@ export class TWThingTransformer implements TWCodeTransformer {
         }
 
         // Store information about the breakpoint's location
-        const startPosition = positionNode.getStart(this.sourceFile, false);
+        let startPosition;
+        try {
+            // Try to get the position node's natural position
+            startPosition = positionNode.getStart(positionNode.getSourceFile(), false);
+        }
+        catch (e) {
+            // If that fails, default to the `pos` property, which represents the point
+            // at which the scanner began scanning since the previous node; this is typically
+            // on the previous line for statements that are the first node in their line
+            startPosition = positionNode.pos;
+        }
         const endPosition = positionNode.getEnd();
 
-        const start = ts.getLineAndCharacterOfPosition(this.sourceFile!, startPosition);
-        const end = ts.getLineAndCharacterOfPosition(this.sourceFile!, endPosition);
+        const start = ts.getLineAndCharacterOfPosition((expression || positionNode).getSourceFile()! || this.sourceFile, startPosition);
+        const end = ts.getLineAndCharacterOfPosition((expression || positionNode).getSourceFile()! || this.sourceFile, endPosition);
 
         // NOTE: Lines and characters are 0-indexed by the compiler, but 1-indexed by the debugger
         const breakpoint: Breakpoint = {
-            line: start.line + 1,
+            line: start.line + 1 + this.lineOffset,
             column: start.character + 1,
-            endLine: end.line + 1,
+            endLine: end.line + 1 + this.lineOffset,
             endColumn: end.character + 1,
-            locationID: ID
+            locationID: ID,
         };
 
+        const hasBreakpointLocation = this.breakpointLocations[breakpoint.line] && this.breakpointLocations[breakpoint.line][breakpoint.column!];
+        const hasBreakpointPosition = this.breakpointPositions[positionNode.pos];
+
         // If a breakpoint at this location already exists, don't add a new one
-        if (this.breakpointLocations[breakpoint.line]) {
-            if (this.breakpointLocations[breakpoint.line][breakpoint.column!]) {
-                if (expression) {
-                    return expression;
-                }
-                else {
-                    return ts.factory.createOmittedExpression();
-                }
+        if (hasBreakpointLocation || hasBreakpointPosition) {
+            if (expression) {
+                return expression;
+            }
+            else {
+                return ts.factory.createOmittedExpression();
             }
         }
 
         this.breakpointLocations[breakpoint.line] = this.breakpointLocations[breakpoint.line] || {};
         this.breakpointLocations[breakpoint.line][breakpoint.column!] = true;
+        this.breakpointPositions[positionNode.pos] = true;
 
         this.breakpoints.push(breakpoint);
 
@@ -4765,6 +4987,138 @@ export class TWThingTransformer implements TWCodeTransformer {
         else {
             return this.debugCheckpointExpression(ID);
         }
+    }
+
+    /**
+     * Adds a notification around the specified try/catch statement, allowing the debugger
+     * to know that any exception thrown in the block will be caught.
+     * @param tryStatement      The try/catch statement.
+     * @returns                 A replacement try/catch statement.
+     */
+    debugTryBlock(tryStatement: ts.TryStatement): ts.TryStatement {
+        // If the statement doesn't have a catch block, there is no need to notify the debugger
+        const catchClause = tryStatement.catchClause;
+        if (!catchClause) {
+            return tryStatement;
+        }
+
+        return ts.factory.createTryStatement(
+            ts.factory.createBlock([
+                ts.factory.createExpressionStatement(
+                    ts.factory.createCallExpression(
+                        ts.factory.createPropertyAccessExpression(
+                            ts.factory.createIdentifier('__d'),
+                            'retainTry'
+                        ),
+                        undefined,
+                        undefined,
+                    ),
+                ),
+                ...tryStatement.tryBlock.statements,
+                ts.factory.createExpressionStatement(
+                    ts.factory.createCallExpression(
+                        ts.factory.createPropertyAccessExpression(
+                            ts.factory.createIdentifier('__d'),
+                            'releaseTry'
+                        ),
+                        undefined,
+                        undefined,
+                    ),
+                ),
+            ], true),
+            ts.factory.createCatchClause(
+                catchClause.variableDeclaration,
+                ts.factory.createBlock([
+                    ts.factory.createExpressionStatement(
+                        ts.factory.createCallExpression(
+                            ts.factory.createPropertyAccessExpression(
+                                ts.factory.createIdentifier('__d'),
+                                'releaseTry'
+                            ),
+                            undefined,
+                            undefined,
+                        ),
+                    ),
+                    ...catchClause.block.statements,
+                ], true),
+            ),
+            tryStatement.finallyBlock
+        )
+    }
+
+    /**
+     * Tests whether the specified call expression represents a call to a method on the caller's
+     * superclass and if its, it replaces the method invoked with the orginal superclass implementation.
+     * @param call          The call to potentially replace with the original superclass method call.
+     * @returns             A replacement call expression, if the specified expression is call to a superclass
+     *                      method, the original code otherwise.
+     */
+    superCallExpression(this: TWCodeTransformer, call: ts.CallExpression): ts.CallExpression {
+        const expression = call.expression;
+        if (!ts.isPropertyAccessExpression(expression)) {
+            // If this isn't a direct method call on super, return the original call
+            return call;
+        }
+
+        if (expression.expression.kind != ts.SyntaxKind.SuperKeyword) {
+            // If this isn't a direct method call on super, return the original call
+            return call;
+        }
+
+        const methodName = expression.name.text;
+
+        // Determine where the superclass method is defined
+        const methodType = this.program.getTypeChecker().getTypeAtLocation(expression.name);
+        const declarations = methodType.getSymbol()?.getDeclarations();
+        
+        if (!declarations) {
+            // If the declaration can't be determined, return the original call
+            return call;
+        }
+
+        // If the declaration is ambiguous, throw an error
+        if (declarations.length > 1) {
+            const position = this.sourceFile && ts.getLineAndCharacterOfPosition(this.sourceFile, this.positionOffset || 0 + call.pos);
+            this.store['@diagnosticMessages'] = this.store['@diagnosticMessages'] || [];
+            this.store['@diagnosticMessages'].push({
+                kind: DiagnosticMessageKind.Error,
+                message: `The super call's base implementation could not be determined.`,
+                file: call.getSourceFile().fileName,
+                column: position?.character,
+                line: position?.line
+            });
+        }
+
+        // Determine the file where the base implementation is defined
+        const declaration = declarations[0];
+        const sourceFilename = declaration.getSourceFile().fileName;
+
+        this.store['@superImplementations'] = this.store['@superImplementations'] || {};
+
+        let uuid;
+        // Check if a duplicate has already been created for the source implementation
+        if (this.store['@superImplementations'][sourceFilename]?.[methodName]) {
+            // If it already was, reuse it
+            uuid = this.store['@superImplementations'][sourceFilename][methodName];
+        }
+        else {
+            // Otherwise create a duplicate for the base implementation and store it in the
+            // super implementations store
+            uuid = `base_${methodName}_${(crypto as any).randomUUID()}`;
+
+            this.store['@superImplementations'][sourceFilename] = this.store['@superImplementations'][sourceFilename] || {};
+            this.store['@superImplementations'][sourceFilename][methodName] = uuid;
+        }
+
+        // Replace the call to super with a call to this using the duplicated base implementation
+        return ts.factory.createCallExpression(
+            ts.factory.createElementAccessExpression(
+                ts.factory.createThis(),
+                uuid
+            ),
+            call.typeArguments,
+            call.arguments
+        );
     }
 
     //#endregion
@@ -5100,13 +5454,17 @@ export class TWThingTransformer implements TWCodeTransformer {
                 // If this service is a SQL service, don't use the transpiled code
                 if (service.SQLInfo) return;
 
-                //const body = ts.createPrinter().printNode(ts.EmitHint.Unspecified, node.body, (this as any).source);
                 service.code = transpiledBody;
+
+                // Construct a string representing the argument list and pass it to the iife
+                let argumentList = service.parameterDefinitions.map(p => p.name).join(', ');
 
                 // In debug mode, additional code is added to activate and deactivate the debugger
                 if (this.debug) {
 
                     // TODO: With all the options enabled, this code is starting to be difficult to maintain and will need to be refactored
+
+                    argumentList = argumentList ? ', ' + argumentList : '';
 
                     service.code = `
 const __d = BMDebuggerRuntime.localDebugger(); 
@@ -5120,7 +5478,7 @@ __r.retain();
 __r.beginImplicit(${JSON.stringify(service.name)}, ${JSON.stringify(entity.sourceFile?.fileName)}, undefined, "project");
 ` : ''}
 try { 
-    var result = (function (logger) {${service.code}}).apply(me, [__dLogger]);
+    var result = (function (logger${argumentList}) {${service.code}}).apply(me, [__dLogger${argumentList}]);
     ${this.trace ? `__r.finishImplicit(); ` : ''}
 } 
 finally {
@@ -5138,7 +5496,7 @@ var __ret;
 __r.retain();
 __r.beginImplicit(${JSON.stringify(service.name)}, ${JSON.stringify(entity.sourceFile?.fileName)}, undefined, "project");
 try { 
-    var result = (function () {${service.code}}).apply(me);
+    var result = (function (${argumentList}) {${service.code}}).apply(me, [${argumentList}]);
     __r.finishImplicit(); 
 } 
 finally {
@@ -5147,7 +5505,7 @@ finally {
 }`;
                 }
                 else {
-                    service.code = `var result = (function () {${service.code}}).apply(me)`;
+                    service.code = `var result = (function (${argumentList}) {${service.code}}).apply(me, [${argumentList}])`;
                 }
             }
             else {
@@ -5408,6 +5766,10 @@ finally {
                     if (constant === undefined) {
                         this.throwErrorForNode(member, `Configuration field values must be compile time constants.`)
                     }
+                    if (constant === ConstantValueUndefined) {
+                        // If the value is undefined, don't add this key
+                        break;
+                    }
                     result[name] = constant;
                     break;
                 default:
@@ -5427,6 +5789,7 @@ finally {
     firePostTransformActions() {
         this.validateConstraints();
         this.handleDataShapeInheritance();
+        this.handleSuperCalls();
     }
 
     /**
@@ -5491,6 +5854,40 @@ finally {
 
         // Mark inheritance as done
         this.dataShapeInheritanceProcessed = true;
+    }
+
+    /**
+     * Handles subclasses invoking a base implementation defined
+     * on the class processed by the transformer.
+     */
+    private handleSuperCalls(): void {
+        // Only applies to thing templates and thing shapes
+        if (this.entityKind != TWEntityKind.ThingShape && this.entityKind != TWEntityKind.ThingTemplate) {
+            return;
+        }
+
+        // For each method that has a replacement specified in the store, create a copy of the service
+        // definition using the new name
+        if (this.store['@superImplementations']?.[this.filename!]) {
+            for (const key in this.store['@superImplementations'][this.filename!]) {
+                const service = this.services.find(s => s.name == key);
+
+                // If the service wasn't found, continue
+                if (!service) continue;
+
+                // Create a copy of the original service, with everything copied except for
+                // the name and the `isOverriden` flag disabled; this is needed because otherwise
+                // if the base implementation is also overriding a superclass, the new service
+                // would not have a service definition
+                const newService: TWServiceDefinition = {
+                    ...service,
+                    isOverriden: false,
+                    name: this.store['@superImplementations'][this.filename!][key]
+                };
+
+                this.services.push(newService);
+            }
+        }
     }
 
     /**
@@ -6898,20 +7295,33 @@ export function TWThingTransformerFactory(program: ts.Program, root: string, aft
                 }
     
                 if (!after && (transformer.debug || transformer.trace)) {
-                    // When running in debug mode, a different transformer may have already visited parts of this
-                    // transformer's file and added debug information to it
-                    // If that has happened, load the debug state saved by that transformer
                     if (transformer.store['@debugInformation']?.[node.fileName]) {
+                        // When running in debug mode, a different transformer may have already visited parts of this
+                        // transformer's file and added debug information to it
+                        // If that has happened, load the debug state saved by that transformer
                         const debugStore = transformer.store['@debugInformation'][node.fileName];
                         Object.assign(transformer, {
                             _debugBreakpointCounter: debugStore._debugBreakpointCounter,
                             breakpointLocations: debugStore.breakpointLocations,
+                            breakpointPositions: debugStore.breakpointPositions,
                             breakpoints: debugStore.breakpoints,
                         });
                     }
+                    else {
+                        // Otherwise initialize a debug store for this file
+                        transformer.store['@debugInformation'] = transformer.store['@debugInformation'] || {};
+                        transformer.store['@debugInformation'][node.fileName] = {
+                            _debugBreakpointCounter: transformer._debugBreakpointCounter,
+                            breakpointLocations: transformer.breakpointLocations,
+                            breakpointPositions: transformer.breakpointPositions,
+                            breakpoints: transformer.breakpoints,
+                        };
+                    }
                 }
     
-                return ts.visitNode(node, node => transformer.visit(node));
+                const result = ts.visitNode(node, node => transformer.visit(node));
+
+                return result;
             }
             finally {
                 if (typeof project == 'object') {
