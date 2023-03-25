@@ -161,6 +161,19 @@ const MethodHelperIdentifiers = ['METHOD_NAME', 'CLASS_NAME', 'FILE_PATH', 'LOG_
 const USE_DEBUG_CONFIGURATION_TABLE = false;
 
 /**
+ * An array that contains the kinds of nodes that may appear at the root of a source file.
+ */
+const AllowedRootNodeKinds = [
+    ts.SyntaxKind.ClassDeclaration,
+    ts.SyntaxKind.InterfaceDeclaration,
+    ts.SyntaxKind.EnumDeclaration,
+    ts.SyntaxKind.ImportClause,
+    ts.SyntaxKind.SingleLineCommentTrivia,
+    ts.SyntaxKind.JSDocComment,
+    ts.SyntaxKind.MultiLineCommentTrivia
+];
+
+/**
  * The interface for the portion of the thing transformer that is used for
  * transforming functions and methods.
  */
@@ -667,6 +680,12 @@ export class TWThingTransformer implements TWCodeTransformer {
     inlineSQLOptions?: InlineSQL;
 
     /**
+     * When set to a string, this represents the class name of the database entity on which inline
+     * SQL services will be placed.
+     */
+    targetDatabase?: string;
+
+    /**
      * The project root path, to which files are written by default.
      */
     root: string;
@@ -1026,7 +1045,7 @@ export class TWThingTransformer implements TWCodeTransformer {
     }
 
     /**
-     * Retrieves the text of the single literal argument of the given decorator. This method will throw if the given
+     * Retrieves the text of the single literal argument of the specified decorator. This method will throw if the specified
      * decorator factory has no arguments, more than one argument or a non-literal argument.
      * @param name      The name of the decorator to find.
      * @param node      The node in which to search.
@@ -1038,11 +1057,13 @@ export class TWThingTransformer implements TWCodeTransformer {
         const args = this.argumentsOfDecoratorNamed(name, node);
 
         if (!args || args.length != 1) {
+            // These decorators always take a single argument
             this.throwErrorForNode(node, `The @${name} decorator must take a single parameter.`);
         }
         else {
             const argument = args[0];
 
+            // The argument must be a string literal
             if (argument.kind != ts.SyntaxKind.StringLiteral) {
                 this.throwErrorForNode(node, `The argument for the @${name} decorator must be a string literal.`);
             }
@@ -1053,7 +1074,7 @@ export class TWThingTransformer implements TWCodeTransformer {
     }
 
     /**
-     * Retrieves the text of the single numeric argument of the given decorator. This method will throw if the given
+     * Retrieves the text of the single numeric argument of the specified decorator. This method will throw if the specified
      * decorator factory has no arguments, more than one argument or a non-numeric argument.
      * @param name      The name of the decorator to find.
      * @param node      The node in which to search.
@@ -1065,19 +1086,52 @@ export class TWThingTransformer implements TWCodeTransformer {
         const args = this.argumentsOfDecoratorNamed(name, node);
 
         if (!args || args.length != 1) {
+            // These decorators always take a single argument
             this.throwErrorForNode(node, `The @${name} decorator must take a single parameter.`);
         }
         else {
             const argument = args[0];
 
             if (ts.isNumericLiteral(argument)) {
+                // The argument must be either a numeric literal
                 return (argument as ts.NumericLiteral).text;
             }
-            else if (ts.isPrefixUnaryExpression(argument) && ts.isNumericLiteral(argument.operand) && argument.operator == ts.SyntaxKind.MinusToken) {// check for negative number
+            else if (ts.isPrefixUnaryExpression(argument) && ts.isNumericLiteral(argument.operand) && argument.operator == ts.SyntaxKind.MinusToken) {
+                // Or it can be a unary expression if the numeric literal is a negative number,
+                // but the operator must be a minus sign
                 return '-' + (argument.operand as ts.NumericLiteral).text;
             }
             else {
                 this.throwErrorForNode(node, `The argument for the @${name} decorator must be a number.`);
+            }
+        }
+    }
+
+    /**
+     * Retrieves the text of the single identifier argument of the specified decorator. This method will throw if the specified
+     * decorator factory has no arguments, more than one argument or a non-identifier argument.
+     * @param name      The name of the decorator to find.
+     * @param node      The node in which to search.
+     * @return          The text of the identifier argument, or `undefined` if the decorator does not exist.
+     */
+    identifierArgumentOfDecoratorNamed(name: string, node: ts.Node): string | undefined {
+        if (!this.hasDecoratorNamed(name, node)) return;
+
+        const args = this.argumentsOfDecoratorNamed(name, node);
+
+        if (!args || args.length != 1) {
+            // These decorators always take a single argument
+            this.throwErrorForNode(node, `The @${name} decorator must take a single parameter.`);
+        }
+        else {
+            const argument = args[0];
+
+            if (ts.isIdentifier(argument)) {
+                // The argument must be either an identifier
+                return argument.text;
+            }
+            else {
+                this.throwErrorForNode(node, `The argument for the @${name} decorator must be an identifier.`);
             }
         }
     }
@@ -1623,7 +1677,7 @@ export class TWThingTransformer implements TWCodeTransformer {
         this.anyNodeVisited = true;
 
         // The only permitted entries at the source level are class declarations, interface declarations, const enums and import statements
-        if (![ts.SyntaxKind.ClassDeclaration, ts.SyntaxKind.InterfaceDeclaration, ts.SyntaxKind.EnumDeclaration, ts.SyntaxKind.ImportClause, ts.SyntaxKind.SingleLineCommentTrivia, ts.SyntaxKind.JSDocComment, ts.SyntaxKind.MultiLineCommentTrivia].includes(node.kind)) {
+        if (!AllowedRootNodeKinds.includes(node.kind)) {
             // Only allow function declarations if support for them is enabled
             if (node.kind == ts.SyntaxKind.FunctionDeclaration && !this.globalFunctionsEnabled) {
                 this.throwErrorForNode(node, `Only classes, interfaces, const enums and import statements are permitted at the root level.`);
@@ -1643,6 +1697,7 @@ export class TWThingTransformer implements TWCodeTransformer {
         // Import statements are only used for type inference so they are not handled
 
         if (node.kind == ts.SyntaxKind.ClassDeclaration) {
+            // If the node is a class node, determine what kind of entity it refers to
             const classNode = node as ts.ClassDeclaration;
             if (this.hasClassDefinition) {
                 this.throwErrorForNode(node, `Only a single class may be declared in Thingworx files.`);
@@ -1692,6 +1747,7 @@ export class TWThingTransformer implements TWCodeTransformer {
 
             this.description = this.documentationOfNode(classNode);
 
+            // Verify if the class should use a different name when emitted
             if (this.hasDecoratorNamed('exportName', classNode)) {
                 const exportName = this.literalArgumentOfDecoratorNamed('exportName', classNode);
                 this.exportedName = exportName;
@@ -1825,6 +1881,10 @@ export class TWThingTransformer implements TWCodeTransformer {
 
             this.valueStream = this.literalArgumentOfDecoratorNamed('valueStream', classNode);
             this.identifier = this.literalArgumentOfDecoratorNamed('identifier', classNode);
+
+            // If a different entity should be used for SQL services, store it and use it as a property
+            // of any SQL service resulting from an inline SQL statement
+            this.targetDatabase = this.literalArgumentOfDecoratorNamed('database', classNode);
 
             if (this.valueStream && (this.entityKind != TWEntityKind.Thing && this.entityKind != TWEntityKind.ThingTemplate)) {
                 this.throwErrorForNode(node, `The valueStream decorator can only be applied to Things and ThingTemplates.`);
@@ -4094,7 +4154,7 @@ export class TWThingTransformer implements TWCodeTransformer {
 
 
     /**
-     * Visits the given tagged template literal node and, if necessary, returning a replacement node
+     * Visits the specified tagged template literal node and, if necessary, returning a replacement node
      * and creating a SQL service for it.
      * @param node          The node to evaluate.
      * @param service       The service or subscription in which the tagged template was found.
@@ -4134,7 +4194,8 @@ export class TWThingTransformer implements TWCodeTransformer {
             SQLInfo: {
                 timeout: 60,
                 maxRows: 500,
-                handler: 'SQLCommand'
+                handler: 'SQLCommand',
+                targetDatabase: this.targetDatabase,
             }
         }
 
@@ -4290,12 +4351,30 @@ export class TWThingTransformer implements TWCodeTransformer {
                 break;
         }
 
-        // Return a node that represents an invocation of the newly created service
-        return ts.factory.createCallExpression(
-            ts.factory.createElementAccessExpression(
+        // Create the appropriate expression for the call expression, based on whether this SQL service
+        // is invoked on the current class, or a specific database thing
+        let callExpressionExpression: ts.Expression;
+        if (this.targetDatabase) {
+            // If the target class is different than the current one, the service is invoked on `Things[targetClass]`
+            callExpressionExpression = ts.factory.createElementAccessExpression(
+                ts.factory.createElementAccessExpression(
+                    ts.factory.createIdentifier('Things'),
+                    ts.factory.createStringLiteral(this.targetDatabase)
+                ),
+                ts.factory.createStringLiteral(SQLService.name)
+            );
+        }
+        else {
+            // If the target class is the current one, the service is invoked on `this`
+            callExpressionExpression = ts.factory.createElementAccessExpression(
                 ts.factory.createThis(),
                 ts.factory.createStringLiteral(SQLService.name)
-            ),
+            );
+        }
+
+        // Return a node that represents an invocation of the newly created service
+        return ts.factory.createCallExpression(
+            callExpressionExpression,
             undefined,
             [
                 ts.factory.createObjectLiteralExpression(
@@ -5788,16 +5867,20 @@ finally {
      */
     firePostTransformActions() {
         this.validateConstraints();
-        this.handleDataShapeInheritance();
-        this.handleSuperCalls();
+        this.inheritDataShapes();
+        this.copyBaseServiceImplementations();
+        this.installTargettedSQLServices();
     }
 
     /**
      * Handles extending the list of fields that a dataShape has
      * with the one present on the parent.
-     * If a field is detected on both the parent and the child, the child definition will be used
+     * If a field is detected on both the parent and the child, the child definition will be used.
+     * 
+     * This method may only be invoked after all transformers in the project have finished
+     * processing their files.
      */
-    private handleDataShapeInheritance(): void {
+    private inheritDataShapes(): void {
         // Only applies to dataShapes
         if (this.entityKind != TWEntityKind.DataShape) {
             return;
@@ -5822,7 +5905,7 @@ finally {
                 // If inheritance was not processed for this base data shape, do it now
                 // to ensure that this data shape also inherits its inherited fields
                 if (!transformer.dataShapeInheritanceProcessed) {
-                    transformer.handleDataShapeInheritance();
+                    transformer.inheritDataShapes();
                 }
 
                 transformer.fields.forEach(f => {
@@ -5859,8 +5942,11 @@ finally {
     /**
      * Handles subclasses invoking a base implementation defined
      * on the class processed by the transformer.
+     * 
+     * This method may only be invoked after all transformers in the project have finished
+     * processing their files.
      */
-    private handleSuperCalls(): void {
+    private copyBaseServiceImplementations(): void {
         // Only applies to thing templates and thing shapes
         if (this.entityKind != TWEntityKind.ThingShape && this.entityKind != TWEntityKind.ThingTemplate) {
             return;
@@ -5887,6 +5973,103 @@ finally {
 
                 this.services.push(newService);
             }
+        }
+    }
+
+    /**
+     * Moves any SQL service that has the `targetDatabase` property set from this class to the specified
+     * target database thing, moving over any permissions associated with those services.
+     * 
+     * This method may only be invoked after all transformers in the project have finished
+     * processing their files.
+     */
+    private installTargettedSQLServices(): void {
+        // Only applies to things, thing templates and thing shapes
+        if (this.entityKind != TWEntityKind.Thing && this.entityKind != TWEntityKind.ThingShape && this.entityKind != TWEntityKind.ThingTemplate) {
+            return;
+        }
+
+        // Find the transformer for the target database
+        let targetTransformer: TWThingTransformer | undefined;
+        if (this.targetDatabase) {
+            for (const key in this.store) {
+                // Skip over non-transformer entries
+                if (key.startsWith('@')) continue;
+
+                const transformer = this.store[key] as TWThingTransformer;
+
+                if (transformer.entityKind == TWEntityKind.Thing && transformer.exportedName == this.targetDatabase) {
+                    targetTransformer = transformer;
+                    break;
+                }
+            }
+        }
+
+        // Find all services with a target database
+        for (let i = 0; i < this.services.length; i++) {
+            const service = this.services[i];
+
+            if (!service.SQLInfo?.targetDatabase) continue;
+
+            // If the target transformer could not be found, report an error
+            if (!targetTransformer) {
+                this.store['@diagnosticMessages'] = this.store['@diagnosticMessages'] || [];
+
+                this.store['@diagnosticMessages'].push({
+                    kind: DiagnosticMessageKind.Error,
+                    message: `Unable to process inline SQL statements on class ${this.className} because the target database thing "${this.targetDatabase}" could not be found in the project.`,
+                    file: this.sourceFile?.fileName
+                });
+                
+                continue;
+            }
+
+            // When moving over services, delete their target database property so they don't get processed
+            // again on the target class
+            service.SQLInfo.targetDatabase = undefined;
+
+            // Remove the service from the current class and move it to the target transformer
+            this.services.splice(i, 1);
+            targetTransformer.services.push(service);
+
+            let permissions: TWRuntimePermissionsList = {};
+
+            // Move over all generic permissions declared on the class, redefining them
+            // as permissions specific to that service
+            if (this.entityKind == TWEntityKind.Thing) {
+                // Things use runtime permissions
+                if (this.runtimePermissions.runtime?.['*']) {
+                    const permission = {...this.runtimePermissions.runtime['*']};
+                    permissions[service.name] = permission;
+                }
+            }
+            else {
+                // Templates and shapes use runtime instance permissions
+                if (this.runtimePermissions.runtimeInstance?.['*']) {
+                    const permission = {...this.runtimePermissions.runtimeInstance['*']};
+                    permissions[service.name] = permission;
+                }
+            }
+
+            // Move over all permissions specific to that service, overriding any generic permissions previously declared
+            if (this.entityKind == TWEntityKind.Thing) {
+                // Things use runtime permissions
+                if (this.runtimePermissions.runtime?.[service.name]) {
+                    permissions[service.name] = Object.assign(permissions[service.name] || {}, this.runtimePermissions.runtime[service.name]);
+                    delete this.runtimePermissions.runtime[service.name];
+                }
+            }
+            else {
+                // Templates and shapes use runtime instance permissions
+                if (this.runtimePermissions.runtimeInstance?.[service.name]) {
+                    permissions[service.name] = Object.assign(permissions[service.name] || {}, this.runtimePermissions.runtimeInstance[service.name]);
+                    delete this.runtimePermissions.runtimeInstance[service.name];
+                }
+            }
+
+            // Copy the permissions to the target transformer
+            targetTransformer.runtimePermissions.runtime = targetTransformer.runtimePermissions.runtime || {};
+            targetTransformer.runtimePermissions.runtime[service.name] = permissions[service.name];
         }
     }
 

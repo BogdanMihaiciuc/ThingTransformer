@@ -257,6 +257,13 @@ declare function SQLQuery(timeout: number, maxRows: number):
 declare function SQLQuery<T extends Database, D extends DataShapeBase>(target: T, key: string, descriptor: TypedPropertyDescriptor<(...args: any[]) => INFOTABLE<D>>): void;
 
 /**
+ * When applied to a thing, template or shape, this decorator allows writing inline SQL statements in this
+ * entity's services. The inline SQL statements will be converted to services on the specified database or sql thing.
+ * @param database      The name of the database entity on which to place SQL services.
+ */
+declare function database(database: THINGNAME<'Database'> | THINGNAME<'SQLThing'>): <T extends new (...args) => GenericThing>(target: T) => void;
+
+/**
  * When applied to an entity, this causes a configuration table to be emitted for it.
  * @param config        A map of configuration tables.
  */
