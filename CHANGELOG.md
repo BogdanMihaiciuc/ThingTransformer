@@ -2,6 +2,8 @@
 
 Adds limited support for using the `super` keyword to invoke the base class implementation of a service when overridden by a thing or template. Currently only methods that are known at compile time support this, and only when both the subclass and superclass are part of the project.
 
+Adds support for writing inline SQL statements on non-database entities. This requires that the class have a `@database` decorator that specifies a database thing or SQL thing on which the services will actually be installed. The transformer will replace those inline SQL statements with service invokes on the specified databse thing.
+
 Resolves an issue where the transformer did not generate the proper breakpoint locations for global functions.
 
 Improved the positioning of generated breakpoint locations. These will now be more often placed on the same line in which a statement begins, rather than the position where the previous statement ends.
