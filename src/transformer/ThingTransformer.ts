@@ -292,6 +292,15 @@ interface TWCodeTransformer {
      */
     constantValueOfExpression(this: TWCodeTransformer, expression: ts.Expression): unknown;
 
+
+    /**
+     * Adds a diagnostic message for the specified node that should be printed out at the end of the transformation.
+     * @param node          The node which caused a problem.
+     * @param text          The problem text that should be displayed to the user.
+     * @param kind          Defaults to `.Error`. Whether the problem is an error or a warning.
+     */
+    reportDiagnosticForNode(node: ts.Node, text: string, kind?: DiagnosticMessageKind): void;
+
     /**
      * Throws a formatted error message for the given AST node.
      * @param node      The node which caused an error.
@@ -775,6 +784,41 @@ export class TWThingTransformer implements TWCodeTransformer {
         this.root = root;
         this.after = after;
         this.watch = watch;
+    }
+
+    /**
+     * Adds a diagnostic message for the specified node that should be printed out at the end of the transformation.
+     * @param node          The node which caused a problem.
+     * @param text          The problem text that should be displayed to the user.
+     * @param kind          Defaults to `.Error`. Whether the problem is an error or a warning.
+     */
+    reportDiagnosticForNode(node: ts.Node, text: string, kind: DiagnosticMessageKind = DiagnosticMessageKind.Error): void {
+        const diagnosticMessage: Partial<DiagnosticMessage> = {
+            message: text,
+            kind
+        };
+
+        try {
+            const file = node.getSourceFile();
+            const filename = file.fileName;
+
+            // Try to obtain positioning information from the node, if it has it
+            if (node.pos != -1) {
+                const location = ts.getLineAndCharacterOfPosition(file, node.getStart());
+
+                // If the position can be determined, include it in the diagnostic message
+                diagnosticMessage.file = filename;
+                diagnosticMessage.column = location.character;
+                diagnosticMessage.line = location.line;
+            }
+        }
+        catch (e) {
+            // If the node is synthetic and its location cannot be determined, report the error
+            // without positioning information
+        }
+
+        this.store['@diagnosticMessages'] = this.store['@diagnosticMessages'] || [];
+        this.store['@diagnosticMessages'].push(diagnosticMessage as DiagnosticMessage);
     }
 
     /**
@@ -3782,6 +3826,7 @@ export class TWThingTransformer implements TWCodeTransformer {
             compileGlobalFunction: this.compileGlobalFunction,
             evaluateGlobalCallExpression: this.evaluateGlobalCallExpression,
             evaluateGlobalFunctionNode: this.evaluateGlobalFunctionNode,
+            reportDiagnosticForNode: this.reportDiagnosticForNode,
             throwErrorForNode: this.throwErrorForNode,
             visitCodeNode: this.visitCodeNode,
             visitDebugMethodNode: this.visitDebugMethodNode,
@@ -5134,13 +5179,19 @@ export class TWThingTransformer implements TWCodeTransformer {
      */
     superCallExpression(this: TWCodeTransformer, call: ts.CallExpression): ts.CallExpression {
         const expression = call.expression;
-        if (!ts.isPropertyAccessExpression(expression)) {
+        if (!ts.isPropertyAccessExpression(expression) && !ts.isElementAccessExpression(expression)) {
             // If this isn't a direct method call on super, return the original call
             return call;
         }
 
         if (expression.expression.kind != ts.SyntaxKind.SuperKeyword) {
             // If this isn't a direct method call on super, return the original call
+            return call;
+        }
+
+        // If the call is on an element access expression on super, this is not supported
+        if (ts.isElementAccessExpression(expression)) {
+            this.reportDiagnosticForNode(call, `Calls to superclass implementations are only supported with static method names.`);
             return call;
         }
 
