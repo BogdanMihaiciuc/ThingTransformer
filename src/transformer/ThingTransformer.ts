@@ -3004,6 +3004,18 @@ export class TWThingTransformer implements TWCodeTransformer {
             return this.visitSubscription(node);
         }
 
+        // Abstract methods aren't yet supported
+        if (node.modifiers?.find(m => m.kind == ts.SyntaxKind.AbstractKeyword)) {
+            this.reportDiagnosticForNode(node, `Services cannot be abstract.`);
+            return node;
+        }
+
+        // If the method declaration does not contain an implementation don't create a service for it
+        // because it is either an overload signature or an abstract method
+        if (!node.body) {
+            return node;
+        }
+
         // Create the service definition object
         const service = {
             aspects: {},
@@ -3767,20 +3779,28 @@ export class TWThingTransformer implements TWCodeTransformer {
         } as TWSubscriptionDefinition;
         subscription.enabled = true;
 
+        if (node.modifiers?.find(m => m.kind == ts.SyntaxKind.AbstractKeyword)) {
+            this.reportDiagnosticForNode(node, `Subscriptions cannot be abstract.`);
+            return node;
+        }
+
         if (this.hasDecoratorNamed('subscription', node) && this.hasDecoratorNamed('localSubscription', node)) {
-            this.throwErrorForNode(node, 'A method cannot have both the "subscription" and "localSubscription" decorators applied.');
+            this.reportDiagnosticForNode(node, 'A method cannot have both the "subscription" and "localSubscription" decorators applied.');
+            return node;
         }
 
         // Subscriptions can only be javascript services
         if (this.hasDecoratorNamed('SQLQuery', node) || this.hasDecoratorNamed('SQLCommand', node)) {
-            this.throwErrorForNode(node, 'Subscriptions cannot be SQL services.');
+            this.reportDiagnosticForNode(node, 'Subscriptions cannot be SQL services.');
+            return node;
         }
 
         subscription.name = node.name.getText();
 
         // Subscriptions cannot be overriden
         if (node.modifiers?.some(m => m.kind == ts.SyntaxKind.OverrideKeyword)) {
-            this.throwErrorForNode(node, 'Subscriptions cannot be overriden');
+            this.reportDiagnosticForNode(node, 'Subscriptions cannot be overriden');
+            return node;
         }
 
         // Subscriptions cannot have documentation for arguments and cannot have a return type
