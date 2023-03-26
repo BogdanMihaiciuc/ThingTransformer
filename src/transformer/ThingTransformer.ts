@@ -2742,14 +2742,72 @@ export class TWThingTransformer implements TWCodeTransformer {
     }
 
     /**
-     * Gets the inferred type of the given expression.
-     * @param expression        The expression whose type should be inferred.
-     * @returns                 A string representing the thingwor xbase type of the expression.
+     * Gets the inferred type of the specified node.
+     * @param node              The node whose type should be inferred.
+     * @param typeArguments     If specified, this must be set to an empty array in which any type arguments
+     *                          of the inferred type will be inserted. If not specified, the type arguments
+     *                          will not be returned.
+     * @returns                 A string representing the thingworx base type of the node
+     *                          or `undefined` if the type could not be determined or is not assignable
+     *                          to a thingworx base type.
      */
-    private getBaseTypeOfExpression(expression: ts.Expression): string | undefined {
+    private getBaseTypeOfNode(node: ts.Node, typeArguments?: ts.Type[]): string | undefined {
         const typeChecker = this.program.getTypeChecker();
-        const inferredType = typeChecker.getTypeAtLocation(expression);
-        let typeName = typeChecker.typeToString(inferredType);
+        const inferredType = typeChecker.getTypeAtLocation(node);
+        return this.getBaseTypeOfType(inferredType, typeArguments);
+    }
+
+    /**
+     * Gets the inferred return type of the specified node.
+     * @param node              The node whose type should be inferred. This must be of a type that has a return type.
+     * @param typeArguments     If specified, this must be set to an empty array in which any type arguments
+     *                          of the inferred type will be inserted. If not specified, the type arguments
+     *                          will not be returned.
+     * @returns                 A string representing the thingworx base type of the node
+     *                          or `undefined` if the type could not be determined or is not assignable
+     *                          to a thingworx base type.
+     */
+    private getReturnBaseTypeOfNode(node: ts.Node, typeArguments?: ts.Type[]): string | undefined {
+        const typeChecker = this.program.getTypeChecker();
+        const inferredType = typeChecker.getTypeAtLocation(node);
+
+        // If the specified node does not have call signatures, a return type cannot be determined
+        const signatures = inferredType.getCallSignatures();
+        if (!signatures.length) {
+            this.throwErrorForNode(node, `Unable to obtain the call signature of the specified node.`);
+        }
+
+        // If the node has multiple signatures, ensure that all return types match
+        const type = this.getBaseTypeOfType(signatures[0].getReturnType(), typeArguments);
+
+        for (let i = 1; i < signatures.length; i++) {
+            if (type != this.getBaseTypeOfType(signatures[i].getReturnType())) {
+                // If the type is different, report an error
+                this.reportDiagnosticForNode(node, `Unable to infer the Thingworx base type, because the method has multiple overloaded return types.`, DiagnosticMessageKind.Error);
+            }
+        }
+
+        return type;
+    }
+
+    /**
+     * Gets the thingworx base type corresponding to the specified type.
+     * @param type              The type whose thingworx base type should be inferred.
+     * @param typeArguments     If specified, this must be set to an empty array in which any type arguments
+     *                          of the inferred type will be inserted. If not specified, the type arguments
+     *                          will not be returned.
+     * @returns                 A string representing the thingworx base type of the type
+     *                          or `undefined` if the type could not be determined or is not assignable
+     *                          to a thingworx base type.
+     */
+    private getBaseTypeOfType(type: ts.Type, typeArguments?: ts.Type[]): string | undefined {
+        const typeChecker = this.program.getTypeChecker();
+        let typeName = typeChecker.typeToString(type);
+
+        // If type arguments were requested, add them to the array
+        if (typeArguments && type.aliasTypeArguments) {
+            typeArguments.push(...type.aliasTypeArguments);
+        }
 
         // If the type is a thingworx generic type, remove the generics
         if (typeName.startsWith('INFOTABLE<')) {
@@ -2769,11 +2827,11 @@ export class TWThingTransformer implements TWCodeTransformer {
         }
 
         // Map the inferred type to a thingworx base type
-        const type = TWBaseTypes[typeName];
+        const baseType = TWBaseTypes[typeName];
 
-        if (!type) {
+        if (!baseType) {
             // If the type could not determined, try to map to a primitive type
-            const flags = inferredType.flags;
+            const flags = type.flags;
 
             // Test using the flags whether the type can be represented by a primitive type
             // It looks like related flags such as StringLike, StringLiteral and String do not have common bits
@@ -2806,12 +2864,12 @@ export class TWThingTransformer implements TWCodeTransformer {
                 return 'BOOLEAN';
             }
             else if ((flags & ts.TypeFlags.Union) == ts.TypeFlags.Union) {
-                if (!inferredType.isUnion()) {
+                if (!type.isUnion()) {
                     return;
                 }
 
                 // If the type is a type union, a valid type would need the union to all have the same type
-                const types = inferredType.types;
+                const types = type.types;
                 if (!types) return;
 
                 // If the types are of the same kind, AND all the flags together and they
@@ -2851,7 +2909,7 @@ export class TWThingTransformer implements TWCodeTransformer {
             }
         }
 
-        return type;
+        return baseType;
     }
 
     /**
@@ -3088,7 +3146,8 @@ export class TWThingTransformer implements TWCodeTransformer {
 
         // Services must always have a single destructured object argument
         if (node.parameters.length > 1) {
-            this.throwErrorForNode(node, 'Services an only have a single destructured parameter.');
+            this.reportDiagnosticForNode(node, 'Services can only have a single destructured parameter.');
+            service.parameterDefinitions = [];
         }
         else if (node.parameters.length) {
             service.parameterDefinitions = [];
@@ -3294,9 +3353,51 @@ export class TWThingTransformer implements TWCodeTransformer {
 
         if (!node.type) {
             if (!service.aspects.isAsync) {
-                // For non-async services, the return type must be specified
-                // TODO: Use type checker to make use of the inferred return type, if it can be used
-                this.throwErrorForNode(originalNode, 'The return type of non-async services must be specified.');
+                // For non-async services, the return type must be specified, if not, attempt to infer it
+                let typeArguments: ts.Type[] = [];
+                const type = this.getReturnBaseTypeOfNode(originalNode, typeArguments);
+
+                if (type) {
+                    service.resultType = {
+                        name: 'result',
+                        aspects: {},
+                        baseType: type,
+                        description: '',
+                        ordinal: 0
+                    };
+                    
+                    if (type == 'INFOTABLE') {
+                        // INFOTABLE can optionally take the data shape as a type argument
+                        if (typeArguments) {
+                            if (typeArguments.length > 1) {
+                                this.reportDiagnosticForNode(originalNode, `Too many generic arguments inferred for INFOTABLE return type. Expected 0-1, inferred ${typeArguments.length}.`);
+                            }
+        
+                            if (typeArguments[0].isStringLiteral()) {
+                                service.resultType.aspects.dataShape = typeArguments[0].value;
+                            }
+                            else if (typeArguments[0].isClassOrInterface()) {
+                                const name = typeArguments[0].symbol.escapedName;
+
+                                if (name) {
+                                    service.resultType.aspects.dataShape = name;
+                                }
+                                else {
+                                    // If the generics class is anonymous, report an error
+                                    this.reportDiagnosticForNode(originalNode, `The generic argument inferred for the INFOTABLE return type could not be determined.`);
+                                }
+                            }
+                        }
+                    }
+                }
+                else {
+                    // If the type could not be determined, report an error and ignore the result type
+                    this.reportDiagnosticForNode(originalNode, `The return type could not be determined. Consider adding an explicit return type annotation.`);
+                    service.resultType = {
+                        name: 'result',
+                        baseType: 'NOTHING'
+                    } as TWServiceParameter;
+                }
             }
             else {
                 // For async services, the return type is not used
@@ -3322,7 +3423,8 @@ export class TWThingTransformer implements TWCodeTransformer {
                 // The type must be either a primitive type or a type reference node
                 const baseType = TypeScriptReturnPrimitiveTypes.includes(typeNode.kind) ? typeNode.getText() : typeNode.typeName.getText();
                 if (!(baseType in TWBaseTypes)) {
-                    this.throwErrorForNode(originalNode, `Unknown base type ${baseType} specified for service return type.`);
+                    // If the return type is not a thingworx type, report an error
+                    this.reportDiagnosticForNode(originalNode, `Unknown base type ${baseType} specified for service return type.`);
                 }
 
                 if (TWBaseTypes[baseType] == 'INFOTABLE') {
@@ -3613,7 +3715,7 @@ export class TWThingTransformer implements TWCodeTransformer {
                     }
                 }
                 else {
-                    baseType = this.getBaseTypeOfExpression(argumentExpression as ts.Expression);
+                    baseType = this.getBaseTypeOfNode(argumentExpression as ts.Expression);
                 }
 
                 const parameter: TWServiceParameter = {
