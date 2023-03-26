@@ -4,6 +4,8 @@ Adds limited support for using the `super` keyword to invoke the base class impl
 
 Adds support for writing inline SQL statements on non-database entities. This requires that the class have a `@database` decorator that specifies a database thing or SQL thing on which the services will actually be installed. The transformer will replace those inline SQL statements with service invokes on the specified databse thing.
 
+The transformer will now attempt to infer the return type of services if not specified. Additionally, method overload signatures no longer cause a compilation error. When method overloads are used, only the implementation signature will be used to generate the service definition.
+
 Resolves an issue where the transformer did not generate the proper breakpoint locations for global functions.
 
 Improved the positioning of generated breakpoint locations. These will now be more often placed on the same line in which a statement begins, rather than the position where the previous statement ends.
