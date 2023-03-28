@@ -4496,7 +4496,7 @@ export class TWThingTransformer implements TWCodeTransformer {
 
                 // Merge the permission into the permissions list, if any was copied
                 if (inheritedPermission[permissionKind]![SQLService.name].ServiceInvoke.length) {
-                    this.mergePermissionListsForNode([this.runtimePermissions, inheritedPermission], node);
+                    this.runtimePermissions = this.mergePermissionListsForNode([this.runtimePermissions, inheritedPermission], node);
                 }
                 break;
             case 'system':
@@ -4514,7 +4514,7 @@ export class TWThingTransformer implements TWCodeTransformer {
                 }
 
                 // Merge the permission into the permissions list
-                this.mergePermissionListsForNode([this.runtimePermissions, systemUserPermission], node);
+                this.runtimePermissions = this.mergePermissionListsForNode([this.runtimePermissions, systemUserPermission], node);
                 break;
         }
 
