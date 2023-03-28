@@ -16,20 +16,20 @@ declare type MultiRowTable<T extends DataShapeBase> = undefined;
  * will not be emitted.
  * @param variable      The environment variable to test.
  */
-declare function ifenv(variable: unknown): <T extends new (...args) => any>(target: T) => void;
+declare function ifenv(variable: unknown): <T extends abstract new (...args) => any>(target: T) => void;
 
 /**
  * A decorator that can be applied to any entity to create a configuration table for it. This decorator
  * takes a single argument that represents the configuration table definition as a class expression.
  * @param tables        The configuration tables definition.
  */
-declare function ConfigurationTables(tables: new (...args) => any): <T extends new (...args) => GenericThing>(target: T) => void;
+declare function ConfigurationTables(tables: new (...args) => any): <T extends abstract new (...args) => GenericThing>(target: T) => void;
 
 /**
  * Causes this class to be compiled into a Thing Template. The base class must be a class
  * that extends from `GenericThing` at some point.
  */
-declare function ThingTemplateDefinition<K extends new (...args) => GenericThing>(target: K);
+declare function ThingTemplateDefinition<K extends abstract new (...args) => GenericThing>(target: K);
 
 /**
  * Causes this class to be compiled into a Thing. The base class must be a class
@@ -42,13 +42,13 @@ declare function ThingDefinition<K extends new (...args) => GenericThing>(target
  * This decorator is not valid when applied to Thing Shapes.
  * @param stream        The name of the stream.
  */
-declare function valueStream(stream: KeysOfType<Things, ValueStream>): <T extends new (...args) => GenericThing>(target: T) => void;
+declare function valueStream(stream: KeysOfType<Things, ValueStream>): <T extends abstract new (...args) => GenericThing>(target: T) => void;
 
 /**
  * Specifies that the name of the entity should be different from the name of the class.
  * @param identifier    The identifier to use.
  */
-declare function exportName(identifier: string): <T extends new (...args) => any>(target: T) => void;
+declare function exportName(identifier: string): <T extends abstract new (...args) => any>(target: T) => void;
 
 /**
  * Applies the given identifier to this Thing class.
@@ -66,7 +66,7 @@ declare function published<K extends new (...args) => GenericThing>(target: K);
  * the entity in composer. Note that upgrading this project will cause those modifications
  * to be lost.
  */
-declare function editable<K extends new (...args) => any>(target: K);
+declare function editable<K extends abstract new (...args) => any>(target: K);
 
 /**
  * Within services, this is the name of the current user.
@@ -257,10 +257,17 @@ declare function SQLQuery(timeout: number, maxRows: number):
 declare function SQLQuery<T extends Database, D extends DataShapeBase>(target: T, key: string, descriptor: TypedPropertyDescriptor<(...args: any[]) => INFOTABLE<D>>): void;
 
 /**
+ * When applied to a thing, template or shape, this decorator allows writing inline SQL statements in this
+ * entity's services. The inline SQL statements will be converted to services on the specified database or sql thing.
+ * @param database      The name of the database entity on which to place SQL services.
+ */
+declare function database(database: THINGNAME<'Database'> | THINGNAME<'SQLThing'>): <T extends abstract new (...args) => GenericThing>(target: T) => void;
+
+/**
  * When applied to an entity, this causes a configuration table to be emitted for it.
  * @param config        A map of configuration tables.
  */
-declare function config(config: Record<string, any>): (target: new (...args) => any) => void;
+declare function config(config: Record<string, any>): (target: abstract new (...args) => any) => void;
 
 declare interface _remoteServiceArgsLiteral {
     /**
@@ -364,7 +371,7 @@ declare enum Permission {
  * @param name      The name of the member to which the permission applies.
  * @param args      A comma separated list of users, user groups and permissions, in any order.
  */
-declare function deny<T extends new (...args) => unknown>(name: string, ...args: (UserEntity | GroupEntity | Permission)[]): (target: T) => void;
+declare function deny<T extends abstract new (...args) => unknown>(name: string, ...args: (UserEntity | GroupEntity | Permission)[]): (target: T) => void;
 
 /**
  * A decorator that can be used to deny specific permissions on an entity or entity member for a list of users or user groups
@@ -372,7 +379,7 @@ declare function deny<T extends new (...args) => unknown>(name: string, ...args:
  * @param name      The name of the member to which the permission applies.
  * @param args      A comma separated list of users, user groups and permissions, in any order.
  */
-declare function allow<T extends new (...args) => unknown>(name: string, ...args: (UserEntity | GroupEntity | Permission)[]): (target: T) => void;
+declare function allow<T extends abstract new (...args) => unknown>(name: string, ...args: (UserEntity | GroupEntity | Permission)[]): (target: T) => void;
  
 
 /**
@@ -392,39 +399,39 @@ declare function allow(...args: (UserEntity | GroupEntity | Permission)[]): <T e
  * A decorator that can be used to deny specific permissions on an instance of an entity.
  * @param args      A comma separated list of users, user groups and permissions, in any order.
  */
-declare function denyInstance(...args: (UserEntity | GroupEntity | Permission)[]): <T extends new (...args) => unknown>(target: T) => void;
+declare function denyInstance(...args: (UserEntity | GroupEntity | Permission)[]): <T extends abstract new (...args) => unknown>(target: T) => void;
 
 /**
  * A decorator that can be used to allow specific permissions on an instance of an entity.
  * @param args      A comma separated list of users, user groups and permissions, in any order.
  */
-declare function allowInstance(...args: (UserEntity | GroupEntity | Permission)[]): <T extends new (...args) => unknown>(target: T) => void;
+declare function allowInstance(...args: (UserEntity | GroupEntity | Permission)[]): <T extends abstract new (...args) => unknown>(target: T) => void;
 
 /**
  * A decorator that can be used to deny specific permissions on an instance of an entity.
  * @param args      A comma separated list of users, user groups and permissions, in any order.
  * @param name      The name of the member to which the permission applies.
  */
-declare function denyInstance(name: string, ...args: (UserEntity | GroupEntity | Permission)[]): <T extends new (...args) => unknown>(target: T) => void;
+declare function denyInstance(name: string, ...args: (UserEntity | GroupEntity | Permission)[]): <T extends abstract new (...args) => unknown>(target: T) => void;
 
 /**
  * A decorator that can be used to allow specific permissions on an instance of an entity.
  * @param args      A comma separated list of users, user groups and permissions, in any order.
  * @param name      The name of the member to which the permission applies.
  */
-declare function allowInstance(name: string, ...args: (UserEntity | GroupEntity | Permission)[]): <T extends new (...args) => unknown>(target: T) => void;
+declare function allowInstance(name: string, ...args: (UserEntity | GroupEntity | Permission)[]): <T extends abstract new (...args) => unknown>(target: T) => void;
 
 /**
  * A decorator that can be used to make an entity visible for a set of given organizations.
  * @param args      A comma separated list of organizations.
  */
- declare function visible(...args: (OrganizationEntity)[]): <T extends new (...args) => unknown>(target: T) => void;
+ declare function visible(...args: (OrganizationEntity)[]): <T extends abstract new (...args) => unknown>(target: T) => void;
 
 /**
  * A decorator that can be used to make an entity visible for a set of given organizations.
  * @param args      A comma separated list of organizations.
  */
-declare function visibleInstance(...args: (OrganizationEntity)[]): <T extends new (...args) => unknown>(target: T) => void;
+declare function visibleInstance(...args: (OrganizationEntity)[]): <T extends abstract new (...args) => unknown>(target: T) => void;
 
 /**
  * **EXPERIMENTAL**

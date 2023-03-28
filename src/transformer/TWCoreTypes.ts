@@ -164,6 +164,12 @@ export interface TWServiceDefinition {
          * The maximum rows.
          */
         maxRows: number;
+
+        /**
+         * If specified, the name of the class on which this service should be installed.
+         * If not specified, the service will be installed on the current class.
+         */
+        targetDatabase?: string;
     }
 }
 

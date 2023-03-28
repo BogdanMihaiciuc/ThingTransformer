@@ -48,6 +48,21 @@ export interface InlineSQL {
 }
 
 /**
+ * An interface that describes the `superCalls` property in twconfig.json.
+ */
+export interface SuperCallOptions {
+
+    /**
+     * Controls what permissions are assigned to the services generated from the super calls.
+     * The following values may be used:
+     *  - `"none"`: Default if omitted. The superclass services will not have any permissions assigned to them.
+     *  - `"inherit"`: When used, the superclass services will have the same permissions as the service they are created from.
+     *  - `"system"`: When used, the superclass services will have the `ServiceInvoke` permission allowed for the `System` user.
+     */
+    permissions?: 'none' | 'inherit' | 'system';
+}
+
+/**
  * The interface for the `twconfig.json` file that contains options
  * specific to a thingworx project.
  */
@@ -106,6 +121,11 @@ export interface TWConfig {
      * When enabled, inline SQL queries and commands will be allowed and extracted into services.
      */
     inlineSQL?: InlineSQL;
+
+    /**
+     * Controls how permissions are generated for services created from superclass calls.
+     */
+    superCalls?: SuperCallOptions;
 
     /**
      * The minimum thingworx version on which the project may be installed.
