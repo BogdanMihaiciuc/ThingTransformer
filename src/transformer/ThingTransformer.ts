@@ -1,5 +1,5 @@
 import * as ts from 'typescript';
-import { InlineSQL, MethodHelpers, TWConfig } from '../configuration/TWConfig';
+import { InlineSQL, SuperCallOptions, MethodHelpers, TWConfig } from '../configuration/TWConfig';
 import { TWEntityKind, TWPropertyDefinition, TWServiceDefinition, TWEventDefinition, TWSubscriptionDefinition, TWBaseTypes, TWPropertyDataChangeKind, TWFieldBase, TWPropertyRemoteBinding, TWPropertyRemoteFoldKind, TWPropertyRemotePushKind, TWPropertyRemoteStartKind, TWPropertyBinding, TWSubscriptionSourceKind, TWServiceParameter, TWDataShapeField, TWConfigurationTable, TWRuntimePermissionsList, TWVisibility, TWExtractedPermissionLists, TWRuntimePermissionDeclaration, TWPrincipal, TWPermission, TWUser, TWUserGroup, TWPrincipalBase, TWOrganizationalUnit, TWConnection, TWDataThings, TWInfoTable, GlobalFunction, GlobalFunctionReference, DiagnosticMessage, DiagnosticMessageKind, TWThing, TraceKind, TraceNodeInformation, DeploymentEndpoint } from './TWCoreTypes';
 import { Breakpoint } from './DebugTypes';
 import { Builder } from 'xml2js';
@@ -684,7 +684,8 @@ export class TWThingTransformer implements TWCodeTransformer {
     globalFunctions: GlobalFunction[] = [];
 
     /**
-     * When set to `true`, SQL statements in javascript services will be permitted.
+     * When set to an object, this describes whether inline SQL statements are permitted and how to handle
+     * their permissions.
      */
     inlineSQLOptions?: InlineSQL;
 
@@ -693,6 +694,11 @@ export class TWThingTransformer implements TWCodeTransformer {
      * SQL services will be placed.
      */
     targetDatabase?: string;
+
+    /**
+     * When set to an object, this describes how to handle permissions for services generated to handle super calls.
+     */
+    superCallOptions?: SuperCallOptions;
 
     /**
      * The project root path, to which files are written by default.
@@ -1602,9 +1608,10 @@ export class TWThingTransformer implements TWCodeTransformer {
      * Merges the given permission lists into a single permission list.
      * @param lists     The lists to merge.
      * @param node      A node to be included in the error message if a validation failure occurs.
+     *                  If omitted, contextual information will not be available with the error.
      * @returns         The merged list.
      */
-    mergePermissionListsForNode(permissionLists: TWExtractedPermissionLists[], node: ts.Node): TWExtractedPermissionLists {
+    mergePermissionListsForNode(permissionLists: TWExtractedPermissionLists[], node?: ts.Node): TWExtractedPermissionLists {
         return permissionLists.reduce((acc, val) => {
             for (const kind in val) {
                 // If the given kind isn't specified at all, just copy over from the value
@@ -1629,7 +1636,12 @@ export class TWThingTransformer implements TWCodeTransformer {
     
                         // Throw if any duplicates are found
                         if (value.filter((p, i) => value.find((p2, i2) => i != i2 && p2.type == p.type && p2.principal == p.principal)).length) {
-                            this.throwErrorForNode(node, `Each user or group may only appear a single time per permission in a permissions decorator.`);
+                            // If node is not defined, use the source file as a source of context
+                            node = node || this.sourceFile;
+                            if (node) {
+                                this.reportDiagnosticForNode(node, `Each user or group may only appear a single time per permission in a permissions decorator.`);
+                                return acc;
+                            }
                         }
     
                         acc[kind]![resource][key] = value;
@@ -4319,6 +4331,76 @@ export class TWThingTransformer implements TWCodeTransformer {
         return node;
     }
 
+    /**
+     * Updates this transformer's permissions list for the specified synthetic service based on
+     * the specified permission generation rule.
+     * @param rule                  Defaults to `"none"`. Controls how the permissions will be generated.
+     *                              * `"none"` indicates that no permissions will be generated.
+     *                              * `"inherit"` copies over the permissions from the specified source service.
+     *                              * `"system"` creates a `ServiceInvoke` permission for the system user.
+     * @param targetServiceName     The name of the service for which to generate permissions.
+     * @param sourceService         If the rule is set to `"inherit"`, this represents the source service from which
+     *                              the permissions will be copied.
+     * @param node                  If specified, a node that will be used to provide context in case an error occurs
+     *                              while processing the permissions. If not specified, the source file will be provided
+     *                              as context.
+     */
+    private updatePermissionsForSyntheticService(rule: InlineSQL['permissions'], targetServiceName: string, sourceService?: TWServiceDefinition | TWSubscriptionDefinition, node?: ts.Node): void {
+        // Select the appropriate permission kind based on whether this entity is a thing, shape or template
+        const permissionKind = this.entityKind == TWEntityKind.Thing ? 'runtime' : 'runtimeInstance';
+
+        // Add the appropriate permissions
+        switch (rule) {
+            case 'inherit':
+                // If no permissions have been defined, there is nothing to inherit
+                if (!this.runtimePermissions[permissionKind]) break;
+
+                // Create a permission object to copy over inherited permissions
+                const inheritedPermission: TWExtractedPermissionLists = {
+                    [permissionKind]: {
+                        [targetServiceName]: {
+                            ServiceInvoke: [] as TWPermission[]
+                        }
+                    } as TWRuntimePermissionsList
+                }
+
+                // Find all the service invoke permissions related to the current service
+                for (const permission in this.runtimePermissions[permissionKind]) {
+                    if (permission == sourceService?.name) {
+                        const permissionDefinition = this.runtimePermissions[permissionKind]![permission];
+
+                        // If the permission has a ServiceInvoke permission list, create a copy of it for the current service
+                        if (permissionDefinition.ServiceInvoke?.length) {
+                            inheritedPermission[permissionKind]![targetServiceName].ServiceInvoke.push(...permissionDefinition.ServiceInvoke);
+                        }
+                    }
+                }
+
+                // Merge the permission into the permissions list, if any was copied
+                if (inheritedPermission[permissionKind]![targetServiceName].ServiceInvoke.length) {
+                    this.runtimePermissions = this.mergePermissionListsForNode([this.runtimePermissions, inheritedPermission], node);
+                }
+                break;
+            case 'system':
+                // Create a ServiceInvoke permission for the system user
+                const systemUserPermission: TWExtractedPermissionLists = {
+                    [permissionKind]: {
+                        [targetServiceName]: {
+                            ServiceInvoke: [{
+                                isPermitted: true,
+                                principal: 'System',
+                                type: 'User'
+                            }]
+                        }
+                    } as TWRuntimePermissionsList
+                }
+
+                // Merge the permission into the permissions list
+                this.runtimePermissions = this.mergePermissionListsForNode([this.runtimePermissions, systemUserPermission], node);
+                break;
+        }
+    }
+
 
     /**
      * Visits the specified tagged template literal node and, if necessary, returning a replacement node
@@ -4464,59 +4546,7 @@ export class TWThingTransformer implements TWCodeTransformer {
         // Add the SQL service to the entity
         this.services.push(SQLService);
 
-        // Select the appropriate permission kind based on whether this entity is a thing, shape or template
-        const permissionKind = this.entityKind == TWEntityKind.Thing ? 'runtime' : 'runtimeInstance';
-
-        // Add the appropriate permissions
-        switch (this.inlineSQLOptions.permissions) {
-            case 'inherit':
-                // If no permissions have been defined, there is nothing to inherit
-                if (!this.runtimePermissions[permissionKind]) break;
-
-                // Create a permission object to copy over inherited permissions
-                const inheritedPermission: TWExtractedPermissionLists = {
-                    [permissionKind]: {
-                        [SQLService.name]: {
-                            ServiceInvoke: [] as TWPermission[]
-                        }
-                    } as TWRuntimePermissionsList
-                }
-
-                // Find all the service invoke permissions related to the current service
-                for (const permission in this.runtimePermissions[permissionKind]) {
-                    if (permission == service.name) {
-                        const permissionDefinition = this.runtimePermissions[permissionKind]![permission];
-
-                        // If the permission has a ServiceInvoke permission list, create a copy of it for the current service
-                        if (permissionDefinition.ServiceInvoke?.length) {
-                            inheritedPermission[permissionKind]![SQLService.name].ServiceInvoke.push(...permissionDefinition.ServiceInvoke);
-                        }
-                    }
-                }
-
-                // Merge the permission into the permissions list, if any was copied
-                if (inheritedPermission[permissionKind]![SQLService.name].ServiceInvoke.length) {
-                    this.runtimePermissions = this.mergePermissionListsForNode([this.runtimePermissions, inheritedPermission], node);
-                }
-                break;
-            case 'system':
-                // Create a ServiceInvoke permission for the system user
-                const systemUserPermission: TWExtractedPermissionLists = {
-                    [permissionKind]: {
-                        [SQLService.name]: {
-                            ServiceInvoke: [{
-                                isPermitted: true,
-                                principal: 'System',
-                                type: 'User'
-                            }]
-                        }
-                    } as TWRuntimePermissionsList
-                }
-
-                // Merge the permission into the permissions list
-                this.runtimePermissions = this.mergePermissionListsForNode([this.runtimePermissions, systemUserPermission], node);
-                break;
-        }
+        this.updatePermissionsForSyntheticService(this.inlineSQLOptions.permissions, SQLService.name, service, node);
 
         // Create the appropriate expression for the call expression, based on whether this SQL service
         // is invoked on the current class, or a specific database thing
@@ -6134,6 +6164,8 @@ finally {
                 // If the service wasn't found, continue
                 if (!service) continue;
 
+                const baseServiceName = this.store['@superImplementations'][this.filename!][key];
+
                 // Create a copy of the original service, with everything copied except for
                 // the name and the `isOverriden` flag disabled; this is needed because otherwise
                 // if the base implementation is also overriding a superclass, the new service
@@ -6141,10 +6173,12 @@ finally {
                 const newService: TWServiceDefinition = {
                     ...service,
                     isOverriden: false,
-                    name: this.store['@superImplementations'][this.filename!][key]
+                    name: baseServiceName
                 };
 
                 this.services.push(newService);
+
+                this.updatePermissionsForSyntheticService(this.superCallOptions?.permissions, baseServiceName, service);
             }
         }
     }
@@ -7636,6 +7670,7 @@ export function TWThingTransformerFactory(program: ts.Program, root: string, aft
                 transformer.methodHelpers = project.methodHelpers;
                 transformer.globalFunctionsEnabled = project.globalFunctions;
                 transformer.inlineSQLOptions = project.inlineSQL;
+                transformer.superCallOptions = project.superCalls;
             }
         }
     

@@ -85,6 +85,19 @@
             "description": "Contains option for how inline SQL statements are handled.",
             "markdownDescription": "Contains option for how inline SQL statements are handled."
         },
+        "superCalls": {
+            "type": "object",
+            "properties": {
+                "permissions": {
+                    "type": "string",
+                    "pattern": "^(none|system|inherit)$",
+                    "description": "Controls how permissions will be set up for the services extracted from superclass calls.",
+                    "markdownDescription": "Controls how permissions will be set up for the services extracted from superclass calls."
+                }
+            },
+            "description": "Contains option for how superclass calls are handled.",
+            "markdownDescription": "Contains option for how superclass calls are handled."
+        },
         "copyEntities": {
             "type": "boolean",
             "description": "When enabled, any XML files in the project's src directory will be copied to the build output directory.",
