@@ -2,7 +2,7 @@
 
 Adds limited support for using the `super` keyword to invoke the base class implementation of a service when overridden by a thing or template. Currently only methods that are known at compile time support this, and only when both the subclass and superclass are part of the project.
 
-Adds support for writing inline SQL statements on non-database entities. This requires that the class have a `@database` decorator that specifies a database thing or SQL thing on which the services will actually be installed. The transformer will replace those inline SQL statements with service invokes on the specified databse thing.
+Adds support for writing inline SQL statements on non-database entities. This requires that the class have a `@database` decorator that specifies a database thing or SQL thing on which the services will actually be installed. The transformer will replace those inline SQL statements with service invokes on the specified database thing.
 
 The transformer will now attempt to infer the return type of services if not specified. Additionally, method overload signatures no longer cause a compilation error. When method overloads are used, only the implementation signature will be used to generate the service definition.
 
