@@ -1,8 +1,8 @@
 {
     "name": "bm-thing-transformer",
-    "version": "1.6.1",
+    "version": "1.7.0",
     "description": "Develop in ThingWorx with a proper IDE.",
-    "author": "Thingworx RoIcenter",
+    "author": "Bogdan Mihaiciuc",
     "minimumThingWorxVersion": "6.0.0",
     "homepage": "https://github.com/BogdanMihaiciuc/",
     "repository": {
