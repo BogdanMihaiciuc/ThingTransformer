@@ -6208,19 +6208,22 @@ finally {
             let permissions: TWRuntimePermissionsList = {};
 
             // Move over all generic permissions declared on the class, redefining them
-            // as permissions specific to that service
-            if (this.entityKind == TWEntityKind.Thing) {
-                // Things use runtime permissions
-                if (this.runtimePermissions.runtime?.['*']) {
-                    const permission = {...this.runtimePermissions.runtime['*']};
-                    permissions[service.name] = permission;
+            // as permissions specific to that service, if SQL services are set to copy
+            // the source service's permissions
+            if (this.inlineSQLOptions?.permissions == 'inherit') {
+                if (this.entityKind == TWEntityKind.Thing) {
+                    // Things use runtime permissions
+                    if (this.runtimePermissions.runtime?.['*']) {
+                        const permission = {...this.runtimePermissions.runtime['*']};
+                        permissions[service.name] = permission;
+                    }
                 }
-            }
-            else {
-                // Templates and shapes use runtime instance permissions
-                if (this.runtimePermissions.runtimeInstance?.['*']) {
-                    const permission = {...this.runtimePermissions.runtimeInstance['*']};
-                    permissions[service.name] = permission;
+                else {
+                    // Templates and shapes use runtime instance permissions
+                    if (this.runtimePermissions.runtimeInstance?.['*']) {
+                        const permission = {...this.runtimePermissions.runtimeInstance['*']};
+                        permissions[service.name] = permission;
+                    }
                 }
             }
 
