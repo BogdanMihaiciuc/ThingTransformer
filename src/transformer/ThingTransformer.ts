@@ -161,6 +161,11 @@ const MethodHelperIdentifiers = ['METHOD_NAME', 'CLASS_NAME', 'FILE_PATH', 'LOG_
 const USE_DEBUG_CONFIGURATION_TABLE = false;
 
 /**
+ * If set to `true`, the transformer will transform arrow functions into bound functions.
+ */
+const DOWNLEVEL_ARROW_FUNCTIONS = false;
+
+/**
  * An array that contains the kinds of nodes that may appear at the root of a source file.
  */
 const AllowedRootNodeKinds = [
@@ -4228,26 +4233,31 @@ export class TWThingTransformer implements TWCodeTransformer {
                 }
                 break;
             case ts.SyntaxKind.ArrowFunction:
-                const arrowFunction = node as ts.ArrowFunction;
-                // Arrow functions need to be replaced with bound functions
-                return ts.factory.createCallExpression(
-                    ts.factory.createPropertyAccessExpression(
-                        ts.factory.createParenthesizedExpression(
-                            ts.factory.createFunctionExpression(
-                                arrowFunction.modifiers,
-                                arrowFunction.asteriskToken,
-                                undefined,
-                                arrowFunction.typeParameters,
-                                arrowFunction.parameters,
-                                arrowFunction.type,
-                                ts.isBlock(arrowFunction.body) ? arrowFunction.body : ts.factory.createBlock([ts.factory.createReturnStatement(arrowFunction.body)])
+                if (DOWNLEVEL_ARROW_FUNCTIONS) {
+                    const arrowFunction = node as ts.ArrowFunction;
+                    // Arrow functions need to be replaced with bound functions
+                    return ts.factory.createCallExpression(
+                        ts.factory.createPropertyAccessExpression(
+                            ts.factory.createParenthesizedExpression(
+                                ts.factory.createFunctionExpression(
+                                    arrowFunction.modifiers,
+                                    arrowFunction.asteriskToken,
+                                    undefined,
+                                    arrowFunction.typeParameters,
+                                    arrowFunction.parameters,
+                                    arrowFunction.type,
+                                    ts.isBlock(arrowFunction.body) ? arrowFunction.body : ts.factory.createBlock([ts.factory.createReturnStatement(arrowFunction.body)])
+                                ),
                             ),
+                            'bind'
                         ),
-                        'bind'
-                    ),
-                    undefined,
-                    [ts.factory.createIdentifier('this')]
-                )
+                        undefined,
+                        [ts.factory.createIdentifier('this')]
+                    )
+                }
+                else {
+                    return node;
+                }
             case ts.SyntaxKind.IfStatement:
                 // Strip out tests for environment variables and const enum members when they are "false"
                 // When they are true, remove the else branch, if defined

@@ -1,3 +1,7 @@
+# 1.7.1
+
+Arrow functions are no longer downleveled to bound functions as this causes an exception to be thrown when callbacks are used with non-native objects.
+
 # 1.7
 
 Adds limited support for using the `super` keyword to invoke the base class implementation of a service when overridden by a thing or template. Currently only methods that are known at compile time support this, and only when both the subclass and superclass are part of the project. A new `superCalls` key in `twconfig.json` can be used to configure how permissions are handled when invoking superclass implementations.
