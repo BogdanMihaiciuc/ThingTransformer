@@ -1,3 +1,11 @@
+# 1.7.2
+
+Resolves an issue where inline SQL services on non-database entities were not always properly installed on the target database entity.
+
+Adds support for using a line comment `// bm-profiler-disable-next-line` to cause the transformer to not emit any tracing code for the following line.
+
+Resolves an issue where function names and sources were not properly discovered for trace builds.
+
 # 1.7.1
 
 Arrow functions are no longer downleveled to bound functions as this causes an exception to be thrown when callbacks are used with non-native objects.
