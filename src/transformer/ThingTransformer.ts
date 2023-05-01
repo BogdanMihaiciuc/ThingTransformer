@@ -4920,6 +4920,8 @@ export class TWThingTransformer implements TWCodeTransformer {
             case ts.SyntaxKind.TaggedTemplateExpression:
                 // For tagged template expressions, these are currently always inline SQL
                 return ts.factory.createStringLiteral('<SQL>');
+            case ts.SyntaxKind.CallExpression:
+                return this.traceNameOfNode((expression as ts.CallExpression).expression);
             default:
                 try {
                     // For other kinds, return the entire expression as text
@@ -4987,7 +4989,7 @@ export class TWThingTransformer implements TWCodeTransformer {
     traceExpression(this: TWCodeTransformer, expression: ts.CallExpression, sourceNode?: ts.Node): ts.Expression {
         // Determine where the called expression is coming from, to apply an appropriate color
         // to the measured block at runtime.
-        const symbol = this.program.getTypeChecker().getSymbolAtLocation(sourceNode || expression.expression);
+        const symbol = this.program.getTypeChecker().getSymbolAtLocation(sourceNode?.expression || expression.expression);
         let kind = TraceKind.Unknown;
         const projectPath = path.join(this.repoPath, 'src');
         if (symbol) {
