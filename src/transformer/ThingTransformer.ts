@@ -4986,7 +4986,27 @@ export class TWThingTransformer implements TWCodeTransformer {
      * @param sourceNode        If specified, a node that contains the original positioning information of the expression.
      * @returns                 A trace expression.
      */
-    traceExpression(this: TWCodeTransformer, expression: ts.CallExpression, sourceNode?: ts.Node): ts.Expression {
+    traceExpression(this: TWCodeTransformer, expression: ts.CallExpression, sourceNode?: ts.CallExpression): ts.Expression {
+        // If the profiler is disabled for this line, return the source expression directly
+        try {
+            const sourceFile = this.sourceFile!;
+            // Get the line where the expression is defined
+            const position = ts.getLineAndCharacterOfPosition(sourceFile, (sourceNode || expression).getFullStart());
+
+            // Get the position of the previous line
+            const start = ts.getPositionOfLineAndCharacter(sourceFile, position.line - 1, 0);
+            const end = ts.getPositionOfLineAndCharacter(sourceFile, position.line, 0);
+
+            const line = sourceFile.text.substring(start, end);
+            // If the previous line is a disable comment, return the source expression directly
+            if (line.trim() == '// bm-profiler-disable-next-line') {
+                return expression;
+            }
+        }
+        catch (e) {
+            // If the previous line can't be determined, just continue with creating the trace expression
+        }
+
         // Determine where the called expression is coming from, to apply an appropriate color
         // to the measured block at runtime.
         const symbol = this.program.getTypeChecker().getSymbolAtLocation(sourceNode?.expression || expression.expression);
