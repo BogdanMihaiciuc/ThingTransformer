@@ -6247,6 +6247,7 @@ finally {
 
             // Remove the service from the current class and move it to the target transformer
             this.services.splice(i, 1);
+            i--;
             targetTransformer.services.push(service);
 
             let permissions: TWRuntimePermissionsList = {};
