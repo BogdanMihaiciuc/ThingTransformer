@@ -2553,7 +2553,7 @@ export class TWThingTransformer implements TWCodeTransformer {
         if (node.decorators) {
             if (this.hasDecoratorNamed('persistent', node)) property.aspects.isPersistent = true;
             if (this.hasDecoratorNamed('logged', node)) property.aspects.isLogged = true;
-            if (this.hasDecoratorNamed('indexed', node)) property.aspects.isIndexed = true;
+            // if (this.hasDecoratorNamed('indexed', node)) property.aspects.isIndexed = true;
         }
 
         // The readonly aspect uses the typescript built-in readonly keyword
@@ -7387,7 +7387,7 @@ finally {
                                 isMultiRow: "true",
                                 name: "UserExtensions",
                                 ordinal: "1",
-                                dataShapeName: ''
+                                // dataShapeName: ''
                             },
                             DataShape: [
                                 {
