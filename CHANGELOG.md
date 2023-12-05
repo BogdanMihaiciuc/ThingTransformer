@@ -1,3 +1,9 @@
+# 1.7.3
+
+Removed an unused aspect from user entities that caused the emitted entities to be incompatible with versions of thingworx earlier than 9.0. ([CozminM](https://github.com/CozminM))
+
+Changed the `LOCATION` type to an interface. Additionally added the typings for its non-standard `toJSON` method.
+
 # 1.7.2
 
 Resolves an issue where inline SQL services on non-database entities were not always properly installed on the target database entity.
