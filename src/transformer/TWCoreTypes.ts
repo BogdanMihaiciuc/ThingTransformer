@@ -50,7 +50,7 @@ export interface TWPropertyDefinition<T = any> extends TWFieldBase<T> {
 export interface TWPropertyAspects<T> extends TWFieldAspects<T> {
     isPersistent?: boolean;
     isLogged?: boolean;
-    // isIndexed?: boolean;
+    isIndexed?: boolean;
     isReadOnly?: boolean;
     isRemote?: boolean;
     dataChangeType: TWPropertyDataChangeKind;
