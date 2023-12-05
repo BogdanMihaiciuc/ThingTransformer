@@ -7387,7 +7387,6 @@ finally {
                                 isMultiRow: "true",
                                 name: "UserExtensions",
                                 ordinal: "1",
-                                dataShapeName: ''
                             },
                             DataShape: [
                                 {
