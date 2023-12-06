@@ -1,3 +1,7 @@
+# 1.7.4
+
+Reverted the change to the `LOCATION` type. It is now additionally a union with a `Location` type that defines the `toJSON` method.
+
 # 1.7.3
 
 Removed an unused aspect from user entities that caused the emitted entities to be incompatible with versions of thingworx earlier than 9.0. ([CozminM](https://github.com/CozminM))
