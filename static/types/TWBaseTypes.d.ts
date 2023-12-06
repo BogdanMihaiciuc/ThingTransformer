@@ -453,19 +453,18 @@ type timespan = number;
 type TWJSON<T = any> = T extends (...args: any[]) => any ? never : (T extends Object ? Struct<T> : T);
 type json<T = any> = TWJSON<T>;
 
-interface LOCATION {
+interface LocationConvertible {
     latitude: number;
     longitude: number;
     altitude?: number;
     units?: string;
-
-    toJSON(): {
-        latitude: number;
-        longitude: number;
-        altitude?: number;
-        units?: string;
-    }
 }
+
+interface Location extends LocationConvertible {
+    toJSON(): LocationConvertible;
+}
+
+type LOCATION = Location | LocationConvertible;
 
 type location = LOCATION;
 
