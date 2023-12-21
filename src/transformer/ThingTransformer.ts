@@ -3390,7 +3390,7 @@ export class TWThingTransformer implements TWCodeTransformer {
                     service.resultType = {
                         name: 'result',
                         aspects: {},
-                        baseType: type,
+                        baseType: type as keyof typeof TWBaseTypes,
                         description: '',
                         ordinal: 0
                     };

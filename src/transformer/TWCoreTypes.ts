@@ -13,7 +13,7 @@ export interface TWInfoTable {
 
 export interface TWFieldBase<T = any> {
     name: string;
-    baseType: string;
+    baseType: keyof typeof TWBaseTypes;
     description: string;
     aspects: TWFieldAspects<T>;
     ordinal: number;
@@ -24,6 +24,9 @@ export interface TWFieldAspects<T> {
     thingTemplate?: string;
     dataShape?: string;
     defaultValue?: T;
+    minimumValue?: number;
+    maximumValue?: number;
+    units?: string;
 }
 
 export interface TWDataShapeField<T = any> extends TWFieldBase<T> {
@@ -53,13 +56,13 @@ export interface TWPropertyAspects<T> extends TWFieldAspects<T> {
     isIndexed?: boolean;
     isReadOnly?: boolean;
     isRemote?: boolean;
-    dataChangeType: TWPropertyDataChangeKind;
+    dataChangeType?: TWPropertyDataChangeKind;
     dataChangeThreshold?: T;
     // NOTE: This appears to control the cache method of remote properties as such:
     // 0 (default) = read from server cache
     // -1 = fetched from remote every read
     // >0 = cached for x seconds
-    cacheTime: number;
+    cacheTime?: number;
     minimumValue?: number;
     maximumValue?: number;
     units?: string;
@@ -243,6 +246,16 @@ export interface TWConfigurationTable {
     source?: string;
 }
 
+export interface TWConfigurationTableDefinition {
+    category: string;
+    dataShapeName: string;
+    description: string;
+    isHidden: boolean;
+    isMultiRow: boolean;
+    name: string;
+    source?: string;
+}
+
 export const TWDataThings = ['Stream', 'RemoteStream', 'DataTable', 'RemoteDataTable'];
 
 export const TWBaseTypes = {
@@ -398,6 +411,8 @@ export const enum TWEntityKind {
     Organization = "Organization"
 }
 
+export type TWConfigurationTableValue = Record<string, unknown[] | unknown>;
+
 export interface TWEntityDefinition {
     name: string;
     description: string;
@@ -409,6 +424,11 @@ export interface TWEntityDefinition {
     eventDefinitions: TWEventDefinition[];
     subscriptionDefinitions: TWSubscriptionDefinition[];
     aspects?: TWEntityDefinitionAspects;
+    kind: TWEntityKind;
+    configurationTableDefinitions: TWConfigurationTableDefinition[];
+    configurationTables: TWConfigurationTableValue;
+    visibilityPermissions: TWVisibility[];
+    runtimePermissions: TWRuntimePermissionsList;
 }
 
 export interface TWEntityDefinitionAspects {
@@ -419,12 +439,22 @@ export interface TWThingTemplate extends TWEntityDefinition {
     valueStream: string;
     implementedShapes: string[];
     thingTemplate: string;
+    instanceVisibilityPermissions: TWVisibility[];
+}
+
+export interface TWThingShape extends TWEntityDefinition {
+    instanceRuntimePermissions: TWRuntimePermissionsList;
+}
+export interface TWDataShape extends TWEntityDefinition {
+    fieldDefinitions: TWDataShapeField[];
 }
 
 export interface TWThing extends TWThingTemplate {
     published: boolean;
     enabled: boolean;
     identifier: string;   
+    implementedShapes: string[];
+    thingTemplate: string;
 }
 
 export interface TWPrincipal {
