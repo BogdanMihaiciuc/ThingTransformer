@@ -2462,7 +2462,7 @@ export class TWThingTransformer implements TWCodeTransformer {
 
         const property = {} as TWPropertyDefinition;
         if (node.name.kind != ts.SyntaxKind.Identifier) {
-            this.throwErrorForNode(node, `Computed property names are not supported in Thingwrox classes.`);
+            this.throwErrorForNode(node, `Computed property names are not supported in ThingWorx classes.`);
         }
 
         // First obtain the name of the property
@@ -2472,7 +2472,7 @@ export class TWThingTransformer implements TWCodeTransformer {
 
         // Properties cannot be overriden
         if (node.modifiers?.some(m => m.kind == ts.SyntaxKind.OverrideKeyword)) {
-            this.throwErrorForNode(node, 'Properties cannot be overriden');
+            this.throwErrorForNode(node, 'Properties cannot be overridden');
         }
 
         // Create the generic aspects, required for all properties

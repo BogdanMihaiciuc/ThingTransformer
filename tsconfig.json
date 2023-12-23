@@ -11,12 +11,9 @@
         "strict": true,
         "declaration": true,
         "declarationDir": "dist/@types",
+        "skipLibCheck": true,
         "lib": [
             "esnext"
-        ],
-        "typeRoots": [
-            "./typings/",
-            "./node_modules/@types/"
         ]
     },
     "include": [

@@ -88,7 +88,7 @@ describe("Verify property definition generation", () => {
       baseType: "THINGNAME",
       ordinal: 0,
     });
-    expect(printNode(result)).toBe("color!: THINGNAME<Test_TT, Test_TS>;");
+    expect(printNode(result)).toBe('color!: THINGNAME<"Test_TT", "Test_TS">;');
   });
 
   test("Check THINGTEMPLATENAME with TS and no TS", async () => {
@@ -103,7 +103,7 @@ describe("Verify property definition generation", () => {
       baseType: "THINGTEMPLATENAME",
       ordinal: 0,
     });
-    expect(printNode(result)).toBe("color!: THINGTEMPLATENAME<any, Test_TS>;");
+    expect(printNode(result)).toBe('color!: THINGTEMPLATENAME<undefined, "Test_TS">;');
   });
 
   test("Check property persistent, logged and units, min, max", async () => {
@@ -379,36 +379,36 @@ describe("Verify service definition generation", () => {
                 return result;
             }`);
   });
-   test("Check with code with function declaration and me references", async () => {
-     const result = transformer.convertServiceDefinition({
-       aspects: {},
-       code: `let result = test();function test(x, y) {return me.a+me['b'];}`,
-       description: "",
-       name: "test",
-       category: "Uncategorized",
-       isAllowOverride: false,
-       isLocalOnly: false,
-       isOpen: false,
-       isPrivate: false,
-       resultType: {
-         baseType: "NUMBER",
-         name: "result",
-         aspects: {},
-         description: "",
-         ordinal: 0,
-       },
-       parameterDefinitions: [],
-       "@globalFunctions": new Set([]),
-       "@methodHelpers": new Set([]),
-     });
-     expect(printNode(result)).toBe(endent`
+  test("Check with code with function declaration and me references", async () => {
+    const result = transformer.convertServiceDefinition({
+      aspects: {},
+      code: `let result = test();function test(x, y) {return me.a+me['b'];}`,
+      description: "",
+      name: "test",
+      category: "Uncategorized",
+      isAllowOverride: false,
+      isLocalOnly: false,
+      isOpen: false,
+      isPrivate: false,
+      resultType: {
+        baseType: "NUMBER",
+        name: "result",
+        aspects: {},
+        description: "",
+        ordinal: 0,
+      },
+      parameterDefinitions: [],
+      "@globalFunctions": new Set([]),
+      "@methodHelpers": new Set([]),
+    });
+    expect(printNode(result)).toBe(endent`
             @final
             test(): NUMBER {
                 let result = test();
                 function test(x, y) { return this.a + this["b"]; }
                 return result;
             }`);
-   });
+  });
   test("Check with name and and no parameters and immediately invoked function", async () => {
     const result = transformer.convertServiceDefinition({
       aspects: {},
@@ -588,7 +588,7 @@ describe("Verify service definition generation", () => {
             @final
             test({ param1, param2, param3 = "testValue" }: {
                 param1?: INFOTABLE<GenericStringList>;
-                param2: THINGNAME<GenericThing>;
+                param2: THINGNAME<"GenericThing">;
                 param3?: STRING;
             }): NUMBER {
                 var result = 3;

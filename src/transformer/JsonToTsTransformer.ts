@@ -1441,19 +1441,25 @@ export class JsonThingToTsTransformer {
     ) {
       if (aspects && aspects.thingTemplate && aspects.thingShape) {
         typeArguments.push(
-          ts.factory.createTypeReferenceNode(aspects.thingTemplate)
+          ts.factory.createLiteralTypeNode(ts.factory.createStringLiteral(aspects.thingTemplate))
         );
         typeArguments.push(
-          ts.factory.createTypeReferenceNode(aspects.thingShape)
+          ts.factory.createLiteralTypeNode(
+            ts.factory.createStringLiteral(aspects.thingShape)
+          )
         );
       } else if (aspects?.thingTemplate) {
         typeArguments.push(
-          ts.factory.createTypeReferenceNode(aspects.thingTemplate)
+          ts.factory.createLiteralTypeNode(
+            ts.factory.createStringLiteral(aspects.thingTemplate)
+          )
         );
       } else if (aspects?.thingShape) {
-        typeArguments.push(ts.factory.createToken(ts.SyntaxKind.AnyKeyword));
+        typeArguments.push(ts.factory.createToken(ts.SyntaxKind.UndefinedKeyword));
         typeArguments.push(
-          ts.factory.createTypeReferenceNode(aspects.thingShape)
+          ts.factory.createLiteralTypeNode(
+            ts.factory.createStringLiteral(aspects.thingShape)
+          )
         );
       }
     }
