@@ -10,7 +10,7 @@ import {
   NewLineKind,
 } from "typescript";
 
-import { format } from "prettier";
+import prettier from "@prettier/sync";
 
 export function equals(
   first: string | TokenInfo[],
@@ -86,14 +86,14 @@ export function printNode(node: Node, withPrettier = false): string {
   const result = printer.printNode(EmitHint.Unspecified, node, resultFile);
 
   if (withPrettier) {
-    // return format(result, {
-    //   parser: "typescript",
-    //   semi: true,
-    //   trailingComma: "all",
-    //   singleQuote: true,
-    //   printWidth: 140,
-    //   tabWidth: 4,
-    // });
+    return prettier.format(result, {
+      parser: "typescript",
+      semi: true,
+      trailingComma: "all",
+      singleQuote: true,
+      printWidth: 140,
+      tabWidth: 4,
+    });
     return result;
   } else {
     return result;
