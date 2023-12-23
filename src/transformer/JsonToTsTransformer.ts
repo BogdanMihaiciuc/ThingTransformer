@@ -1200,7 +1200,6 @@ export class JsonThingToTsTransformer {
     ) => {
       const visit: ts.Visitor = (node: ts.Node) => {
         node = ts.visitEachChild(node, visit, context);
-        // todo: also transform all functions into arrow functions, in order to avoid issues where this will end up referring to the wrong object
         if (ts.isPropertyAccessExpression(node)) {
           if (
             ts.isIdentifier(node.expression) &&

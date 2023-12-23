@@ -349,6 +349,66 @@ describe("Verify service definition generation", () => {
                 return result;
             }`);
   });
+  test("Check with code with function declaration", async () => {
+    const result = transformer.convertServiceDefinition({
+      aspects: {},
+      code: `let result = test(1,2);function test(x, y) {return a+b;}`,
+      description: "",
+      name: "test",
+      category: "Uncategorized",
+      isAllowOverride: false,
+      isLocalOnly: false,
+      isOpen: false,
+      isPrivate: false,
+      resultType: {
+        baseType: "NUMBER",
+        name: "result",
+        aspects: {},
+        description: "",
+        ordinal: 0,
+      },
+      parameterDefinitions: [],
+      "@globalFunctions": new Set([]),
+      "@methodHelpers": new Set([]),
+    });
+    expect(printNode(result)).toBe(endent`
+            @final
+            test(): NUMBER {
+                let result = test(1, 2);
+                function test(x, y) { return a + b; }
+                return result;
+            }`);
+  });
+   test("Check with code with function declaration and me references", async () => {
+     const result = transformer.convertServiceDefinition({
+       aspects: {},
+       code: `let result = test();function test(x, y) {return me.a+me['b'];}`,
+       description: "",
+       name: "test",
+       category: "Uncategorized",
+       isAllowOverride: false,
+       isLocalOnly: false,
+       isOpen: false,
+       isPrivate: false,
+       resultType: {
+         baseType: "NUMBER",
+         name: "result",
+         aspects: {},
+         description: "",
+         ordinal: 0,
+       },
+       parameterDefinitions: [],
+       "@globalFunctions": new Set([]),
+       "@methodHelpers": new Set([]),
+     });
+     expect(printNode(result)).toBe(endent`
+            @final
+            test(): NUMBER {
+                let result = test();
+                function test(x, y) { return this.a + this["b"]; }
+                return result;
+            }`);
+   });
   test("Check with name and and no parameters and immediately invoked function", async () => {
     const result = transformer.convertServiceDefinition({
       aspects: {},
