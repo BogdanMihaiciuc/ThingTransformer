@@ -29,6 +29,7 @@ class MyThing extends ThingTemplateWithShapes(RemoteThing, Tunneling) {
     @logged
     @dataChangeType('VALUE', 0)
     myProperty: STRING = 'This is the default value';
+
     /**
      * Remotely bound properties are specified via the
      * `@remote(name, {cacheTime?, pushType?, pushThreshold?, startType?,foldType?, imeout?})` decorator. From this decorator only
@@ -37,6 +38,7 @@ class MyThing extends ThingTemplateWithShapes(RemoteThing, Tunneling) {
     @dataChangeType('VALUE', 0)
     @remote('test', { pushThreshold: 0, foldType: 'NONE', timeout: 0 })
     remotelyBoundProperty!: NUMBER;
+
     /**
      * Numeric properties can use some specific decorators such as `minimumValue`, `maximumValue` and `unit`.
      */
@@ -45,6 +47,7 @@ class MyThing extends ThingTemplateWithShapes(RemoteThing, Tunneling) {
     @unit('bytes')
     @dataChangeType('VALUE', 0)
     bytes!: NUMBER;
+
     /**
      * For certain types, it is possible to use the standard TypeScript type
      * names such as `number`, `string`, `boolean` and `Date` and they will be
@@ -53,12 +56,14 @@ class MyThing extends ThingTemplateWithShapes(RemoteThing, Tunneling) {
     @persistent
     @dataChangeType('VALUE', 0)
     numberProperty!: NUMBER;
+
     /**
      * We can constrain strings to enum values on the compiler side. The ThingWorx type
      * (ie. `STRING` not `string`) must be used when constraining properties like this.
      */
     @dataChangeType('VALUE', 0)
     cardType: STRING = 'Clubs';
+
     /**
      * Properties that don't have a default value must be implicitly unwrapped.
      *
@@ -69,12 +74,14 @@ class MyThing extends ThingTemplateWithShapes(RemoteThing, Tunneling) {
     @dataChangeType('VALUE', 0)
     @local('AuditArchiveCleanupScheduler', 'Enabled')
     readonly locallyBoundProperty!: STRING;
+
     /**
      * Number types can be constrained in the same way as strings. The ThingWorx type
      * (ie. `NUMBER` not `number`) must be used when constraining properties like this.
      */
     @dataChangeType('VALUE', 0)
     status: NUMBER = 2;
+
     /**
      * The data change type is specified via the `@dataChangeType(type)` decorator.
      *
@@ -83,7 +90,8 @@ class MyThing extends ThingTemplateWithShapes(RemoteThing, Tunneling) {
      *  - The second argument is the thing shape name or `undefined`. If specified, this must be a string literal or the `undefined` keyword.
      */
     @dataChangeType('ALWAYS', 0)
-    streamToUse!: THINGNAME<Stream>;
+    streamToUse!: THINGNAME<'Stream'>;
+
     /**
      * Services can be marked with the `@deploy` decorator. These services are invoked by the build script after installation
      * when using the `deploy` task.
@@ -94,6 +102,7 @@ class MyThing extends ThingTemplateWithShapes(RemoteThing, Tunneling) {
         logger.debug('Deployment finished on '.concat('http://localhost:8015'));
         logger.debug('The value of my custom variable is '.concat('Test'));
     }
+
     /**
      * Services created through this project are marked overridable as default. Use the `@final` decorator to make a service non-overridable.
      *
@@ -125,22 +134,26 @@ class MyThing extends ThingTemplateWithShapes(RemoteThing, Tunneling) {
         this.customEvent({ item: 'test' });
         this.asyncService({ stringParameter: 'test' });
     }
+
     /**
      * Remote services are specified via `@remoteService` decorator. Just like with properties, only the first parameter
      * of this decorator is required.
      */
     @remoteService('remoteService', { enableQueue: true, timeout: 0 })
     remoteService(): NOTHING {}
+
     /**
      * Remote events are specified via the `@remoteEvent(name)` decorator.
      */
     @remoteEvent('remoteEvent')
     remoteEvent!: EVENT<GenericStringList>;
+
     /**
      * Events are just properties with the custom `EVENT` base type. The data shape to use is specified as
      * a type argument.
      */
     customEvent!: EVENT<GenericStringList>;
+
     /**
      * The `@localSubscription(event[, property])` decorator is used to create subscription to an entity's own events.
      */
@@ -158,6 +171,7 @@ class MyThing extends ThingTemplateWithShapes(RemoteThing, Tunneling) {
         var table2 = Resources.InfoTableFunctions.Clone({ t1: table });
         logger.info('Name is '.concat(table2.name));
     }
+
     /**
      * The `@subscription(name, event[, property])` decorator is used to create subscriptions to other entities' events.
      *

@@ -11,6 +11,7 @@ import {
 } from "typescript";
 
 import prettier from "@prettier/sync";
+import { NEWLINE_PLACEHOLDER } from "./JsonToTsTransformer";
 
 export function equals(
   first: string | TokenInfo[],
@@ -83,7 +84,11 @@ export function printNode(node: Node, withPrettier = false): string {
   const printer = createPrinter({
     newLine: NewLineKind.LineFeed,
   });
-  const result = printer.printNode(EmitHint.Unspecified, node, resultFile);
+
+  // Replace all newline placeholders with actual newlines. Do this because typescript printer ignores newlines.
+  const result = printer
+    .printNode(EmitHint.Unspecified, node, resultFile)
+    .replaceAll("//" + NEWLINE_PLACEHOLDER, "\n");
 
   if (withPrettier) {
     return prettier.format(result, {
@@ -94,7 +99,6 @@ export function printNode(node: Node, withPrettier = false): string {
       printWidth: 140,
       tabWidth: 4,
     });
-    return result;
   } else {
     return result;
   }

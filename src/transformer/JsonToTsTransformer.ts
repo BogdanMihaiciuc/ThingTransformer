@@ -22,9 +22,13 @@ import {
   TWPrincipal,
   TWThingShape,
   TWServiceParameter,
+  TWOrganizationDefinition,
+  TWOrganizationalUnit,
+  TWConnection,
 } from "./TWCoreTypes";
 import { printNode } from "./tsUtils";
 
+export const NEWLINE_PLACEHOLDER = "!!!:NEWLINE:!!!";
 export interface TransformerOptions {
   /**
    * String to use to replace invalid characters in entity names
@@ -65,7 +69,20 @@ export class JsonThingToTsTransformer {
       thingworxJson,
       entityKind
     );
-    const tsClass = this.transformThingworxEntityToClass(parsedEntity);
+    let tsClass: ts.ClassDeclaration;
+    if (
+      [
+        TWEntityKind.DataShape,
+        TWEntityKind.Thing,
+        TWEntityKind.ThingShape,
+        TWEntityKind.ThingTemplate,
+        TWEntityKind.Organization,
+      ].includes(entityKind)
+    ) {
+      tsClass = this.transformThingworxEntityToClass(parsedEntity);
+    } else {
+      throw `Cannot handle entity kind ${entityKind}`;
+    }
     return {
       declaration: printNode(tsClass, true),
       className: tsClass.name?.text || "",
@@ -224,6 +241,23 @@ export class JsonThingToTsTransformer {
           ),
         ])
       );
+    } else if (entity.kind == TWEntityKind.Organization) {
+      const organization = entity as TWOrganizationDefinition;
+
+      // set that the organization class extends the base organization class
+      heritage.push(ts.factory.createHeritageClause(ts.SyntaxKind.ExtendsKeyword, [
+        ts.factory.createExpressionWithTypeArguments(
+          ts.factory.createIdentifier("OrganizationBase"),
+          undefined
+        ),
+      ]));
+
+      members.push(
+        this.convertOrganizationDefinition(
+          organization.organizationalUnits,
+          organization.connections
+        )
+      );
     }
     // thingShapes and thingTemplates have runtime permissions in common
     if (
@@ -286,7 +320,7 @@ export class JsonThingToTsTransformer {
     // on templates and shape, permissions are in fact runtime instance permissions, otherwise they are runtime permissions
     const instancePermissions: TWRuntimePermissionsList =
       entity.kind == TWEntityKind.ThingShape ||
-      entity.kind == TWEntityKind.ThingTemplate
+        entity.kind == TWEntityKind.ThingTemplate
         ? (entity as any).instanceRuntimePermissions
         : entity.runtimePermissions;
 
@@ -322,7 +356,15 @@ export class JsonThingToTsTransformer {
       this.createIdentifierFromEntityName(entity.name),
       undefined,
       heritage,
-      members
+      members.map((m) =>
+        // add a synthetic newline comment after each member, to make the generated code more readable
+        ts.addSyntheticTrailingComment(
+          m,
+          ts.SyntaxKind.SingleLineCommentTrivia,
+          NEWLINE_PLACEHOLDER,
+          true
+        )
+      )
     );
     // only add jsdoc on the property, if description exists
     if (entity.description) {
@@ -661,9 +703,9 @@ export class JsonThingToTsTransformer {
     const methodBody = serviceDefinition.remoteBinding
       ? ts.factory.createBlock([], false)
       : this.getTypescriptCodeFromBody(
-          serviceDefinition.code,
-          serviceDefinition.resultType.baseType
-        );
+        serviceDefinition.code,
+        serviceDefinition.resultType.baseType
+      );
 
     // handle the inputs of the service. This requires creating an object as well as an interface that defines it
     const tsParameters: ts.ParameterDeclaration[] = [];
@@ -676,7 +718,7 @@ export class JsonThingToTsTransformer {
               undefined,
               p.name,
               p.aspects.defaultValue &&
-                this.createNodeLiteral(p.aspects.defaultValue)
+              this.createNodeLiteral(p.aspects.defaultValue)
             )
           )
         );
@@ -928,7 +970,7 @@ export class JsonThingToTsTransformer {
   ): TWEntityDefinition {
     const definitionsSource =
       entityKind == TWEntityKind.Thing ||
-      entityKind == TWEntityKind.ThingTemplate
+        entityKind == TWEntityKind.ThingTemplate
         ? thingworxJson.thingShape
         : thingworxJson;
     const propertyDefinitions: TWPropertyDefinition[] = Object.entries(
@@ -1075,6 +1117,14 @@ export class JsonThingToTsTransformer {
         },
         baseEntity
       ) as TWDataShape;
+    } else if (entityKind == TWEntityKind.Organization) {
+      return Object.assign(
+        {
+          organizationalUnits: Object.values(thingworxJson.organizationalUnits),
+          connections: thingworxJson.connections,
+        },
+        baseEntity
+      ) as TWOrganizationDefinition;
     } else {
       return baseEntity;
     }
@@ -1418,10 +1468,100 @@ export class JsonThingToTsTransformer {
   }
 
   /**
+   * Converts a thingworx organization definition into a typescript property declaration of describing the units in it
+   * @param units units in the organization
+   * @param connections connections between units
+   * @returns a typescript property declaration describing the organization
+   */
+  private convertOrganizationDefinition(
+    units: TWOrganizationalUnit[],
+    connections: TWConnection[]
+  ): ts.PropertyDeclaration {
+    /**
+     * Converts a single organizational unit into a typescript object literal
+     * @param unit Unit to convert
+     * @param connections Overall connections between units
+     * @returns An object literal representing the unit
+     */
+    const convertOrganizationDefinition = (
+      unit: TWOrganizationalUnit,
+      connections: TWConnection[]
+    ) => {
+      let nameProperty = ts.factory.createPropertyAssignment(
+        ts.factory.createIdentifier("name"),
+        ts.factory.createStringLiteral(unit.name)
+      );
+      if (unit.description) {
+        nameProperty = ts.addSyntheticLeadingComment( nameProperty,
+          ts.SyntaxKind.MultiLineCommentTrivia,
+          this.commentize(unit.description ?? ''),
+          true
+        );
+      }
+      return ts.factory.createObjectLiteralExpression(
+        [
+          // name of the unit
+          nameProperty,
+          // members of the unit
+          ts.factory.createPropertyAssignment(
+            ts.factory.createIdentifier("members"),
+            ts.factory.createArrayLiteralExpression(
+              unit.members.map((m) =>
+                ts.factory.createPropertyAccessExpression(
+                  ts.factory.createIdentifier(m.type + "s"),
+                  ts.factory.createIdentifier(m.name)
+                )
+              ),
+              false
+            )
+          ),
+          // subunits of the unit, obtained via recursion
+          ts.factory.createPropertyAssignment(
+            ts.factory.createIdentifier("units"),
+            ts.factory.createArrayLiteralExpression(
+              connections
+                .filter((c) => c.from == unit.name)
+                .map(
+                  (m) =>
+                    convertOrganizationDefinition(
+                      unitsMap.get(m.to)!,
+                      connections
+                    ),
+                  false
+                )
+            )
+          ),
+        ],
+        true
+      );
+    }
+    // convert the units to a map, so we can easily find the details for each one, using a native Map, as we need to do a lookup by name
+    const unitsMap = units.reduce((map, u) => {
+      map.set(u.name, u);
+      return map;
+    }, new Map<string, TWOrganizationalUnit>());
+
+    // find the root unit, which is the one that doesn't have a parent
+    const rootUnit = unitsMap.get(connections.find((u) => !u.from)?.to ?? "");
+    if (!rootUnit) {
+      throw new Error("Cannot find root unit in organization definition");
+    }
+
+    return ts.factory.createPropertyDeclaration(
+      undefined,
+      [ts.factory.createModifier(ts.SyntaxKind.OverrideKeyword)],
+      "units",
+      undefined,
+      ts.factory.createTypeReferenceNode("OrganizationUnit"),
+      convertOrganizationDefinition(rootUnit, connections),
+    );
+  }
+
+  /**
    * Obtains the typescript type reference from a given thingworx basetype.
-   * * For most basetypes, this is a direct mapping.
-   * * For INFOTABLE, use a typeArgument of the datashape (if it exists)
-   * * For THINGNAME and THINGTEMPLATENAME, be able to reference a referencing ThingTemplate or ThingShape
+   * - For most basetypes, this is a direct mapping.
+   * - For INFOTABLE, use a typeArgument of the datashape (if it exists)
+   * - For THINGNAME and THINGTEMPLATENAME, be able to reference a referencing ThingTemplate or ThingShape
    *
    * @param baseTypeName Thingworx basetype name
    * @param aspects field aspects containing information about used datashapes or thingtemplate
@@ -1441,7 +1581,9 @@ export class JsonThingToTsTransformer {
     ) {
       if (aspects && aspects.thingTemplate && aspects.thingShape) {
         typeArguments.push(
-          ts.factory.createLiteralTypeNode(ts.factory.createStringLiteral(aspects.thingTemplate))
+          ts.factory.createLiteralTypeNode(
+            ts.factory.createStringLiteral(aspects.thingTemplate)
+          )
         );
         typeArguments.push(
           ts.factory.createLiteralTypeNode(
@@ -1455,7 +1597,9 @@ export class JsonThingToTsTransformer {
           )
         );
       } else if (aspects?.thingShape) {
-        typeArguments.push(ts.factory.createToken(ts.SyntaxKind.UndefinedKeyword));
+        typeArguments.push(
+          ts.factory.createToken(ts.SyntaxKind.UndefinedKeyword)
+        );
         typeArguments.push(
           ts.factory.createLiteralTypeNode(
             ts.factory.createStringLiteral(aspects.thingShape)

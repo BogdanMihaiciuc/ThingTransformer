@@ -37,6 +37,7 @@ class ExampleThingTemplate extends GenericThing {
     @dataChangeType('VALUE', 0)
     @allow(Permission.PropertyRead, Groups.Designers, Users.System)
     exampleProperty!: NUMBER;
+
     @allow(Permission.ServiceInvoke, Users.System)
     GetExampleProperty(): NUMBER {
         return this.exampleProperty;

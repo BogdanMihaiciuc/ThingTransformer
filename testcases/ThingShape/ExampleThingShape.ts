@@ -14,6 +14,7 @@ class ExampleThingShape extends ThingShapeBase {
     @dataChangeType('VALUE', 0)
     @remote('humidity', { pushThreshold: 0, foldType: 'NONE', timeout: 0, pushType: 'VALUE' })
     humidity!: NUMBER;
+
     /**
      * For most types, the standard TypeScript types such as `string` and `number` can be used.
      */
@@ -21,14 +22,17 @@ class ExampleThingShape extends ThingShapeBase {
     @logged
     @dataChangeType('VALUE', 0)
     pressure: NUMBER = 10;
+
     @remoteService('SetHumidity', { timeout: 0 })
     SetHumidity({ humidity }: { humidity: NUMBER }): NOTHING {}
+
     /**
      * In addition to specifying the types of each parameter as a literal type, interfaces may also be used.
      */
     GetStatusResponse({ humidity, pressure }: { humidity: NUMBER; pressure: NUMBER }): TWJSON {
         return { pressure: pressure, humidity: humidity };
     }
+
     /**
      * With TypeScript, it is possible to user certain newer javascript features through transpilation.
      */
@@ -132,9 +136,11 @@ class ExampleThingShape extends ThingShapeBase {
         // And easily combine object literals
         var allValues = __assign(__assign({}, this.GetValuesWithFactor({ factor: factor })), { altitude: 0 });
     }
+
     GetPressure(): NUMBER {
         return this.pressure;
     }
+
     /**
      * There are no interface types in Thingworx, but in a similar manner to string and number types,
      * we can constrain the JSON (renamed to TWJSON to avoid conflicts with the standard JSON global) type
@@ -145,6 +151,7 @@ class ExampleThingShape extends ThingShapeBase {
     GetValuesWithFactor({ factor = 1 }: { factor?: NUMBER }): TWJSON {
         return { pressure: factor * this.pressure, humidity: factor * this.humidity };
     }
+
     SetPressure({ pressure }: { pressure: NUMBER }): NOTHING {
         this.pressure = pressure;
     }

@@ -403,11 +403,11 @@ export const TWBaseTypes = {
 };
 
 export const enum TWEntityKind {
-    Thing = "Thing", 
-    ThingTemplate = "ThingTemplate", 
-    ThingShape = "ThingShape", 
-    DataShape = "DataShape", 
-    UserList = "UserList", 
+    Thing = "Thing",
+    ThingTemplate = "ThingTemplate",
+    ThingShape = "ThingShape",
+    DataShape = "DataShape",
+    UserList = "UserList",
     Organization = "Organization"
 }
 
@@ -431,6 +431,12 @@ export interface TWEntityDefinition {
     runtimePermissions: TWRuntimePermissionsList;
 }
 
+export interface TWOrganizationDefinition extends TWEntityDefinition {
+    organizationalUnits: TWOrganizationalUnit[];
+    connections: TWConnection[];
+    kind: TWEntityKind.Organization;
+}
+
 export interface TWEntityDefinitionAspects {
     isEditableExtensionObject?: boolean;
 }
@@ -452,7 +458,7 @@ export interface TWDataShape extends TWEntityDefinition {
 export interface TWThing extends TWThingTemplate {
     published: boolean;
     enabled: boolean;
-    identifier: string;   
+    identifier: string;
     implementedShapes: string[];
     thingTemplate: string;
 }
