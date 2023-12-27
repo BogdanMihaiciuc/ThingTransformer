@@ -53,6 +53,7 @@ class ExampleThingShape extends ThingShapeBase {
                     };
                 throw new TypeError(s ? 'Object is not iterable.' : 'Symbol.iterator is not defined.');
             };
+
         var __spreadArray =
             (this && this.__spreadArray) ||
             function (to, from, pack) {
@@ -65,6 +66,7 @@ class ExampleThingShape extends ThingShapeBase {
                     }
                 return to.concat(ar || Array.prototype.slice.call(from));
             };
+
         var __read =
             (this && this.__read) ||
             function (o, n) {
@@ -86,6 +88,7 @@ class ExampleThingShape extends ThingShapeBase {
                 }
                 return ar;
             };
+
         var __assign =
             (this && this.__assign) ||
             function () {

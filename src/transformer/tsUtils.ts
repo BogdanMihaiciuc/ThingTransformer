@@ -85,9 +85,10 @@ export function printNode(node: Node, withPrettier = false): string {
     newLine: NewLineKind.LineFeed,
   });
 
-  // Replace all newline placeholders with actual newlines. Do this because typescript printer ignores newlines.
+  // Use the TypeScript emitter to print the node into a string
   const result = printer
     .printNode(EmitHint.Unspecified, node, resultFile)
+    // Replace all newline placeholders with actual newlines. Do this because typescript printer ignores newlines.
     .replaceAll("//" + NEWLINE_PLACEHOLDER, "\n");
 
   if (withPrettier) {

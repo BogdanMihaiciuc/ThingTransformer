@@ -315,7 +315,6 @@ describe("Verify service definition generation", () => {
                 return result;
             }`);
   });
-  // todo: this still does not work since newlines are not preserved in the AST
   test("Check with code containing newlines", async () => {
     const result = transformer.convertServiceDefinition({
       aspects: {},
@@ -342,9 +341,8 @@ describe("Verify service definition generation", () => {
             @final
             test(): NUMBER {
                 let result = 3;
-
-
-
+                
+            
                 let test = 4;
                 return result;
             }`);

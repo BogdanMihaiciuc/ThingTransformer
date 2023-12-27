@@ -1236,6 +1236,11 @@ export class JsonThingToTsTransformer {
       // otherwise, just expect to return the result at the end
       thingworxCode += "\nreturn result;";
     }
+
+    // The typescript compiler will remove any newlines that are not syntactically relevant.
+    // To get around this, we replace all newlines with a placeholder, and then add a synthetic comment after each statement
+    thingworxCode = thingworxCode.replace(/\s*\n\s*\n\s*/gm, `\n//${NEWLINE_PLACEHOLDER}\n`);
+
     const sourceFile = ts.createSourceFile(
       "code.ts",
       `${thingworxCode}`,
@@ -1244,7 +1249,7 @@ export class JsonThingToTsTransformer {
       ts.ScriptKind.TS
     );
 
-    // Typescript transformer that transforms me. or me[''] into this. and this['']
+    // Typescript transformer that transforms `me.` or `me['']` into `this.` and `this['']`
     const typeMeToThisTransformer: ts.TransformerFactory<ts.Node> = (
       context
     ) => {
