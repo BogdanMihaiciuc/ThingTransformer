@@ -1,4 +1,4 @@
-import { JsonThingToTsTransformer } from "../src/transformer/JsonToTsTransformer";
+import { JsonEntityToTsTransformer } from "../src/transformer/JsonEntityToTsTransformer";
 import { printNode } from "../src/transformer/tsUtils";
 import endent from "endent";
 import { glob } from "glob";
@@ -15,7 +15,7 @@ import { readFileSync } from "fs";
 import * as path from "path";
 
 describe("Verify property definition generation", () => {
-  const transformer = new JsonThingToTsTransformer();
+  const transformer = new JsonEntityToTsTransformer();
 
   test("Check simple with name and basetype", async () => {
     const result = transformer.convertPropertyDefinition({
@@ -250,7 +250,7 @@ describe("Verify property definition generation", () => {
 });
 
 describe("Verify service definition generation", () => {
-  const transformer = new JsonThingToTsTransformer();
+  const transformer = new JsonEntityToTsTransformer();
 
   test("Check with name and and no parameters and number result", async () => {
     const result = transformer.convertServiceDefinition({
@@ -677,7 +677,7 @@ describe("Verify service definition generation", () => {
 });
 
 describe("Verify event definition generation", () => {
-  const transformer = new JsonThingToTsTransformer();
+  const transformer = new JsonEntityToTsTransformer();
 
   test("Local event with name", async () => {
     const result = transformer.convertEventDefinition({
@@ -726,7 +726,7 @@ describe("Verify event definition generation", () => {
 });
 
 describe("Verify subscription definition generation", () => {
-  const transformer = new JsonThingToTsTransformer();
+  const transformer = new JsonEntityToTsTransformer();
 
   test("Local subscription on custom event", async () => {
     const result = transformer.convertSubscriptionDefinition({
@@ -813,7 +813,7 @@ describe("Verify subscription definition generation", () => {
 });
 
 describe("Full thing transformations", () => {
-  const transformer = new JsonThingToTsTransformer();
+  const transformer = new JsonEntityToTsTransformer();
   const files = glob.sync("./testcases/**/*.json");
   files.forEach((f) => {
     const parsedPath = path.parse(f);

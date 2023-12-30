@@ -2,14 +2,17 @@
 
 A tool that allows the development of Thingworx models in a real IDE. This repo contains the following:
  * The `bm-thing-transformer` module, which is a typescript transformer that converts TypeScript source files into Thingworx entity XML files.
- * The declarations of the decorators and thingworx specific types that are interpreted by the transformer
- * The declarations of the standard thingworx entities such as `GenericThing` and `InfoTableFunctions`
+   * The declarations of the decorators and thingworx specific types that are interpreted by the transformer
+   * The declarations of the standard thingworx entities such as `GenericThing` and `InfoTableFunctions`
+ * A tool to convert a ThingWorx entity JSON metadata into compatible typescript entities. Note that developers are still expected to manually resolve problems in the generated files.
 
 # Index
 
 - [Intro](#intro)
 - [Index](#index)
 - [Usage](#usage)
+  - [Typescript to ThingWorx](#typescript-to-thingworx)
+  - [ThingWorx to Typescript](#thingworx-to-typescript)
 - [Development](#development)
     - [Pre-Requisites](#pre-requisites)
     - [Development Environment](#development-environment)
@@ -23,6 +26,8 @@ A tool that allows the development of Thingworx models in a real IDE. This repo 
 You should primarily use this via the [Thingworx VSCode Project Template](https://github.com/BogdanMihaiciuc/ThingworxVSCodeProject). For more information, refer to that repository.
 
 Nevertheless, you can use this standalone as well, by including it in your project with `npm install bm-thing-transformer`.
+
+## Typescript to ThingWorx
 
 This must be used together with the typescript compiler api. Create a TWConfig object then use the transformer factory as a transformer in your TypeScript project in both the `before` and `after` phases of the transformation e.g.
 
@@ -65,6 +70,23 @@ After the emit finishes, the transformers will properties to the `store` object 
 declare interface Things { MyThing: MyThing }
 ```
  - `write(path?: string): void` - Writes the result of `toXML()` to a file at the specified path, in `path/build/Entities/<CollectionName>/<EntityName>.xml`. The path defaults to the project path.
+
+## ThingWorx to Typescript
+
+You can also use this to convert compatible ThingWorx entity (*Things*, *ThingTemplates*, *ThingShapes*, *DataShapes* and *Organization*) as following:
+
+```typescript
+import { JsonEntityToTsTransformer } from 'bm-thing-transformer';
+
+// Initialize a new json to typescript transformer
+const transformer = new JsonEntityToTsTransformer();
+
+// Obtain the entity metadata of an entity from ThingWorx.
+// This can be obtained from `GET /Thingworx/EntityKind/EntityName`
+const entityMetadata = ...
+
+const transformed = transformer.createTsDeclarationForEntity(entityMetadata, TWEntityKind.Type);
+```
 
 # Development
 
@@ -110,7 +132,7 @@ To build the project, run `npm run build` in the root of the project. This will 
  - [stefan-lacatus](https://github.com/stefan-lacatus): support for inferred types in property declarations, method helpers, bug fixes, support for the `@exported` decorator and API generation, data shape inheritance, `declare` modifier on members.
  - [elena-bi](https://github.com/elena-bi): bug fixes
  - [s-amory](https://github.com/s-amory): `SQLThing` type definition.
- - [CozminM](https://github.com/CozminM): compatiblity with thingworx 8.5
+ - [CozminM](https://github.com/CozminM): compatibility with thingworx 8.5
 
 #  License
 

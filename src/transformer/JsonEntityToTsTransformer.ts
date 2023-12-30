@@ -38,7 +38,7 @@ export interface TransformerOptions {
   entityNameSeparator: string;
 }
 
-export class JsonThingToTsTransformer {
+export class JsonEntityToTsTransformer {
   private static DEFAULT_OPTIONS: TransformerOptions = {
     entityNameSeparator: "_",
   };
@@ -51,7 +51,7 @@ export class JsonThingToTsTransformer {
     this.options = Object.assign(
       {},
       options,
-      JsonThingToTsTransformer.DEFAULT_OPTIONS
+      JsonEntityToTsTransformer.DEFAULT_OPTIONS
     );
   }
 

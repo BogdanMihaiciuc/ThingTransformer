@@ -11,7 +11,7 @@ import {
 } from "typescript";
 
 import prettier from "@prettier/sync";
-import { NEWLINE_PLACEHOLDER } from "./JsonToTsTransformer";
+import { NEWLINE_PLACEHOLDER } from "./JsonEntityToTsTransformer";
 
 export function equals(
   first: string | TokenInfo[],
