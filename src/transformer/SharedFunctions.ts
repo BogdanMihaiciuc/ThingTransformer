@@ -56,12 +56,13 @@ Failed parsing at: \n${node.getText()}\n\n`);
  * @param node      The node in which to search.
  * @return          A decorator if one is defined on the node, `undefined` otherwise.
  */
-export function DecoratorNamed(name: string, node: TS.Node): TS.Decorator | undefined {
-    if (!node.decorators) return undefined;
+export function DecoratorNamed(name: string, node: TS.HasDecorators): TS.Decorator | undefined {
+    const decorators = TS.getDecorators(node);
+    if (!decorators) return undefined;
 
     // Getting the decorator name depends on whether the decorator is applied directly or via a
     // decorator factory
-    for (const decorator of node.decorators) {
+    for (const decorator of decorators) {
         if (decorator.expression.kind == TS.SyntaxKind.CallExpression) {
             const callExpression = decorator.expression as TS.CallExpression;
             if (callExpression.expression.getText() == name) {
@@ -84,7 +85,7 @@ export function DecoratorNamed(name: string, node: TS.Node): TS.Decorator | unde
  * @param node      The node in which to search.
  * @return          `true` if the decorator was found, `false` otherwise.
  */
-export function HasDecoratorNamed(name: string, node: TS.Node): boolean {
+export function HasDecoratorNamed(name: string, node: TS.HasDecorators): boolean {
     return !!DecoratorNamed(name, node);
 }
 
@@ -95,10 +96,11 @@ export function HasDecoratorNamed(name: string, node: TS.Node): boolean {
  * @param node      The node in which to search.
  * @return          An array of expressions representing the arguments, or `undefined` if they could not be retrieved.
  */
-export function ArgumentsOfDecoratorNamed(name: string, node: TS.Node): TS.NodeArray<TS.Expression> | undefined {
-    if (!node.decorators) return;
+export function ArgumentsOfDecoratorNamed(name: string, node: TS.HasDecorators): TS.NodeArray<TS.Expression> | undefined {
+    const decorators = TS.getDecorators(node);
+    if (!decorators) return;
     
-    for (const decorator of node.decorators) {
+    for (const decorator of decorators) {
         if (decorator.expression.kind == TS.SyntaxKind.CallExpression) {
             const callExpression = decorator.expression as TS.CallExpression;
             if (callExpression.expression.getText() == name) {
