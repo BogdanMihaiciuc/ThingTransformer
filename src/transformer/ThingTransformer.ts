@@ -6,6 +6,7 @@ import { Builder } from 'xml2js';
 import * as fs from 'fs';
 import * as crypto from 'crypto';
 import * as path from 'path';
+import { SchemaGenerator, createFormatter, createParser } from 'ts-json-schema-generator';
 
 declare global {
     namespace NodeJS {
@@ -120,21 +121,6 @@ export interface TransformerStore {
         }
     } | DiagnosticMessage[] | undefined;
 }
-
-/**
- * The primitive type keywords that can be used in function returns.
- */
-const TypeScriptReturnPrimitiveTypes = [ts.SyntaxKind.StringKeyword, ts.SyntaxKind.NumberKeyword, ts.SyntaxKind.VoidKeyword, ts.SyntaxKind.BooleanKeyword];
-
-/**
- * The primitive type keywords that can be used anywhere.
- */
-const TypeScriptPrimitiveTypes = [ts.SyntaxKind.StringKeyword, ts.SyntaxKind.NumberKeyword, ts.SyntaxKind.BooleanKeyword];
-
-/**
- * The kinds of nodes that are permitted to express Thingworx types.
- */
-const PermittedTypeNodeKinds = [...TypeScriptPrimitiveTypes, ts.SyntaxKind.TypeReference];
 
 /**
  * An array of decorator names that are used to specify permissions.
@@ -447,7 +433,20 @@ interface TWCodeTransformer {
  */
 export class TWThingTransformer implements TWCodeTransformer {
 
+    /**
+     * The current ts program being processed.
+     */
     program: ts.Program;
+
+    /**
+     * Typescript type checker associated with the current program.
+     */
+    checker: ts.TypeChecker;
+    
+    /**
+     * The JSON schema generator, used to generate JSON schemas for interfaces and other types.
+     */
+    jsonSchemaGenerator: SchemaGenerator;
 
     context: ts.TransformationContext;
 
@@ -795,6 +794,8 @@ export class TWThingTransformer implements TWCodeTransformer {
         this.root = root;
         this.after = after;
         this.watch = watch;
+        this.checker = program.getTypeChecker();
+        this.jsonSchemaGenerator = new SchemaGenerator(program, createParser(program, {}), createFormatter({}), { expose: 'all' });
     }
 
     /**
@@ -1552,7 +1553,7 @@ export class TWThingTransformer implements TWCodeTransformer {
                     permissionKind = 'runtimeInstance';
                     break;
                 default:
-                    this.throwErrorForNode(node, `Unkown permission decorator '${text}' specified.`)
+                    this.throwErrorForNode(node, `Unknown permission decorator '${text}' specified.`)
             }
 
             // For template and thing shape fields, the permission kind is always runtime instance
@@ -2251,7 +2252,7 @@ export class TWThingTransformer implements TWCodeTransformer {
     visitUserListField(node: ts.PropertyDeclaration) {
         const principal = {} as TWPrincipalBase;
         if (node.name.kind != ts.SyntaxKind.Identifier) {
-            this.throwErrorForNode(node, `Computed property names are not supported in ThingWrox classes.`);
+            this.throwErrorForNode(node, `Computed property names are not supported in ThingWorx classes.`);
         }
 
         // First obtain the name of the property
@@ -2348,7 +2349,16 @@ export class TWThingTransformer implements TWCodeTransformer {
      * @param node      The node to visit.
      */
     visitDataShapeField(node: ts.PropertyDeclaration) {
-        const baseType = this.getTypeOfPropertyDeclaration(node);
+        let baseType: TWGenericBaseType;
+        try {
+            baseType = this.getTypeOfPropertyDeclaration(node);
+        } catch (ex) {
+            this.throwErrorForNode(node, `Could not determine the type of the field '${node.name.getText()}'.: ${ex}`);
+        }
+        // A datashape cannot have any declared events
+        if (baseType.name == 'EVENT') {
+            this.throwErrorForNode(node, `A datashape cannot have any declared events.`);
+        }
 
         // The name must be an identifier as computed property names
         // are not required to be compile time constants
@@ -2385,47 +2395,10 @@ export class TWThingTransformer implements TWCodeTransformer {
             property['@isOverriden'] = true;
         }
 
-        // Ensure that the base type is one of the Thingworx Base Types
-        if (!(baseType in TWBaseTypes)) {
-            this.throwErrorForNode(node, `Unknown baseType for property ${property.name}: ${baseType}`);
-        }
-        property.baseType = TWBaseTypes[baseType];
 
-        // TODO: Extract this from here and the other places it's used
-        // into a separate method
-        if (TWBaseTypes[baseType] == 'INFOTABLE') {
-            // INFOTABLE can optionally take the data shape as a type argument
-            const typeArguments = (node.type as ts.TypeReferenceNode)?.typeArguments;
-            if (typeArguments) {
-                if (typeArguments.length != 1) this.throwErrorForNode(node, `Unknown generics specified for property ${property.name}: ${property.baseType}`);
-
-                // A string literal type can be used for the `InfoTableReference` type
-                if (typeArguments[0].kind == ts.SyntaxKind.LiteralType) {
-                    property.aspects.dataShape = ((typeArguments[0] as ts.LiteralTypeNode).literal as ts.StringLiteral).text;
-                }
-                else {
-                    property.aspects.dataShape = typeArguments[0].getText();
-                }
-            }
-        }
-        else if (TWBaseTypes[baseType] == 'THINGNAME') {
-            // THINGNAME can optionally take the thing template name and/or thing shape name as a type argument
-            const typeArguments = (node.type as ts.TypeReferenceNode)?.typeArguments;
-
-            if (typeArguments && typeArguments.length) {
-                if (typeArguments.length > 2) this.throwErrorForNode(node, `Unknown generics specified for property ${property.name}: ${property.baseType}`);
-
-                const thingTemplate = typeArguments[0];
-                if (thingTemplate.kind == ts.SyntaxKind.LiteralType) {
-                    property.aspects.thingTemplate = ((thingTemplate as ts.LiteralTypeNode).literal as ts.StringLiteral).text;
-                }
-
-                const thingShape = typeArguments[1];
-                if (thingShape && thingShape.kind == ts.SyntaxKind.LiteralType) {
-                    property.aspects.thingShape = ((thingShape as ts.LiteralTypeNode).literal as ts.StringLiteral).text;
-                }
-            }
-        }
+        property.baseType = baseType.name;
+        property.aspects = { ...property.aspects, ...baseType.aspects };
+        
 
         if (node.initializer) {
             if (node.initializer.kind == ts.SyntaxKind.PropertyAccessExpression) {
@@ -2468,16 +2441,21 @@ export class TWThingTransformer implements TWCodeTransformer {
      * @param node      The node to visit.
      */
     visitProperty(node: ts.PropertyDeclaration) {
-        const baseType = this.getTypeOfPropertyDeclaration(node);
+        let baseType: TWGenericBaseType;
+        try {
+            baseType = this.getTypeOfPropertyDeclaration(node);
+        } catch (ex) {
+            this.throwErrorForNode(node, `Could not determine the type of the property '${node.name.getText()}': ${ex}`);
+        }
 
         // The special base type "EVENT" identifies properties that will be converted into events.
-        if (baseType == 'EVENT') {
+        if (baseType.name == 'EVENT') {
             return this.visitEvent(node);
         }
 
         const property = {} as TWPropertyDefinition;
         if (node.name.kind != ts.SyntaxKind.Identifier) {
-            this.throwErrorForNode(node, `Computed property names are not supported in ThingWrox classes.`);
+            this.throwErrorForNode(node, `Computed property names are not supported in ThingWorx classes.`);
         }
 
         // First obtain the name of the property
@@ -2497,44 +2475,10 @@ export class TWThingTransformer implements TWCodeTransformer {
             dataChangeThreshold: 0
         };
 
-        // Ensure that the base type is one of the Thingworx Base Types
-        if (!(baseType in TWBaseTypes)) {
-            this.throwErrorForNode(node, `Unknown baseType for property ${property.name}: ${baseType}`);
-        }
-        property.baseType = TWBaseTypes[baseType];
+        property.baseType = TWBaseTypes[baseType.name];
+        property.aspects = { ...property.aspects, ...baseType.aspects };
 
-        // INFOTABLE can optionally take the data shape as a type argument
-        if (TWBaseTypes[baseType] == 'INFOTABLE') {
-            const typeArguments = (node.type as ts.TypeReferenceNode)?.typeArguments;
-            if (typeArguments) {
-                if (typeArguments.length != 1) this.throwErrorForNode(node, `Unknown generics specified for property ${property.name}: ${property.baseType}`);
 
-                if (typeArguments[0].kind == ts.SyntaxKind.LiteralType) {
-                    property.aspects.dataShape = ((typeArguments[0] as ts.LiteralTypeNode).literal as ts.StringLiteral).text;
-                }
-                else {
-                    property.aspects.dataShape = typeArguments[0].getText();
-                }
-            }
-        }
-        // THINGNAME can optionally take the thing template name and/or thing shape name as a type argument
-        else if (TWBaseTypes[baseType] == 'THINGNAME') {
-            const typeArguments = (node.type as ts.TypeReferenceNode)?.typeArguments;
-
-            if (typeArguments && typeArguments.length) {
-                if (typeArguments.length > 2) this.throwErrorForNode(node, `Unknown generics specified for property ${property.name}: ${property.baseType}`);
-
-                const thingTemplate = typeArguments[0];
-                if (thingTemplate.kind == ts.SyntaxKind.LiteralType) {
-                    property.aspects.thingTemplate = ((thingTemplate as ts.LiteralTypeNode).literal as ts.StringLiteral).text;
-                }
-
-                const thingShape = typeArguments[1];
-                if (thingShape && thingShape.kind == ts.SyntaxKind.LiteralType) {
-                    property.aspects.thingShape = ((thingShape as ts.LiteralTypeNode).literal as ts.StringLiteral).text;
-                }
-            }
-        }
 
         if (node.initializer) {
             if (node.initializer.kind == ts.SyntaxKind.PropertyAccessExpression) {
@@ -2666,11 +2610,14 @@ export class TWThingTransformer implements TWCodeTransformer {
             property.localBinding.sourceThingName = (localArguments[0] as ts.StringLiteral).text;
             property.localBinding.sourceName = (localArguments[1] as ts.StringLiteral).text;
         }
+        
+        // Since only some base types support the minimum and maximum value aspects, check that the base type is valid
+        const baseTypeIsNumeric = property.baseType == TWBaseTypes.INTEGER || property.baseType == TWBaseTypes.LONG || property.baseType == TWBaseTypes.NUMBER;
 
         // Minimum value aspect
         const minimumValue = this.numericArgumentOfDecoratorNamed('minimumValue', node);
         if (minimumValue) {
-            if (![TWBaseTypes.INTEGER, TWBaseTypes.LONG, TWBaseTypes.NUMBER, TWBaseTypes.integer, TWBaseTypes.long, TWBaseTypes.number].includes(property.baseType)) {
+            if (!baseTypeIsNumeric) {
                 this.throwErrorForNode(node, 'The minimum value decorator can only be used with numerical type properties.');
             }
 
@@ -2690,7 +2637,7 @@ export class TWThingTransformer implements TWCodeTransformer {
         // Maximum value aspect
         const maximumValue = this.numericArgumentOfDecoratorNamed('maximumValue', node);
         if (maximumValue) {
-            if (![TWBaseTypes.INTEGER, TWBaseTypes.LONG, TWBaseTypes.NUMBER, TWBaseTypes.integer, TWBaseTypes.long, TWBaseTypes.number].includes(property.baseType)) {
+            if (!baseTypeIsNumeric) {
                 this.throwErrorForNode(node, 'The minimum value decorator can only be used with numerical type properties.');
             }
 
@@ -2719,7 +2666,7 @@ export class TWThingTransformer implements TWCodeTransformer {
                 this.throwErrorForNode(node, 'The unit decorator must have a string literal as its argument');
             }
 
-            if (![TWBaseTypes.INTEGER, TWBaseTypes.LONG, TWBaseTypes.NUMBER].includes(property.baseType)) {
+            if (!baseTypeIsNumeric) {
                 this.throwErrorForNode(node, 'The unit decorator can only be used with numeric properties.');
             }
 
@@ -2754,52 +2701,34 @@ export class TWThingTransformer implements TWCodeTransformer {
      * @param node      Note to verify
      * @returns         BaseType of property
      */
-    private getTypeOfPropertyDeclaration(node: ts.PropertyDeclaration): string {
-        // If the property has a type explicitly set, then use it
-        if (node.type) {
-            if (!PermittedTypeNodeKinds.includes(node.type.kind)) {
-                this.throwErrorForNode(node, `Unknown baseType for property ${node.name.getText()}: ${node.type.getText()}`);
-            }
-            const typeNode = node.type as ts.TypeReferenceNode;
-            return TypeScriptPrimitiveTypes.includes(typeNode.kind) ? typeNode.getText() : typeNode.typeName.getText();
-        }
-        else {
-            // If a type has not been specified, try to infer it from the context
-            const typeChecker = this.program.getTypeChecker();
-            const inferredType = typeChecker.getTypeAtLocation(node);
-            return typeChecker.typeToString(inferredType);
-        }
+    private getTypeOfPropertyDeclaration(node: ts.PropertyDeclaration): TWGenericBaseType {
+        const inferredType = this.checker.getTypeAtLocation(node);
+        return this.getBaseTypeOfTypeNode(inferredType, node.type);
     }
 
     /**
      * Gets the inferred type of the specified node.
-     * @param node              The node whose type should be inferred.
-     * @param typeArguments     If specified, this must be set to an empty array in which any type arguments
-     *                          of the inferred type will be inserted. If not specified, the type arguments
-     *                          will not be returned.
-     * @returns                 A string representing the thingworx base type of the node
-     *                          or `undefined` if the type could not be determined or is not assignable
-     *                          to a thingworx base type.
+     * @param node  The node whose type should be inferred.
+     * @returns     A string representing the thingworx base type of the node
+     *              or `undefined` if the type could not be determined or is not assignable to a thingworx base type.
      */
-    private getBaseTypeOfNode(node: ts.Node, typeArguments?: ts.Type[]): string | undefined {
+    private getBaseTypeOfNode(node: ts.Node): TWGenericBaseType | undefined {
         const typeChecker = this.program.getTypeChecker();
         const inferredType = typeChecker.getTypeAtLocation(node);
-        return this.getBaseTypeOfType(inferredType, typeArguments);
+        return this.getBaseTypeOfType(inferredType);
     }
 
     /**
      * Gets the inferred return type of the specified node.
-     * @param node              The node whose type should be inferred. This must be of a type that has a return type.
-     * @param typeArguments     If specified, this must be set to an empty array in which any type arguments
-     *                          of the inferred type will be inserted. If not specified, the type arguments
-     *                          will not be returned.
-     * @returns                 A string representing the thingworx base type of the node
-     *                          or `undefined` if the type could not be determined or is not assignable
-     *                          to a thingworx base type.
+     * @param node  The node whose type should be inferred. This must be of a type that has a return type.
+     * @returns     How the return type of the node should be represented in Thingworx
+     * @param typeNode          The node that the type was inferred from.
+     *                          When available, this is used to further "specify" the actual aliased type.
+     *                          For example the type checker makes not distinction between a MASHUPNAME and a string
+     *              or `undefined` if the type could not be determined or is not assignable to a thingworx base type.
      */
-    private getReturnBaseTypeOfNode(node: ts.Node, typeArguments?: ts.Type[]): string | undefined {
-        const typeChecker = this.program.getTypeChecker();
-        const inferredType = typeChecker.getTypeAtLocation(node);
+    private getReturnBaseTypeOfNode(node: ts.Node, typeNode?: ts.TypeNode): TWGenericBaseType | undefined {
+        const inferredType = this.checker.getTypeAtLocation(node);
 
         // If the specified node does not have call signatures, a return type cannot be determined
         const signatures = inferredType.getCallSignatures();
@@ -2808,10 +2737,10 @@ export class TWThingTransformer implements TWCodeTransformer {
         }
 
         // If the node has multiple signatures, ensure that all return types match
-        const type = this.getBaseTypeOfType(signatures[0].getReturnType(), typeArguments);
+        const type = this.getBaseTypeOfTypeNode(signatures[0].getReturnType(), typeNode);
 
         for (let i = 1; i < signatures.length; i++) {
-            if (type != this.getBaseTypeOfType(signatures[i].getReturnType())) {
+            if (type?.name != this.getBaseTypeOfTypeNode(signatures[i].getReturnType(), typeNode)?.name) {
                 // If the type is different, report an error
                 this.reportDiagnosticForNode(node, `Unable to infer the Thingworx base type, because the method has multiple overloaded return types.`, DiagnosticMessageKind.Error);
             }
@@ -2820,80 +2749,209 @@ export class TWThingTransformer implements TWCodeTransformer {
         return type;
     }
 
+
     /**
      * Gets the thingworx base type corresponding to the specified type.
      * @param type              The type whose thingworx base type should be inferred.
-     * @param typeArguments     If specified, this must be set to an empty array in which any type arguments
-     *                          of the inferred type will be inserted. If not specified, the type arguments
-     *                          will not be returned.
+     * @param typeNode          The node that the type was inferred from.
+     *                          When available, this is used to further "specify" the actual aliased type.
+     *                          For example the type checker makes not distinction between a MASHUPNAME and a string
+     * @returns                 A string representing the thingworx base type of the type
+     *                          or `undefined` if the type could not be determined or is not assignable
+     *                          to a thingworx base type.
+     * @throws                  Error when the type of the node cannot be determined to match a ThingWorx type
+     */
+    private getBaseTypeOfTypeNode(type: ts.Type, typeNode?: ts.TypeNode): TWGenericBaseType {
+        // Infer the type via the type checker
+        const inferredBaseType = this.getBaseTypeOfType(type);
+        // If a type node is available, use it to further specify the type
+        if ( typeNode ) {
+            let typeNodeBaseType;
+            if ([ts.SyntaxKind.NumberKeyword, ts.SyntaxKind.BooleanKeyword, ts.SyntaxKind.StringKeyword, 
+                    ts.SyntaxKind.VoidKeyword].includes(typeNode.kind)) {
+                typeNodeBaseType = typeNode.getText();
+            }
+            else if (ts.isTypeReferenceNode(typeNode)) {
+               typeNodeBaseType = typeNode.typeName.getText()
+            }
+
+            // Check if the typeNodeBaseType is a valid thingworx type. If so, use it to further specify the type
+            // Ensure that the aspects from the inferred type are preserved
+            if (TWBaseTypes[typeNodeBaseType]) {
+                return {
+                    ...(inferredBaseType ?? { aspects: {} }),
+                    name: TWBaseTypes[typeNodeBaseType],
+                }
+            } else {
+                throw new Error(`Unable to determine the base type of the type node. The declared value '${typeNode.getText()}' is not valid.`);
+            }
+        }
+        if (!inferredBaseType) {
+            throw new Error(`No baseType found on node.`);
+        }
+        return inferredBaseType;
+    }
+
+    /**
+     * Gets the thingworx base type corresponding to the specified type.
+     * @param type              The type whose thingworx base type should be inferred.
      * @returns                 A string representing the thingworx base type of the type
      *                          or `undefined` if the type could not be determined or is not assignable
      *                          to a thingworx base type.
      */
-    private getBaseTypeOfType(type: ts.Type, typeArguments?: ts.Type[]): string | undefined {
-        const typeChecker = this.program.getTypeChecker();
-        let typeName = typeChecker.typeToString(type);
-
-        // If type arguments were requested, add them to the array
-        if (typeArguments && type.aliasTypeArguments) {
-            typeArguments.push(...type.aliasTypeArguments);
-        }
-
+    private getBaseTypeOfType(type: ts.Type): TWGenericBaseType | undefined {
+        const aliasSymbolName = type.aliasSymbol?.getName();
         // If the type is a thingworx generic type, remove the generics
-        if (typeName.startsWith('INFOTABLE<')) {
-            typeName = 'INFOTABLE';
+        if (aliasSymbolName  == 'INFOTABLE') {
+            const infotableType: TWInfotableType = {
+                name: 'INFOTABLE',
+                aspects: {},
+            };
+            // There is no generic argument, so return with no datashape set
+            if (!type.aliasTypeArguments || type.aliasTypeArguments.length == 0) {
+                return infotableType;
+            } 
+            else if (type.aliasTypeArguments.length == 1) {
+                // A generic argument is specified, so attempt to determine the datashape
+                const argument = type.aliasTypeArguments[0];
+                if (argument.isStringLiteral()) {
+                    // argument is a string literal, something like INFOTABLE<'GenericStringList'>
+                    infotableType.aspects.dataShape = argument.value;
+                } 
+                else if(argument.isClass()) {
+                    // argument is a class name, something like INFOTABLE<GenericStringList>
+                    if (!argument.getSymbol()) {
+                        throw new Error('INFOTABLE type generic argument does not have a symbol, cannot determine datashape name');
+                    }
+                    infotableType.aspects.dataShape = argument.getSymbol()?.getName();
+                } 
+                else {
+                    throw new Error('INFOTABLE type generic argument is not a string literal or datashape class reference');
+                }
+                return infotableType;
+            } 
+            else {
+                throw new Error('INFOTABLE type can only have one generic argument');
+            }
         }
-        else if (typeName.startsWith('THINGNAME<')) {
-            typeName = 'THINGNAME';
+        else if (aliasSymbolName == 'THINGNAME') {
+            const thingNameType: TWThingNameBaseType = {
+                name: 'THINGNAME',
+                aspects: {}
+            };
+            // there is no generic argument, so return with no extra specifiers set
+            if (!type.aliasTypeArguments || type.aliasTypeArguments.length == 0) {
+                return thingNameType;
+            } 
+            else if (type.aliasTypeArguments.length <= 2) {
+                // A generic arguments are specified, so attempt to determine the specifics
+                const firstArgument = type.aliasTypeArguments[0];
+                if(firstArgument.isStringLiteral()) {
+                    // argument is a string literal, something like THINGNAME<'GenericThingTemplate', ...>
+                    thingNameType.aspects.thingTemplate = firstArgument.value;
+                } 
+                else if (firstArgument.flags & ts.TypeFlags.Undefined) {
+                    // argument is undefined, something like THINGNAME<undefined, ...>. Do nothing here
+                } 
+                else {
+                    throw new Error('THINGNAME type first generic argument is not a string literal or undefined');
+                }
+                const secondArgument = type.aliasTypeArguments[1];
+                // The second argument is optional, so it might be fully missing or just be undefined
+                if (secondArgument && !(secondArgument.flags & ts.TypeFlags.Undefined)) {
+                    if (secondArgument.isStringLiteral()) {
+                        // argument is a string literal, something like THINGNAME<..., 'Connectable'>
+                        thingNameType.aspects.thingShape = secondArgument.value;
+                    } 
+                    else {
+                        throw new Error('THINGNAME type second generic argument is not a string literal');
+                    }
+                }
+                return thingNameType;
+            }
+            else {
+                throw new Error('THINGNAME type can only have one or two generic arguments');
+            }
         }
-        else if (typeName.startsWith('STRING<')) {
-            typeName = 'STRING';
+        else if (aliasSymbolName == 'STRING' || aliasSymbolName == 'NUMBER' || aliasSymbolName == 'INTEGER' || aliasSymbolName == 'LONG') {
+            const stringNumberType: TWStringNumberBaseType = {
+                name: aliasSymbolName,
+                aspects: {},
+            };
+            // there is no generic argument, so return with no extra specifiers set
+            if (!type.aliasTypeArguments || type.aliasTypeArguments.length == 0) {
+                return stringNumberType;
+            }
+            else if (type.aliasTypeArguments.length == 1) {
+                // A generic argument is specified, so attempt to determine the specifics
+                const argument = type.aliasTypeArguments[0];
+                // argument is a literal union, something like STRING<'test' | 'test2' >, or STRING<ReferencedEnum>
+                if (argument.isUnion()) {
+                    stringNumberType.enumValues = argument.types.map(t => {
+                        if(t.isStringLiteral() || t.isNumberLiteral()) {
+                            return {
+                                name: t.getSymbol()?.getName() ?? t.value.toString(),
+                                value: t.value,
+                                description: t.getSymbol()?.getDocumentationComment(this.checker).map(c => c.text).join('\n')
+                            }
+                        }
+                        else {
+                            throw new Error(`${aliasSymbolName} type generic argument union must only contain string or number literals`);
+                        }
+                    });
+                }
+                // Usually refers to types like STRING<string> or NUMBER<number> that should not get handled in any different way
+                else if ((argument.flags & ts.TypeFlags.String) || (argument.flags & ts.TypeFlags.NumberLike)) {
+                    // do nothing here, as we just need to return the stringNumberType with no extra aspects
+                }
+                else {
+                    throw new Error(`${aliasSymbolName} type generic argument must be an enum or union reference`);
+                }
+                return stringNumberType;
+            }
+            else {
+                throw new Error(`${aliasSymbolName} type can only have one generic argument`);
+            }
         }
-        else if (typeName.startsWith('NUMBER<')) {
-            typeName = 'NUMBER';
-        }
-        else if (typeName.startsWith('TWJSON<')) {
-            typeName = 'TWJSON';
-        }
-
-        // Map the inferred type to a thingworx base type
-        const baseType = TWBaseTypes[typeName];
-
-        if (!baseType) {
-            // If the type could not determined, try to map to a primitive type
+        else if(aliasSymbolName == 'TWJSON') {
+            const twJsonType: TWJsonBaseType = {
+                name: 'JSON',
+                aspects: {},
+            };
+            // there is no generic argument, so return with no extra specifiers set
+            if (!type.aliasTypeArguments || type.aliasTypeArguments.length == 0) {
+                return twJsonType;
+            }
+            // try to convert the referenced type into a json schema
+            else {
+                const symbolDeclarations = type.aliasTypeArguments[0].getSymbol()?.getDeclarations();
+                if(symbolDeclarations) {
+                    twJsonType.definition = this.jsonSchemaGenerator.createSchemaFromNodes(symbolDeclarations).definitions;
+                }
+                return twJsonType;
+            }
+        } 
+        else if (type.getSymbol()?.getName() == 'Date') {
+            return { name: 'DATETIME', aspects: {} };
+        } 
+        else {
+            // If the type is a thingworx base type, attempt to retrieve more information about it (e.g. the data shape)
             const flags = type.flags;
 
             // Test using the flags whether the type can be represented by a primitive type
-            // It looks like related flags such as StringLike, StringLiteral and String do not have common bits
-            // so it is necessary to check each separately
-            if ((flags & ts.TypeFlags.StringLike) == ts.TypeFlags.StringLike) {
-                return 'STRING';
+            if (flags & ts.TypeFlags.StringLike) {
+                return { name: 'STRING', aspects: {} };
             }
-            else if ((flags & ts.TypeFlags.NumberLike) == ts.TypeFlags.NumberLike) {
-                return 'NUMBER';
+            else if (flags & ts.TypeFlags.NumberLike) {
+                return { name: 'NUMBER', aspects: {} };
             }
-            else if ((flags & ts.TypeFlags.BooleanLike) == ts.TypeFlags.BooleanLike) {
-                return 'BOOLEAN';
+            else if (flags & ts.TypeFlags.BooleanLike) {
+                return { name: 'BOOLEAN', aspects: {} };
             }
-            else if ((flags & ts.TypeFlags.String) == ts.TypeFlags.String) {
-                return 'STRING';
+            else if (flags & ts.TypeFlags.VoidLike) {
+                return { name: 'NOTHING', aspects: {} };
             }
-            else if ((flags & ts.TypeFlags.Number) == ts.TypeFlags.Number) {
-                return 'NUMBER';
-            }
-            else if ((flags & ts.TypeFlags.Boolean) == ts.TypeFlags.Boolean) {
-                return 'BOOLEAN';
-            }
-            else if ((flags & ts.TypeFlags.StringLiteral) == ts.TypeFlags.StringLiteral) {
-                return 'STRING';
-            }
-            else if ((flags & ts.TypeFlags.NumberLiteral) == ts.TypeFlags.NumberLiteral) {
-                return 'NUMBER';
-            }
-            else if ((flags & ts.TypeFlags.BooleanLiteral) == ts.TypeFlags.BooleanLiteral) {
-                return 'BOOLEAN';
-            }
-            else if ((flags & ts.TypeFlags.Union) == ts.TypeFlags.Union) {
+            else if (flags & ts.TypeFlags.Union) {
                 if (!type.isUnion()) {
                     return;
                 }
@@ -2909,37 +2967,17 @@ export class TWThingTransformer implements TWCodeTransformer {
                     finalFlags &= type.flags;
                 }
 
-                if ((finalFlags & ts.TypeFlags.StringLike) == ts.TypeFlags.StringLike) {
-                    return 'STRING';
+                if (finalFlags & ts.TypeFlags.StringLike) {
+                    return { name: 'STRING', aspects: {} };
                 }
-                else if ((finalFlags & ts.TypeFlags.NumberLike) == ts.TypeFlags.NumberLike) {
-                    return 'NUMBER';
+                else if (finalFlags & ts.TypeFlags.NumberLike) {
+                    return { name: 'NUMBER', aspects: {} };
                 }
-                else if ((finalFlags & ts.TypeFlags.BooleanLike) == ts.TypeFlags.BooleanLike) {
-                    return 'BOOLEAN';
-                }
-                else if ((finalFlags & ts.TypeFlags.String) == ts.TypeFlags.String) {
-                    return 'STRING';
-                }
-                else if ((finalFlags & ts.TypeFlags.Number) == ts.TypeFlags.Number) {
-                    return 'NUMBER';
-                }
-                else if ((finalFlags & ts.TypeFlags.Boolean) == ts.TypeFlags.Boolean) {
-                    return 'BOOLEAN';
-                }
-                else if ((finalFlags & ts.TypeFlags.StringLiteral) == ts.TypeFlags.StringLiteral) {
-                    return 'STRING';
-                }
-                else if ((finalFlags & ts.TypeFlags.NumberLiteral) == ts.TypeFlags.NumberLiteral) {
-                    return 'NUMBER';
-                }
-                else if ((finalFlags & ts.TypeFlags.BooleanLiteral) == ts.TypeFlags.BooleanLiteral) {
-                    return 'BOOLEAN';
+                else if (finalFlags & ts.TypeFlags.BooleanLike) {
+                    return { name: 'BOOLEAN', aspects: {} };
                 }
             }
-        }
-
-        return baseType;
+    }
     }
 
     /**
@@ -3276,24 +3314,15 @@ export class TWThingTransformer implements TWCodeTransformer {
                 // Is required is mapped to the standard typescript question token
                 parameter.aspects.isRequired = !type.questionToken;
 
-                let baseType;
-                if (TypeScriptPrimitiveTypes.includes(typeNode.kind)) {
-                    // Support the use of primitive types instead of the associated thingworx types
-                    baseType = typeNode.getText();
+                let baseType: TWGenericBaseType;
+                try {
+                    baseType = this.getBaseTypeOfTypeNode(this.checker.getTypeAtLocation(arg), typeNode);
+                } catch (ex) {
+                    this.throwErrorForNode(node, `Could not determine the type of the parameter '${node.name.getText()}': ${ex}`);
                 }
-                else {
-                    // If the type is not a primitive, get the name of the type reference
-                    if (!typeNode.typeName) {
-                        this.throwErrorForNode(node, `Cannot obtain base type for service parameter '${parameter.name}'.`);
-                    }
-                    baseType = typeNode.typeName.getText();
-                }
+                parameter.baseType = baseType.name;
+                parameter.aspects = { ...parameter.aspects, ...baseType.aspects };
 
-                // Ensure that there is a mapping between the extracted type and a compatible thingworx type
-                if (!(baseType in TWBaseTypes)) {
-                    this.throwErrorForNode(node, `Unknown base type '${baseType}' specified for parameter '${parameter.name}'.`);
-                }
-                parameter.baseType = TWBaseTypes[baseType];
 
                 if (arg.initializer) {
                     // If the argument has an initializer, set it as the default value
@@ -3329,50 +3358,6 @@ export class TWThingTransformer implements TWCodeTransformer {
                     }
                 }
 
-                // Handle the cases where generic type arguments need to be used as aspects
-                if (TWBaseTypes[baseType] == 'INFOTABLE') {
-                    // INFOTABLE can optionally take the data shape as a type argument
-                    const typeNode = type.type! as ts.NodeWithTypeArguments;
-                    const typeArguments = typeNode.typeArguments;
-                    if (typeArguments) {
-                        // Infotable must take a single type argument
-                        if (typeArguments.length != 1) this.throwErrorForNode(node, `Unknown generics specified for parameter ${parameter.name}: ${parameter.baseType}`);
-
-                        if (typeArguments[0].kind == ts.SyntaxKind.LiteralType) {
-                            // A literal type is supported for the InfoTableReference type
-                            parameter.aspects.dataShape = ((typeArguments[0] as ts.LiteralTypeNode).literal as ts.StringLiteral).text;
-                        }
-                        else {
-                            // Otherwise a class name is used directly
-                            parameter.aspects.dataShape = typeArguments[0].getText();
-                        }
-                    }
-                }
-                else if (TWBaseTypes[baseType] == 'THINGNAME') {
-                    // THINGNAME can optionally take the thing template name and/or thing shape name as a type argument
-                    const typeNode = type.type! as ts.NodeWithTypeArguments;
-                    const typeArguments = typeNode.typeArguments;
-
-                    if (typeArguments && typeArguments.length) {
-                        // More than two arguments are not supported
-                        if (typeArguments.length > 2) this.throwErrorForNode(node, `Unknown generics specified for parameter ${parameter.name}: ${parameter.baseType}`);
-
-                        const thingTemplate = typeArguments[0];
-                        if (thingTemplate.kind == ts.SyntaxKind.LiteralType) {
-                            // A non-literal type likely means undefined so this type should be ignored
-                            // TODO: This should throw for non-undefined non-literal types
-                            parameter.aspects.thingTemplate = ((thingTemplate as ts.LiteralTypeNode).literal as ts.StringLiteral).text;
-                        }
-
-                        const thingShape = typeArguments[1];
-                        if (thingShape && thingShape.kind == ts.SyntaxKind.LiteralType) {
-                            // If a second argument is defined and is a literal type, it represents the thing shape
-                            // TODO: This should throw for non-literal types
-                            parameter.aspects.thingShape = ((thingShape as ts.LiteralTypeNode).literal as ts.StringLiteral).text;
-                        }
-                    }
-                }
-
                 // Add the parameter to the service definition
                 service.parameterDefinitions.push(parameter);
             }
@@ -3392,105 +3377,32 @@ export class TWThingTransformer implements TWCodeTransformer {
             service.parameterDefinitions = [];
         }
 
-        if (!node.type) {
-            if (!service.aspects.isAsync) {
-                // For non-async services, the return type must be specified, if not, attempt to infer it
-                let typeArguments: ts.Type[] = [];
-                const type = this.getReturnBaseTypeOfNode(originalNode, typeArguments);
-
-                if (type) {
-                    service.resultType = {
-                        name: 'result',
-                        aspects: {},
-                        baseType: type,
-                        description: '',
-                        ordinal: 0
-                    };
-                    
-                    if (type == 'INFOTABLE') {
-                        // INFOTABLE can optionally take the data shape as a type argument
-                        if (typeArguments) {
-                            if (typeArguments.length > 1) {
-                                this.reportDiagnosticForNode(originalNode, `Too many generic arguments inferred for INFOTABLE return type. Expected 0-1, inferred ${typeArguments.length}.`);
-                            }
-        
-                            if (typeArguments[0].isStringLiteral()) {
-                                service.resultType.aspects.dataShape = typeArguments[0].value;
-                            }
-                            else if (typeArguments[0].isClassOrInterface()) {
-                                const name = typeArguments[0].symbol.escapedName;
-
-                                if (name) {
-                                    service.resultType.aspects.dataShape = name;
-                                }
-                                else {
-                                    // If the generics class is anonymous, report an error
-                                    this.reportDiagnosticForNode(originalNode, `The generic argument inferred for the INFOTABLE return type could not be determined.`);
-                                }
-                            }
-                        }
-                    }
-                }
-                else {
-                    // If the type could not be determined, report an error and ignore the result type
-                    this.reportDiagnosticForNode(originalNode, `The return type could not be determined. Consider adding an explicit return type annotation.`);
-                    service.resultType = {
-                        name: 'result',
-                        baseType: 'NOTHING'
-                    } as TWServiceParameter;
-                }
-            }
-            else {
-                // For async services, the return type is not used
-                service.resultType = {} as TWServiceParameter;
-                service.resultType.name = 'result';
-                service.resultType.baseType = 'NOTHING';
-            }
-        }
-        else {
+        if (service.aspects.isAsync) {
+            // For async services, the return type is not used
             service.resultType = {} as TWServiceParameter;
             service.resultType.name = 'result';
+            service.resultType.baseType = 'NOTHING';
+        }
+        else {
+            // For non-async services, the return type must be specified, if not, attempt to infer it
+            const type = this.getReturnBaseTypeOfNode(originalNode, node.type);
 
-            if (service.aspects.isAsync) {
-                // Don't care about the return type of async services
-                service.resultType.baseType = 'NOTHING';
-                if (node.type) {
-                    this.throwErrorForNode(originalNode, 'Async services must not have a return type annotation.');
-                }
+            if (type) {
+                service.resultType = {
+                    name: 'result',
+                    aspects: { ...type.aspects },
+                    baseType: type.name,
+                    description: '',
+                    ordinal: 0
+                };
             }
             else {
-                const typeNode = node.type as ts.TypeReferenceNode;
-
-                // The type must be either a primitive type or a type reference node
-                const baseType = TypeScriptReturnPrimitiveTypes.includes(typeNode.kind) ? typeNode.getText() : typeNode.typeName.getText();
-                if (!(baseType in TWBaseTypes)) {
-                    // If the return type is not a thingworx type, report an error
-                    this.reportDiagnosticForNode(originalNode, `Unknown base type ${baseType} specified for service return type.`);
-                }
-
-                if (TWBaseTypes[baseType] == 'INFOTABLE') {
-                    // INFOTABLE can optionally take the data shape as a type argument, using the same logic as above
-                    const typeNode = node.type! as ts.NodeWithTypeArguments;
-                    service.resultType.aspects = service.resultType.aspects || {};
-                    const typeArguments = typeNode.typeArguments;
-                    if (typeArguments) {
-                        if (typeArguments.length != 1) this.throwErrorForNode(originalNode, `Unknown generics specified for service result: ${service.resultType.baseType}`);
-    
-                        if (typeArguments[0].kind == ts.SyntaxKind.LiteralType) {
-                            service.resultType.aspects.dataShape = ((typeArguments[0] as ts.LiteralTypeNode).literal as ts.StringLiteral).text;
-                        }
-                        else {
-                            service.resultType.aspects.dataShape = typeArguments[0].getText();
-                        }
-                    }
-                }
-                else if (TWBaseTypes[baseType] == 'THINGNAME') {
-                    // THINGNAME can optionally take the thing template name and/or thing shape name as a type argument, however
-                    // this is not supported by Thingworx in service results, so it is ignored
-                    const typeNode = node.type! as ts.NodeWithTypeArguments;
-                    service.resultType.aspects = service.resultType.aspects || {};
-                }
-                service.resultType.baseType = TWBaseTypes[baseType];
+                // If the type could not be determined, report an error and ignore the result type
+                this.reportDiagnosticForNode(originalNode, `The return type could not be determined. Consider adding an explicit return type annotation.`);
+                service.resultType = {
+                    name: 'result',
+                    baseType: 'NOTHING'
+                } as TWServiceParameter;
             }
         }
 
@@ -3756,7 +3668,11 @@ export class TWThingTransformer implements TWCodeTransformer {
                     }
                 }
                 else {
-                    baseType = this.getBaseTypeOfNode(argumentExpression as ts.Expression);
+                    try {
+                        baseType = this.getBaseTypeOfNode(argumentExpression);
+                    } catch (ex) {
+                        this.throwErrorForNode(argumentExpression, `Could not determine the type of the SQL service parameter '${argumentExpression.getText()}': ${ex}`);
+                    }
                 }
 
                 const parameter: TWServiceParameter = {
@@ -5703,11 +5619,9 @@ export class TWThingTransformer implements TWCodeTransformer {
                     if (!dependencies[helper.name]) continue;
                     for (const dependency of dependencies[helper.name]) {
                         // Look for the dependencies in the locally added helpers
-                        let addedDepdency = false;
                         for (const rootHelper of helpers) {
                             if (rootHelper.name == dependency) {
                                 helpersToInline.add(rootHelper);
-                                addedDepdency = true;
                                 break;
                             }
                         }
@@ -6116,7 +6030,7 @@ finally {
         this.validateConstraints();
         this.inheritDataShapes();
         this.copyBaseServiceImplementations();
-        this.installTargettedSQLServices();
+        this.installTargetedSQLServices();
     }
 
     /**
@@ -6234,7 +6148,7 @@ finally {
      * This method may only be invoked after all transformers in the project have finished
      * processing their files.
      */
-    private installTargettedSQLServices(): void {
+    private installTargetedSQLServices(): void {
         // Only applies to things, thing templates and thing shapes
         if (this.entityKind != TWEntityKind.Thing && this.entityKind != TWEntityKind.ThingShape && this.entityKind != TWEntityKind.ThingTemplate) {
             return;
@@ -7759,7 +7673,6 @@ export function TWThingTransformerFactory(program: ts.Program, root: string, aft
     
                 return ts.visitNode(node, node => transformer.visit(node)) as ts.SourceFile;
 
-                return result;
             }
             finally {
                 if (typeof project == 'object') {
@@ -7771,3 +7684,33 @@ export function TWThingTransformerFactory(program: ts.Program, root: string, aft
         };
     }
 }
+
+interface TWGenericBaseType {
+    name: typeof TWBaseTypes[keyof typeof TWBaseTypes],
+    aspects: {},
+} 
+
+interface TWInfotableType extends TWGenericBaseType {
+    name: 'INFOTABLE',
+    aspects: {
+        dataShape?: string;
+    }
+} 
+
+interface TWThingNameBaseType {
+    name: 'THINGNAME',
+    aspects: {
+        thingTemplate?: string;
+        thingShape?: string;
+    }
+}
+
+interface TWStringNumberBaseType extends TWGenericBaseType {
+    name: 'STRING' | 'NUMBER' | 'INTEGER' | 'LONG',
+    enumValues?: {name: string, value: string | number, description?: string}[];
+}
+
+interface TWJsonBaseType extends TWGenericBaseType {
+    name: 'JSON',
+    definition?: unknown;
+} 
