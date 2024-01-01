@@ -26,26 +26,28 @@ interface TransformerBase {
  */
 export function ThrowErrorForNode(node: TS.Node, error: string, sourceFileFallback?: TS.SourceFile): never {
     const limit = Error.stackTraceLimit;
-    try {
-        Error.stackTraceLimit = 0;
-        const sourceFile = node.getSourceFile() || sourceFileFallback;
-        let line, character;
         try {
-            const pos = sourceFile.getLineAndCharacterOfPosition(node.getStart());
-            line = pos.line;
-            character = pos.character;
-        }
-        catch (e) {
-            // For synthetic nodes, the line and character positions cannot be determined
-            throw new Error(`Error in file ${sourceFile?.fileName}\n\n${error}\n`);
-        }
+            Error.stackTraceLimit = 0;
+            const sourceFile = node.getSourceFile() || sourceFileFallback;
+            let position: TS.LineAndCharacter | undefined;
+            try {
+                position = sourceFile.getLineAndCharacterOfPosition(node.getStart());
+            }
+            catch (ignored) {
+                // For synthetic nodes, the line and character positions cannot be determined
+            }
 
-        throw new Error(`Error in file ${sourceFile.fileName}:${line},${character}\n\n${error}\n
-Failed parsing at: \n${node.getText()}\n\n`);
-    }
-    finally {
-        Error.stackTraceLimit = limit;
-    }
+            if (position) {
+                // Line and character positions are 0-indexed, but we want to display them as 1-indexed, as it's easier for the user
+                throw new Error(`Error in file ${sourceFile.fileName}:${position.line + 1}:${position.character + 1}\n\n${error}\n
+    Failed parsing at: \n${node.getText()}\n\n`);
+            } else {
+                throw new Error(`Error in file ${sourceFile?.fileName}\n\n${error}\n`);
+            }
+        }
+        finally {
+            Error.stackTraceLimit = limit;
+        }
 }
 
 // #region Decorator helpers
