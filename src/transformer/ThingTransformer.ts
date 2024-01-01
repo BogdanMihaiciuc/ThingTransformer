@@ -842,13 +842,19 @@ export class TWThingTransformer implements TWCodeTransformer {
         try {
             Error.stackTraceLimit = 0;
             const sourceFile = node.getSourceFile() || this.sourceFile;
+            let position: ts.LineAndCharacter | undefined;
             try {
-                const {line, character} = sourceFile.getLineAndCharacterOfPosition(node.getStart());
-                throw new Error(`Error in file ${sourceFile.fileName}:${line},${character}\n\n${error}\n
-    Failed parsing at: \n${node.getText()}\n\n`);
+                position = sourceFile.getLineAndCharacterOfPosition(node.getStart());
             }
-            catch (e) {
+            catch (ignored) {
                 // For synthetic nodes, the line and character positions cannot be determined
+            }
+
+            if (position) {
+                // Line and character positions are 0-indexed, but we want to display them as 1-indexed, as it's easier for the user
+                throw new Error(`Error in file ${sourceFile.fileName}:${position.line + 1},${position.character + 1}\n\n${error}\n
+    Failed parsing at: \n${node.getText()}\n\n`);
+            } else {
                 throw new Error(`Error in file ${sourceFile?.fileName}\n\n${error}\n`);
             }
         }
