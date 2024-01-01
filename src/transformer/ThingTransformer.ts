@@ -7682,7 +7682,7 @@ export { TWConfig, MethodHelpers };
 export * from './TWCoreTypes';
 
 export function TWThingTransformerFactory(program: ts.Program, root: string, after: boolean = false, watch: boolean = false, project?: string | TWConfig) {
-    return function TWThingTransformerFunction(context: ts.TransformationContext) {
+    return function TWThingTransformerFunction(context: ts.TransformationContext): ts.Transformer<ts.SourceFile> {
         const transformer = new TWThingTransformer(program, context, root, after, watch);
 
         // The path normalized for the current platform, this is needed in multi project
@@ -7757,7 +7757,7 @@ export function TWThingTransformerFactory(program: ts.Program, root: string, aft
                     }
                 }
     
-                const result = ts.visitNode(node, node => transformer.visit(node));
+                return ts.visitNode(node, node => transformer.visit(node)) as ts.SourceFile;
 
                 return result;
             }
