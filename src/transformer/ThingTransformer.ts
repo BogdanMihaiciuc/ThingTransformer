@@ -3388,13 +3388,12 @@ export class TWThingTransformer implements TWCodeTransformer {
             const type = this.getReturnBaseTypeOfNode(originalNode, node.type);
 
             if (type) {
+                // note that the resultType should not have a description or an ordinal
                 service.resultType = {
                     name: 'result',
                     aspects: { ...type.aspects },
                     baseType: type.name,
-                    description: '',
-                    ordinal: 0
-                };
+                } as TWServiceParameter;
             }
             else {
                 // If the type could not be determined, report an error and ignore the result type
