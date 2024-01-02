@@ -2713,8 +2713,7 @@ export class TWThingTransformer implements TWCodeTransformer {
      *              or `undefined` if the type could not be determined or is not assignable to a thingworx base type.
      */
     private getBaseTypeOfNode(node: ts.Node): TWGenericBaseType | undefined {
-        const typeChecker = this.program.getTypeChecker();
-        const inferredType = typeChecker.getTypeAtLocation(node);
+        const inferredType = this.checker.getTypeAtLocation(node);
         return this.getBaseTypeOfType(inferredType);
     }
 
@@ -2800,6 +2799,25 @@ export class TWThingTransformer implements TWCodeTransformer {
      *                          to a thingworx base type.
      */
     private getBaseTypeOfType(type: ts.Type): TWGenericBaseType | undefined {
+        // Typescript would attempt to be as specific as possible when retrieving the types.
+        // This means that instead of getting a type like THINGNAME<'GenericThing'> we would get it as 
+        // undefined | KeyOfThing<Things, `MyData${template}`> | KeyOfThing<Things, `MyData${template}`>
+        // See https://github.com/dsherret/ts-morph/issues/1421 for more generic examples
+        // The typescript compiler stores the original type in the 'origin' property of the type, but it does not expose it
+        // The current to get that original type, and, if the second subtype has an aliasSymbol, use that instead
+        if (type.isUnion() && !type.aliasSymbol && 'origin' in type && type.origin) {
+            const typeOrigin = type.origin as ts.Type;
+            if (typeOrigin.isUnion() && typeOrigin.types[0].flags & ts.TypeFlags.Undefined && typeOrigin.types[1].aliasSymbol) {
+                type = typeOrigin.types[1];
+            }
+        }
+        // Typescript represents optional types (e.g., a service parameter declared as `name?: Date`) as a union of the between undefined and the actual type
+        // In my observations, the undefined type is always the first type in the union
+        // If the type is a union, check if the first type is undefined and if so, use the second type
+        if (type.isUnion() && type.types[0].flags & ts.TypeFlags.Undefined) {
+            type = type.types[1];
+        }
+
         const aliasSymbolName = type.aliasSymbol?.getName();
         // If the type is a thingworx generic type, remove the generics
         if (aliasSymbolName  == 'INFOTABLE') {
@@ -2901,7 +2919,7 @@ export class TWThingTransformer implements TWCodeTransformer {
                     });
                 }
                 // Usually refers to types like STRING<string> or NUMBER<number> that should not get handled in any different way
-                else if ((argument.flags & ts.TypeFlags.String) || (argument.flags & ts.TypeFlags.NumberLike)) {
+                else if ((argument.flags & ts.TypeFlags.StringLike) || (argument.flags & ts.TypeFlags.NumberLike)) {
                     // do nothing here, as we just need to return the stringNumberType with no extra aspects
                 }
                 else {
@@ -2951,20 +2969,18 @@ export class TWThingTransformer implements TWCodeTransformer {
             else if (flags & ts.TypeFlags.VoidLike) {
                 return { name: 'NOTHING', aspects: {} };
             }
-            else if (flags & ts.TypeFlags.Union) {
-                if (!type.isUnion()) {
-                    return;
-                }
-
-                // If the type is a type union, a valid type would need the union to all have the same type
+            else if (type.isUnionOrIntersection()) {
+                // If the type is a type union or intersection, look at each subtype and 
+                // make a decision based on the subtypes
                 const types = type.types;
                 if (!types) return;
 
-                // If the types are of the same kind, AND all the flags together and they
-                // should AND with the appropriate TypeLike flag at the end
                 let finalFlags = types[0]?.flags || 0;
-                for (const type of types) {
-                    finalFlags &= type.flags;
+                for (const subType of types) {
+                    // If we are dealing with a union, the flags should AND together
+                    if (type.isIntersection()) finalFlags &= subType.flags;
+                    // If we are dealing with an intersection, the flags should OR together
+                    if (type.isUnion()) finalFlags |= subType.flags;
                 }
 
                 if (finalFlags & ts.TypeFlags.StringLike) {
@@ -2975,6 +2991,9 @@ export class TWThingTransformer implements TWCodeTransformer {
                 }
                 else if (finalFlags & ts.TypeFlags.BooleanLike) {
                     return { name: 'BOOLEAN', aspects: {} };
+                }
+                else if (flags & ts.TypeFlags.VoidLike) {
+                    return { name: 'NOTHING', aspects: {} };
                 }
             }
     }
