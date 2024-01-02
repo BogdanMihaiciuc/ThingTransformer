@@ -3391,7 +3391,9 @@ export class TWThingTransformer implements TWCodeTransformer {
                 // note that the resultType should not have a description or an ordinal
                 service.resultType = {
                     name: 'result',
-                    aspects: { ...type.aspects },
+                    // Only infotables have aspects (the datashape).
+                    // Everything else should not have any aspects in the return type
+                    aspects: type.name == 'INFOTABLE' ? { ...type.aspects } : {},
                     baseType: type.name,
                 } as TWServiceParameter;
             }
