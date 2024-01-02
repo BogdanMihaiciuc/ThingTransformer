@@ -5537,7 +5537,7 @@ export class TWThingTransformer implements TWCodeTransformer {
     transpiledBodyOfThingworxMethod(node: ts.FunctionDeclaration, method: TWServiceDefinition | TWSubscriptionDefinition): string {
         // Get the helpers from this source file and the method's global functions
         const helpers = ts.getEmitHelpers((this as any).source) || [];
-        const helpersToInline = new Set<ts.EmitHelper>();
+        const helpersToInline = new Map<string, ts.EmitHelper>();
 
         // Some helper dependencies are not always included, if they
         // are introduced due to customized code
@@ -5559,11 +5559,11 @@ export class TWThingTransformer implements TWCodeTransformer {
                     if (!localHelper) {
                         // If it doesn't inline the function's helper
                         helpers.push(helper);
-                        helpersToInline.add(helper);
+                        helpersToInline.set(helper.name, helper);
                     }
                     else {
                         // Otherwise inline the method's helper
-                        helpersToInline.add(localHelper);
+                        helpersToInline.set(helper.name, localHelper);
                     }
                 }
             }
@@ -5581,10 +5581,6 @@ export class TWThingTransformer implements TWCodeTransformer {
         // TODO: Need a way to automate this.
         const dependencies = {
             'typescript:read': ['typescript:values'],
-            'typescript:spread': ['typescript:read'],
-            'typescript:asyncGenerator': ['typescript:await'],
-            'typescript:asyncDelegator': ['typescript:await'],
-            'typescript:asyncValues': ['typescript:values']
         }
 
         // Some helpers can use a little help to work better with thingworx
@@ -5625,7 +5621,7 @@ export class TWThingTransformer implements TWCodeTransformer {
                     for (const helper of helpers) {
                         if ((helper as any).importName == callIdentifier) {
                             // If found, add the helper to a set that will be added to the method body directly
-                            helpersToInline.add(helper);
+                            helpersToInline.set(helper.name, helper);
                         }
                     }
                 }
@@ -5639,13 +5635,13 @@ export class TWThingTransformer implements TWCodeTransformer {
         do {
             size = helpersToInline.size;
             if (helpersToInline.size) {
-                for (const helper of [...helpersToInline]) {
+                for (const helper of [...helpersToInline.values()]) {
                     if (!dependencies[helper.name]) continue;
                     for (const dependency of dependencies[helper.name]) {
                         // Look for the dependencies in the locally added helpers
                         for (const rootHelper of helpers) {
                             if (rootHelper.name == dependency) {
-                                helpersToInline.add(rootHelper);
+                                helpersToInline.set(rootHelper.name, rootHelper);
                                 break;
                             }
                         }
@@ -5653,7 +5649,7 @@ export class TWThingTransformer implements TWCodeTransformer {
                         // If the dependency wasn't added, look for it in all possible helpers
                         const dependentHelper = allHelpers.get(dependency);
                         if (dependentHelper) {
-                            helpersToInline.add(dependentHelper);
+                            helpersToInline.set(dependentHelper.name, dependentHelper);
                         }
                     }
                 }
@@ -5661,7 +5657,9 @@ export class TWThingTransformer implements TWCodeTransformer {
         } while (helpersToInline.size != size)
 
         // After identifying the helpers, join their text and add them to the transpiled method body
-        return [...helpersToInline].map(helper => codeMap[helper.name] || helper.text).join('\n\n') + this.transpiledBodyOfFunctionDeclaration(node);
+        return [...helpersToInline.values()]
+            .map(helper => codeMap[helper.name] || helper.text)
+            .join('\n\n') + this.transpiledBodyOfFunctionDeclaration(node);
     }
 
     /**
