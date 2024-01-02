@@ -351,8 +351,7 @@ export class JsonEntityToTsTransformer {
     );
 
     const classDeclaration = ts.factory.createClassDeclaration(
-      decorators,
-      modifiers,
+      [...decorators , ...modifiers],
       this.createIdentifierFromEntityName(entity.name),
       undefined,
       heritage,
@@ -507,10 +506,17 @@ export class JsonEntityToTsTransformer {
     const initializerValue =
       currentValue || propertyDefinition.aspects.defaultValue;
 
+    // the new list of modifiers is obtained by combining existing decorator and modifiers with the ones that we just created
+    const allModifiers: ts.ModifierLike[] = [
+      ...(ts.getDecorators(data) ?? []),
+      ...decorators,
+      ...(ts.getModifiers(data) ?? []),
+      ...modifiers,
+    ];
+
     return ts.factory.updatePropertyDeclaration(
       data,
-      (data.decorators || ([] as ts.Decorator[])).concat(decorators),
-      (data.modifiers || ([] as ts.Modifier[])).concat(modifiers),
+      allModifiers,
       data.name,
       initializerValue
         ? undefined
@@ -539,8 +545,7 @@ export class JsonEntityToTsTransformer {
     }
     return ts.factory.updatePropertyDeclaration(
       data,
-      (data.decorators || ([] as ts.Decorator[])).concat(decorators),
-      data.modifiers,
+      [...data.modifiers ?? [], ...decorators],
       data.name,
       data.exclamationToken,
       data.type,
@@ -607,8 +612,7 @@ export class JsonEntityToTsTransformer {
     const initializerValue = fieldDefinition.aspects.defaultValue;
 
     const propertyDeclaration = ts.factory.createPropertyDeclaration(
-      decorators,
-      modifiers,
+      [...decorators, ...modifiers],
       fieldDefinition.name,
       initializerValue
         ? undefined
@@ -739,7 +743,6 @@ export class JsonEntityToTsTransformer {
         ts.factory.createParameterDeclaration(
           undefined,
           undefined,
-          undefined,
           parameters,
           undefined,
           parametersDef,
@@ -759,8 +762,7 @@ export class JsonEntityToTsTransformer {
     }
 
     const methodDeclaration = ts.factory.createMethodDeclaration(
-      decorators,
-      modifiers,
+      [...decorators, ...modifiers],
       undefined,
       serviceDefinition.name,
       undefined,
@@ -862,7 +864,6 @@ export class JsonEntityToTsTransformer {
       ts.factory.createParameterDeclaration(
         undefined,
         undefined,
-        undefined,
         p[0],
         undefined,
         p[1],
@@ -872,7 +873,6 @@ export class JsonEntityToTsTransformer {
 
     const methodDeclaration = ts.factory.createMethodDeclaration(
       decorators,
-      undefined,
       undefined,
       subscriptionDefinition.name,
       undefined,
@@ -936,7 +936,6 @@ export class JsonEntityToTsTransformer {
 
     const propertyDeclaration = ts.factory.createPropertyDeclaration(
       decorators,
-      undefined,
       eventDefinition.name,
       ts.factory.createToken(ts.SyntaxKind.ExclamationToken),
       // the type is an event with the datashape provided as a type argument
@@ -1147,10 +1146,8 @@ export class JsonEntityToTsTransformer {
             undefined,
             undefined,
             undefined,
-            undefined,
             configurationTables.map((t) => {
               const memberDeclaration = ts.factory.createPropertyDeclaration(
-                undefined,
                 undefined,
                 ts.factory.createIdentifier(t.name),
                 undefined,
@@ -1210,7 +1207,7 @@ export class JsonEntityToTsTransformer {
    */
   private getTypescriptCodeFromBody(
     thingworxCode: string,
-    resultType: keyof typeof TWBaseTypes
+    resultType: typeof TWBaseTypes[keyof typeof TWBaseTypes]
   ): ts.FunctionBody {
     const FUNCTION_PREFIX = "var result = (function () {";
     const FUNCTION_SUFFIX = "})()";
@@ -1279,7 +1276,7 @@ export class JsonEntityToTsTransformer {
         return node;
       };
 
-      return (node: ts.Node): ts.Node => ts.visitNode(node, visit);
+      return (node: ts.Node): ts.Node => ts.visitNode(node, visit) as ts.Node;
     };
 
     // Run code through the transformer above
@@ -1553,7 +1550,6 @@ export class JsonEntityToTsTransformer {
     }
 
     return ts.factory.createPropertyDeclaration(
-      undefined,
       [ts.factory.createModifier(ts.SyntaxKind.OverrideKeyword)],
       "units",
       undefined,
@@ -1573,7 +1569,7 @@ export class JsonEntityToTsTransformer {
    * @returns A ts type reference
    */
   private getTypeNodeFromBaseType(
-    baseTypeName: keyof typeof TWBaseTypes,
+    baseTypeName: typeof TWBaseTypes[keyof typeof TWBaseTypes],
     aspects?: TWFieldAspects<unknown>
   ): ts.TypeReferenceNode {
     const typeArguments: ts.TypeNode[] = [];

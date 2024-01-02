@@ -13,7 +13,7 @@ export interface TWInfoTable {
 
 export interface TWFieldBase<T = any> {
     name: string;
-    baseType: keyof typeof TWBaseTypes;
+    baseType: typeof TWBaseTypes[keyof typeof TWBaseTypes];
     description: string;
     aspects: TWFieldAspects<T>;
     ordinal: number;
@@ -259,6 +259,10 @@ export interface TWConfigurationTableDefinition {
 export const TWDataThings = ['Stream', 'RemoteStream', 'DataTable', 'RemoteDataTable'];
 
 export const TWBaseTypes = {
+    /**
+     * This is a special type, used to indicate that the property is a ThingWorx event
+     */
+    EVENT: "EVENT",
     NOTHING: "NOTHING",
     void: 'NOTHING',
     nothing: 'NOTHING',
@@ -400,7 +404,7 @@ export const TWBaseTypes = {
 
     THINGCODE: "THINGCODE",
     thingcode: 'THINGCODE'
-};
+} as const;
 
 export const enum TWEntityKind {
     Thing = "Thing",
