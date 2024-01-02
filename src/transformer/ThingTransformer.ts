@@ -160,7 +160,7 @@ const AllowedRootNodeKinds = [
     ts.SyntaxKind.EnumDeclaration,
     ts.SyntaxKind.ImportClause,
     ts.SyntaxKind.SingleLineCommentTrivia,
-    ts.SyntaxKind.JSDocComment,
+    ts.SyntaxKind.JSDoc,
     ts.SyntaxKind.MultiLineCommentTrivia
 ];
 
@@ -1404,12 +1404,12 @@ export class TWThingTransformer implements TWCodeTransformer {
      */
     documentationOfNode(node: ts.Node): string {
         // This method appears to not be included in the type definition
-        const documentation = (ts as any).getJSDocCommentsAndTags(node, true) as ts.Node[];
+        const documentation = ts.getJSDocCommentsAndTags(node);
 
         // Get the first documentation node and use it as the description
         if (documentation.length) {
             for (const documentationNode of documentation) {
-                if (documentationNode.kind == ts.SyntaxKind.JSDocComment) {
+                if (documentationNode.kind == ts.SyntaxKind.JSDoc) {
 
                     const comment = (documentationNode as ts.JSDoc).comment || '';
                     if (typeof comment != 'string') {
@@ -2059,7 +2059,7 @@ export class TWThingTransformer implements TWCodeTransformer {
             ts.SyntaxKind.FunctionDeclaration,
             ts.SyntaxKind.EnumDeclaration, 
             ts.SyntaxKind.SingleLineCommentTrivia, 
-            ts.SyntaxKind.JSDocComment, 
+            ts.SyntaxKind.JSDoc, 
             ts.SyntaxKind.MultiLineCommentTrivia
         ].includes(node.kind)) {
             this.throwErrorForNode(node, `Only declarations are permitted at the root level.`);
@@ -2805,8 +2805,8 @@ export class TWThingTransformer implements TWCodeTransformer {
         // See https://github.com/dsherret/ts-morph/issues/1421 for more generic examples
         // The typescript compiler stores the original type in the 'origin' property of the type, but it does not expose it
         // The current to get that original type, and, if the second subtype has an aliasSymbol, use that instead
-        if (type.isUnion() && !type.aliasSymbol && 'origin' in type && type.origin) {
-            const typeOrigin = type.origin as ts.Type;
+        if (type.isUnion() && !type.aliasSymbol && type['origin']) {
+            const typeOrigin = type['origin'] as ts.Type;
             if (typeOrigin.isUnion() && typeOrigin.types[0].flags & ts.TypeFlags.Undefined && typeOrigin.types[1].aliasSymbol) {
                 type = typeOrigin.types[1];
             }
@@ -3427,12 +3427,12 @@ export class TWThingTransformer implements TWCodeTransformer {
         }
 
         // Use the JSDoc comments as the service documentation
-        const documentation = (ts as any).getJSDocCommentsAndTags(node) as ts.Node[];
+        const documentation = ts.getJSDocCommentsAndTags(node);
 
         if (documentation && documentation.length) {
             for (const documentationNode of documentation) {
                 // Get the first JSDocComment
-                if (documentationNode.kind != ts.SyntaxKind.JSDocComment) continue;
+                if (documentationNode.kind != ts.SyntaxKind.JSDoc) continue;
                 // Its text represents the service description
                 const JSDocComment = documentationNode as ts.JSDoc;
                 service.description = this.getDescription(JSDocComment) || '';
