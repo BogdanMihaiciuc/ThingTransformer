@@ -3656,15 +3656,15 @@ export class TWThingTransformer implements TWCodeTransformer {
                 const argumentExpression = this._debugMethodNodeReplacements.has(expression) ? this._debugMethodNodeReplacements.get(expression)! : expression;
 
                 // If the expression has an explicit type assertion, use the specified type
-                let baseType;
+                let baseType: TWGenericBaseType | undefined;
                 if (ts.isAsExpression(argumentExpression) || ts.isTypeAssertionExpression(argumentExpression)) {
                     const type = argumentExpression.type;
                     if (ts.isTypeReferenceNode(type)) {
                         // Exclude any generics from type references
-                        baseType = TWBaseTypes[type.typeName.getText()];
+                        baseType = { name: TWBaseTypes[type.typeName.getText()], aspects: {} };
                     }
                     else {
-                        baseType = TWBaseTypes[type.getText()];
+                        baseType = { name: TWBaseTypes[type.getText()], aspects: {} };
                     }
                 }
                 else {
@@ -3675,9 +3675,13 @@ export class TWThingTransformer implements TWCodeTransformer {
                     }
                 }
 
+                if (!baseType) {
+                    this.throwErrorForNode(argumentExpression, `Could not determine the type of the SQL service parameter '${argumentExpression.getText()}'.`);
+                }
+
                 const parameter: TWServiceParameter = {
                     name: identifier,
-                    baseType,
+                    baseType: baseType.name,
                     description: 'Automatically generated parameter',
                     aspects: {},
                     ordinal: argumentCounter
