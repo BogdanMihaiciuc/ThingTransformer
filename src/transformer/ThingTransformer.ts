@@ -853,7 +853,7 @@ export class TWThingTransformer implements TWCodeTransformer {
 
             if (position) {
                 // Line and character positions are 0-indexed, but we want to display them as 1-indexed, as it's easier for the user
-                throw new Error(`Error in file ${sourceFile.fileName}:${position.line + 1},${position.character + 1}\n\n${error}\n
+                throw new Error(`Error in file ${sourceFile.fileName}:${position.line + 1}:${position.character + 1}\n\n${error}\n
     Failed parsing at: \n${node.getText()}\n\n`);
             } else {
                 throw new Error(`Error in file ${sourceFile?.fileName}\n\n${error}\n`);
