@@ -395,7 +395,8 @@ export const enum TWEntityKind {
     ThingShape = "ThingShape", 
     DataShape = "DataShape", 
     UserList = "UserList", 
-    Organization = "Organization"
+    Organization = "Organization",
+    StyleLibrary = "StyleLibrary", 
 }
 
 export interface TWEntityDefinition {
@@ -476,6 +477,62 @@ export interface TWUser extends TWPrincipalBase {
 
 export interface TWUserGroup extends TWPrincipalBase {
     members: TWPrincipal[];
+}
+
+
+/**
+ * Describes a style definition.
+ */
+export interface TWStyleDefinition {
+    name: string,
+    description: string,
+    definition: {
+        backgroundColor?: string,
+        displayString?: string,
+        fontEmphasisBold?: boolean,
+        fontEmphasisItalic?: boolean,
+        fontEmphasisUnderline?: boolean,
+        foregroundColor?: string,
+        image?: string,
+        lineColor?: string,
+        lineStyle?: string,
+        lineThickness?: number,
+        secondaryBackgroundColor?: string,
+        textSize?: string
+    }
+};
+
+/**
+ * Describes a state definition
+ */
+export type TWStateDefinition = {
+    name: string,
+    description: string,
+    definition: TWStateDefinitionNumeric | TWStateDefinitionString,
+    stateNames: string[],
+};
+
+interface TWStateDefinitionNumeric {
+    stateType: 'numeric';
+    stateDefinitions: {
+        comparator?: "<" | "<=",
+        defaultValue?: number,
+        defaultStyleDefinition: string | TWStyleDefinition,
+        description?: string,
+        displayString?: string,
+        name: string
+    }[];
+}
+
+interface TWStateDefinitionString {
+    stateType: 'string';
+    stateDefinitions: {
+        defaultStyleDefinition: string | TWStyleDefinition,
+        defaultValue?: string,
+        description?: string,
+        displayString?: string,
+        name: string
+    }[];
 }
 
 export interface TWConnection {

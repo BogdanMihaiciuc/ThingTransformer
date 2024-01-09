@@ -612,6 +612,59 @@ declare class UserList {
     [key: string]: UserExtensionLiteral | GroupLiteral;
 }
 
+/**
+ * Describes a style definition.
+ */
+interface StyleDefinition {
+    backgroundColor?: string,
+    displayString?: string,
+    fontEmphasisBold?: boolean,
+    fontEmphasisItalic?: boolean,
+    fontEmphasisUnderline?: boolean,
+    foregroundColor?: string,
+    image?: string,
+    lineColor?: string,
+    lineStyle?: string,
+    lineThickness?: number,
+    secondaryBackgroundColor?: string,
+    textSize?: string
+}
+
+/**
+ * Describes a state definition
+ */
+type StateDefinition = StateDefinitionNumericLiteral | StateDefinitionStringLiteral;
+
+interface StateDefinitionNumericLiteral {
+    stateType: 'numeric';
+    stateDefinitions: {
+        comparator?: "<" | "<=",
+        defaultValue?: number,
+        defaultStyleDefinition: keyof StyleDefinitions | StyleDefinition,
+        description?: string,
+        displayString?: string,
+        name: string
+    }[];
+}
+
+interface StateDefinitionStringLiteral {
+    stateType: 'string';
+    stateDefinitions: {
+        defaultStyleDefinition: keyof StyleDefinitions | StyleDefinition,
+        defaultValue?: string,
+        description?: string,
+        displayString?: string,
+        name: string
+    }[];
+}
+
+/**
+ * A base class that can be extended to specify a list of styles or states.
+ */
+declare class StyleLibrary {
+    [key: string]: StyleDefinition | StateDefinition;
+}
+
 declare function ThingTemplate<T extends new(...args: {}[]) => GenericThing>(object: T): void;
 
 interface Constructor<T = {}> {

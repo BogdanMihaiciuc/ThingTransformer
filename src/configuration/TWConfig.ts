@@ -173,6 +173,12 @@ export interface TWConfig {
     copyEntities?: boolean;
 
     /**
+     * If specified, a dictionary of node modules to use as UI plugins. The modules must have
+     * a constructable default export that conforms to the `UIPlugin` interface defined in thing transformer.
+     */
+    UIPlugins: Record<string, string>;
+
+    /**
      * An optional callback that is invoked before the transformer begins processing
      * a file.
      * @param name The name of the file that will be processed.
