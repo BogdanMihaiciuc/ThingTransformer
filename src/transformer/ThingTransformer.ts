@@ -2931,7 +2931,8 @@ export class TWThingTransformer implements TWCodeTransformer {
                 throw new Error(`${aliasSymbolName} type can only have one generic argument`);
             }
         }
-        else if(aliasSymbolName == 'TWJSON') {
+        // The TWJSON type may get aliased to Struct, so handle that case as well
+        else if(aliasSymbolName == 'TWJSON' || aliasSymbolName == 'Struct') {
             const twJsonType: TWJsonBaseType = {
                 name: 'JSON',
                 aspects: {},

@@ -440,10 +440,16 @@ declare const process: {
 }
 
 type NOTHING = void;
+/**
+ * A symbol that marks the STRING/INTEGER/NUMBER/TWJSON type as a branded type, so it's not aliased into its primitive type
+ * 
+ * !!!**DO NOT USE THIS IN YOUR CODE**!!!
+ */
+declare const __typeDetails: unique symbol;
 type STRING<T extends string = string> = T & {readonly __stringBrand?: undefined };
-type INTEGER<T extends number = number> = T & { readonly __numberBrand?: undefined };
-type LONG<T extends number = number> = (T & { readonly __numberBrand?: undefined });
-type NUMBER<T extends number = number> = (T & { readonly __numberBrand?: undefined });
+type INTEGER<T extends number = number> = T & { readonly __number?: undefined };
+type LONG<T extends number = number> = (T & { readonly __number?: undefined });
+type NUMBER<T extends number = number> = (T & { readonly __number?: undefined });
 type BOOLEAN = boolean;
 
 type DATETIME = Date;
