@@ -3404,22 +3404,23 @@ export class TWThingTransformer implements TWCodeTransformer {
             service.resultType.baseType = 'NOTHING';
         }
         else {
-            // For non-async services, the return type must be specified, if not, attempt to infer it
-            const type = this.getReturnBaseTypeOfNode(originalNode, node.type);
-
-            if (type) {
-                // note that the resultType should not have a description or an ordinal
-                service.resultType = {
-                    name: 'result',
-                    // Only infotables have aspects (the datashape).
-                    // Everything else should not have any aspects in the return type
-                    aspects: type.name == 'INFOTABLE' ? { ...type.aspects } : {},
-                    baseType: type.name,
-                } as TWServiceParameter;
+            // For non-async services, try to get the return type of the method
+            try {
+                const type = this.getReturnBaseTypeOfNode(originalNode, node.type);
+                if (type) {
+                    // note that the resultType should not have a description or an ordinal
+                    service.resultType = {
+                        name: 'result',
+                        // Only infotables have aspects (the datashape).
+                        // Everything else should not have any aspects in the return type
+                        aspects: type.name == 'INFOTABLE' ? { ...type.aspects } : {},
+                        baseType: type.name,
+                    } as TWServiceParameter;
+                }
             }
-            else {
+            catch (ex) {
                 // If the type could not be determined, report an error and ignore the result type
-                this.reportDiagnosticForNode(originalNode, `The return type could not be determined. Consider adding an explicit return type annotation.`);
+                this.reportDiagnosticForNode(originalNode, `The return type could not be determined. Consider adding an explicit return type annotation. Original message: ${ex}`);
                 service.resultType = {
                     name: 'result',
                     baseType: 'NOTHING'
