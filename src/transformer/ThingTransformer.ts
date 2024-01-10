@@ -6,7 +6,10 @@ import { Builder } from 'xml2js';
 import * as fs from 'fs';
 import * as crypto from 'crypto';
 import * as path from 'path';
-import { SchemaGenerator, createFormatter, createParser } from 'ts-json-schema-generator';
+import { JSONSchema7Definition } from 'json-schema';
+import { getSchemaGenerator } from './schema';
+import { SchemaGenerator } from 'ts-json-schema-generator';
+
 
 declare global {
     namespace NodeJS {
@@ -105,6 +108,18 @@ export interface TransformerStore {
      */
     '@diagnosticMessages'?: DiagnosticMessage[];
 
+    /**
+     * A collection of the unique type definitions that were found in the on TWJSON and STRING/NUMBER types
+     * 
+     * For example, if the the type TWJSON<SomeType> is used, this will contain a definition for SomeType.
+     */
+    '@typeDefinitions'?: {
+        [key: string]: {
+            type: string;
+            definition: JSONSchema7Definition;
+        };
+    }
+
     [key: string]: TWThingTransformer | {
         [key: string]: TWThingTransformer[];
     } | {
@@ -119,7 +134,12 @@ export interface TransformerStore {
         [key: string]: {
             [key: string]: string;
         }
-    } | DiagnosticMessage[] | undefined;
+    } | {
+        [key: string]: {
+            type: string;
+            definition: JSONSchema7Definition;
+        };
+    } | DiagnosticMessage[] | undefined
 }
 
 /**
@@ -795,7 +815,7 @@ export class TWThingTransformer implements TWCodeTransformer {
         this.after = after;
         this.watch = watch;
         this.checker = program.getTypeChecker();
-        this.jsonSchemaGenerator = new SchemaGenerator(program, createParser(program, {}), createFormatter({}), { expose: 'all' });
+        this.jsonSchemaGenerator = getSchemaGenerator(program);
     }
 
     /**
@@ -2945,7 +2965,22 @@ export class TWThingTransformer implements TWCodeTransformer {
             else {
                 const symbolDeclarations = type.aliasTypeArguments[0].getSymbol()?.getDeclarations();
                 if(symbolDeclarations) {
-                    twJsonType.definition = this.jsonSchemaGenerator.createSchemaFromNodes(symbolDeclarations).definitions;
+                    // todo: figure out anonymous types
+                    const symbolName = type.aliasTypeArguments[0].getSymbol()?.getName();
+
+                    twJsonType.typeName = symbolName;
+
+                    const jsonDefinition = this.jsonSchemaGenerator.createSchemaFromNodes(symbolDeclarations).definitions;
+                    if (symbolName && jsonDefinition) {
+                        this.store['@typeDefinitions'] = this.store['@typeDefinitions'] || {};
+                        this.store['@typeDefinitions'][symbolName] = {
+                            definition: jsonDefinition,
+                            type: ts.createPrinter().printNode(ts.EmitHint.Unspecified, symbolDeclarations[0], ts.createSourceFile('', '', ts.ScriptTarget.Latest))
+                        }
+                    } else {
+                        twJsonType.jsonSchema = jsonDefinition;
+                    }
+                    
                 }
                 return twJsonType;
             }
@@ -7732,9 +7767,24 @@ interface TWThingNameBaseType {
 interface TWStringNumberBaseType extends TWGenericBaseType {
     name: 'STRING' | 'NUMBER' | 'INTEGER' | 'LONG',
     enumValues?: {name: string, value: string | number, description?: string}[];
+    /**
+     * Name of the typescript type that describes this object.
+     * References a type on the transformer `@typeDefinitions` object
+     */
+    typeName?: string;
 }
 
 interface TWJsonBaseType extends TWGenericBaseType {
     name: 'JSON',
-    definition?: unknown;
+    /**
+     * A JSON schema describing the structure of the TWJSON object.
+     * 
+     * This is only present here if the typeName is empty, and this represents an anonymous type.
+     */
+    jsonSchema?: JSONSchema7Definition;
+    /**
+     * Name of the typescript type that describes this object.
+     * References a type on the transformer `@typeDefinitions` object
+     */
+    typeName?: string;
 } 
