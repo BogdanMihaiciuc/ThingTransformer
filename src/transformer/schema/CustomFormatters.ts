@@ -28,7 +28,7 @@ export class StringNumberEnumFormatters implements SubTypeFormatter {
         }
     }
 
-    // If this type does NOT HAVE children, generally all you need is:
+    // This type does not have any children
     public getChildren(_type: FunctionType): BaseType[] {
         return [];
     }
@@ -43,5 +43,55 @@ export class StringNumberEnumFormatters implements SubTypeFormatter {
                         .getProperties()
                         .some((p) => StringNumberEnumFormatters.BRAND_TYPES.includes(p.getName()))
             ) as ObjectType | undefined;
+    }
+}
+
+/**
+ * The schema generator detects that INFOTABLES reference a datashape that implements DataShapeBase.
+ * This is defined as a generic type, that has multiple optional generic parameters, all named `mix1`, `mix2`, etc.
+ * 
+ * This class is a workaround that identifies an ObjectType where all properties start with `mix` and returns a schema without additional properties.
+ * 
+ */
+export class ObjectTypeFormatters implements SubTypeFormatter {
+    public supportsType(type: ObjectType): boolean {
+        if (type instanceof ObjectType && type.getProperties().length > 0) {
+            return type.getProperties().every(p => p.getName().startsWith('mix'));
+        } else {
+            return false;
+        }
+    }
+
+    public getDefinition(_type: ObjectType): Definition {
+        // Return an empty object definition
+        return { additionalProperties: false };
+    }
+
+    // This does not have any children
+    public getChildren(_type: FunctionType): BaseType[] {
+        return [];
+    }
+}
+
+/**
+ * The schema generator detects that INFOTABLES reference a datashape that implements DataShapeBase.
+ * This is defined as a generic type, that has multiple optional generic parameters, all named`mix1`, `mix2`, etc.
+ * 
+ * This class is a workaround that identifies an ObjectType where all properties start with `mix` and returns a schema without additional properties.
+ * 
+ */
+export class FunctionTypeFormatters implements SubTypeFormatter {
+    public supportsType(type: ObjectType): boolean {
+        return type instanceof FunctionType;
+    }
+
+    public getDefinition(_type: ObjectType): Definition {
+        // Return an empty object definition
+        return {};
+    }
+
+    // This does not have any children
+    public getChildren(_type: FunctionType): BaseType[] {
+        return [];
     }
 }

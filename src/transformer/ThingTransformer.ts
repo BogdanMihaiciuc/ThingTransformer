@@ -115,7 +115,6 @@ export interface TransformerStore {
      */
     '@typeDefinitions'?: {
         [key: string]: {
-            type: string;
             definition: JSONSchema7Definition;
         };
     }
@@ -136,7 +135,6 @@ export interface TransformerStore {
         }
     } | {
         [key: string]: {
-            type: string;
             definition: JSONSchema7Definition;
         };
     } | DiagnosticMessage[] | undefined
@@ -2862,7 +2860,7 @@ export class TWThingTransformer implements TWCodeTransformer {
                         throw new Error('INFOTABLE type generic argument does not have a symbol, cannot determine datashape name');
                     }
                     infotableType.aspects.dataShape = argument.getSymbol()?.getName();
-                } 
+                }
                 else {
                     throw new Error('INFOTABLE type generic argument is not a string literal or datashape class reference');
                 }
@@ -2965,22 +2963,21 @@ export class TWThingTransformer implements TWCodeTransformer {
             else {
                 const symbolDeclarations = type.aliasTypeArguments[0].getSymbol()?.getDeclarations();
                 if(symbolDeclarations) {
-                    // todo: figure out anonymous types
-                    const symbolName = type.aliasTypeArguments[0].getSymbol()?.getName();
+                    try {
+                        const symbolName = type.aliasTypeArguments[0].getSymbol()?.getName();
 
-                    twJsonType.typeName = symbolName;
-
-                    const jsonDefinition = this.jsonSchemaGenerator.createSchemaFromNodes(symbolDeclarations).definitions;
-                    if (symbolName && jsonDefinition) {
-                        this.store['@typeDefinitions'] = this.store['@typeDefinitions'] || {};
-                        this.store['@typeDefinitions'][symbolName] = {
-                            definition: jsonDefinition,
-                            type: ts.createPrinter().printNode(ts.EmitHint.Unspecified, symbolDeclarations[0], ts.createSourceFile('', '', ts.ScriptTarget.Latest))
+                        const jsonDefinition = this.jsonSchemaGenerator.createSchemaFromNodes(symbolDeclarations).definitions;
+                        if (symbolName && jsonDefinition) {
+                            this.store['@typeDefinitions'] = this.store['@typeDefinitions'] || {};
+                            this.store['@typeDefinitions'][symbolName] = {
+                                definition: jsonDefinition,
+                            }
+                        } else {
+                            twJsonType.jsonSchema = jsonDefinition;
                         }
-                    } else {
-                        twJsonType.jsonSchema = jsonDefinition;
+                    } catch (ex) {
+                        this.reportDiagnosticForNode(symbolDeclarations[0], `Cannot generate the json schema for the type ${this.checker.typeToString(type)}: ${ex}`, DiagnosticMessageKind.Warning);
                     }
-                    
                 }
                 return twJsonType;
             }
@@ -7754,6 +7751,12 @@ interface TWInfotableType extends TWGenericBaseType {
     aspects: {
         dataShape?: string;
     }
+    /**
+     * A JSON schema describing the structure of the TWJSON object.
+     * 
+     * This is only present here if the typeName is empty, and this represents an anonymous type.
+     */
+    jsonSchema?: JSONSchema7Definition;
 } 
 
 interface TWThingNameBaseType {
@@ -7782,9 +7785,4 @@ interface TWJsonBaseType extends TWGenericBaseType {
      * This is only present here if the typeName is empty, and this represents an anonymous type.
      */
     jsonSchema?: JSONSchema7Definition;
-    /**
-     * Name of the typescript type that describes this object.
-     * References a type on the transformer `@typeDefinitions` object
-     */
-    typeName?: string;
 } 
