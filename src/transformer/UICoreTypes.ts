@@ -427,6 +427,11 @@ export interface UIJSXAttribute {
      */
     sourcePropertyType?: string;
 
+    /**
+     * If ref is specified, the base type of the expression used to initialize this attribute.
+     */
+    sourcePropertyBaseType?: string;
+
     subProperty?: string;
 
     /**

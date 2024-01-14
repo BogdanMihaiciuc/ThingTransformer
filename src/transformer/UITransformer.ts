@@ -1,5 +1,5 @@
 import * as TS from 'typescript';
-import type { TWConfigurationTable, TWExtractedPermissionLists, TWInfoTable, TWThingTransformer, TWVisibility, TransformerStore } from './ThingTransformer';
+import { ConstantValueUndefined, type TWConfigurationTable, type TWExtractedPermissionLists, type TWInfoTable, type TWThingTransformer, type TWVisibility, type TransformerStore } from './ThingTransformer';
 import { UIControllerReference, UIJSXAttribute, UIMashupBinding, UIMashupEventBinding, UIReference, UIReferenceInitializerFunction, UIReferenceKind, UIServiceReference, UIWidgetReference, UIBaseTypes, UIWidget, UIMashupContent, UIMashupDataItem } from './UICoreTypes';
 import { ArgumentsOfDecoratorNamed, ConfigurationTablesDefinitionWithClassExpression, ConfigurationWithObjectLiteralExpression, ConstantOrLiteralValueOfExpression, DecoratorNamed, HasDecoratorNamed, JSONWithObjectLiteralExpression, ThrowErrorForNode, XMLRepresentationOfInfotable } from './SharedFunctions';
 import { Builder } from 'xml2js';
@@ -26,6 +26,17 @@ const UISupportedGlobalInitializers: string[] = [
     UIReferenceInitializerFunction.Mashup,
     UIReferenceInitializerFunction.Script
 ];
+
+/**
+ * Contains constants which represent the names of known functions.
+ */
+enum UIKnownFunctionNames {
+
+    /**
+     * A function used to specify both a property value and a binding for a property initializer.
+     */
+    BindProperty = 'bindProperty'
+}
 
 export class UITransformer {
 
@@ -164,7 +175,7 @@ export class UITransformer {
      * decorators when these are used in bindings. Only properties without a `@property` or `@twevent` decorator
      * are included in this dictionary.
      */
-    controllerProperties: Record<string, TS.PropertyDeclaration> = {};
+    unboundControllerProperties: Record<string, TS.PropertyDeclaration> = {};
 
     /**
      * A mapping between controller method names and their nodes that is used to add necessary decorators
@@ -196,6 +207,12 @@ export class UITransformer {
      * If specified, the custom CSS code specified in the mashup element.
      */
     customCSS?: string;
+
+    /**
+     * A unique serial number to use for widgets that don't have a ref property
+     * through which to obtain an ID.
+     */
+    widgetSerialUID: number = 1;
 
     /**
      * The root mashup widget containing all other widgets.
@@ -945,7 +962,7 @@ export class UITransformer {
 
                     // Store this node to add the property decorator to it if it is referenced in any binding
                     if (TS.isIdentifier(member.name)) {
-                        this.controllerProperties[member.name.text] = member;
+                        this.unboundControllerProperties[member.name.text] = member;
                     }
 
                     break;
@@ -1223,11 +1240,23 @@ export class UITransformer {
             }
 
             const value = this.valueOfJSXAttribute(attribute);
-            if (`value` in value) {
-                // If a static value is specified, store it in the ref directly
-                ref.staticParameters[name] = value.value;
+
+            let staticValue = value;
+            let bindingValue = value;
+
+            // If the resulting value is an array, it represents both a static value
+            // and a binding source
+            if (Array.isArray(value)) {
+                staticValue = value[0];
+                bindingValue = value[1];
             }
-            else if ('targets' in value) {
+
+            if ('value' in staticValue) {
+                // If a static value is specified, store it in the ref directly
+                ref.staticParameters[name] = staticValue.value;
+            }
+
+            if ('targets' in value) {
                 // If an array of targets is specified, this is an event binding
                 this.eventBindings.push(...value.targets!.map(target => {
                     const targetRef = this.references[target.ID];
@@ -1269,10 +1298,11 @@ export class UITransformer {
                     } as UIMashupEventBinding;
                 }));
             }
-            else {
+            
+            if ('ref' in bindingValue) {
                 // All other cases are property bindings
-                cast<Required<UIJSXAttribute>>(value);
-                const sourceRef = value.ref;
+                cast<Required<UIJSXAttribute>>(bindingValue);
+                const sourceRef = bindingValue.ref;
                 let sourceArea;
                 let sourceSection = '';
 
@@ -1300,17 +1330,17 @@ export class UITransformer {
                     TargetId: name == 'EntityName' ? 'EntityName' : ref.ID,
                     TargetSection: ref.entityID,
                     SourceArea: sourceArea,
-                    SourceDetails: value.sourceSection ?? '',
+                    SourceDetails: bindingValue.sourceSection ?? '',
                     SourceId: sourceRef.ID,
                     SourceSection: sourceSection,
                     PropertyMaps: [{
                         TargetProperty: name,
                         TargetPropertyType: name == 'EntityName' ? 'Entity' : 'Field',
                         TargetPropertyBaseType: this.baseTypeOfNode(attribute.name),
-                        SourceProperty: value.sourcePropertyName,
-                        SourcePropertyBaseType: this.baseTypeOfNode((attribute.initializer! as TS.JsxExpression).expression!),
-                        SourcePropertyType: value.sourcePropertyType as any ?? 'property',
-                        SubProperty: value.subProperty
+                        SourceProperty: bindingValue.sourcePropertyName,
+                        SourcePropertyBaseType: bindingValue.sourcePropertyType,
+                        SourcePropertyType: bindingValue.sourcePropertyType as any ?? 'property',
+                        SubProperty: bindingValue.subProperty
                     }]
                 });
 
@@ -1368,9 +1398,9 @@ export class UITransformer {
         const refAttribute = attributes.find(p => p.name.text == 'ref');
         let ref = refAttribute ? this.referenceWithJSXRefAttribute(refAttribute, UIReferenceKind.Widget, node) : undefined;
 
-        // Widget IDs are required to also be valid DOM ids so they must start with letters, while
-        // random UUID can start with digits
-        const ID = ref?.ID ?? 'widget-' + (Crypto as any).randomUUID() as string;
+        // Use the ref variable name as the ID if one is available, otherwise create an ID using the widget serial
+        const ID = ref?.ID ?? `${className}-${this.widgetSerialUID}`;
+        this.widgetSerialUID++;
 
         // Also determine the types of the widget properties and store them for plugins for retrieve theme
         this._typeCache[ID] = {};
@@ -1419,15 +1449,27 @@ export class UITransformer {
             }
 
             const value = this.valueOfJSXAttribute(attribute);
-            if (`value` in value) {
+
+            let staticValue = value;
+            let bindingValue = value;
+
+            // If the resulting value is an array, it represents both a static value
+            // and a binding source
+            if (Array.isArray(value)) {
+                staticValue = value[0];
+                bindingValue = value[1];
+            }
+
+            if (`value` in staticValue) {
                 if (subName) {
                     ThrowErrorForNode(attribute, `Namespaced properties can only be initialized to a binding.`);
                 }
 
                 // If a static value is specified, store it in the ref directly
-                properties[name] = value.value;
+                properties[name] = staticValue.value;
             }
-            else if ('targets' in value) {
+
+            if ('targets' in value) {
                 // If an array of targets is specified, this is an event binding
                 this.eventBindings.push(...value.targets!.map(target => {
                     const targetRef = this.references[target.ID];
@@ -1469,10 +1511,11 @@ export class UITransformer {
                     } as UIMashupEventBinding;
                 }));
             }
-            else {
+
+            if ('ref' in bindingValue) {
                 // All other cases are property bindings
-                cast<Required<UIJSXAttribute>>(value);
-                const sourceRef = value.ref;
+                cast<Required<UIJSXAttribute>>(bindingValue);
+                const sourceRef = bindingValue.ref;
                 let sourceArea;
                 let sourceSection = '';
 
@@ -1500,7 +1543,7 @@ export class UITransformer {
                     TargetId: ID,
                     TargetSection: '',
                     SourceArea: sourceArea,
-                    SourceDetails: value.sourceSection ?? '',
+                    SourceDetails: bindingValue.sourceSection ?? '',
                     SourceId: sourceRef.ID,
                     SourceSection: sourceSection,
                     PropertyMaps: [{
@@ -1509,12 +1552,12 @@ export class UITransformer {
                         // The attribute name base type should be provided by the widget or service class or ref
                         TargetPropertyBaseType: this.baseTypeOfNode(attribute.name),
                         TargetSubProperty: subName,
-                        SourceProperty: value.sourcePropertyName,
+                        SourceProperty: bindingValue.sourcePropertyName,
                         // The expression base type should be provided by the initializer. This must be compatible with the
                         // attribute name type, but is not necessarily the same
-                        SourcePropertyBaseType: this.baseTypeOfNode((attribute.initializer! as TS.JsxExpression).expression!),
-                        SourcePropertyType: value.sourcePropertyType as any ?? 'property',
-                        SubProperty: value.subProperty
+                        SourcePropertyBaseType: bindingValue.sourcePropertyBaseType,
+                        SourcePropertyType: bindingValue.sourcePropertyType as any ?? 'property',
+                        SubProperty: bindingValue.subProperty
                     }]
                 });
             }
@@ -1545,7 +1588,7 @@ export class UITransformer {
 
                 this._typeCache[ID][name] = {baseType: type};
             }
-            else if ((type == 'MASHUPNAME' || type == 'STRING') && typeof value.value == 'string') {
+            else if ((type == 'MASHUPNAME' || type == 'STRING') && ('value' in value) && typeof value.value == 'string') {
                 // Mashup names also contain parameter definitions which represent the fields for this property.
                 // Because of how certain widgets are typed, the mashup name property can resolve to a string so
                 // try to obtain the parameters for both types
@@ -1571,8 +1614,10 @@ export class UITransformer {
      * Returns an object that describes the value assigned to the specified JSX attribute.
      * The atribute must not be the ref attribute.
      * @param attribute         The JSX attribute.
+     * @returns                 An object describing the initializer, or an array containing two values
+     *                          for attributes initialized with the `bindProperty` function.
      */
-    valueOfJSXAttribute(attribute: TS.JsxAttribute): UIJSXAttribute {
+    valueOfJSXAttribute(attribute: TS.JsxAttribute): UIJSXAttribute | [UIJSXAttribute, UIJSXAttribute] {
         let name = attribute.name.text;
 
         // The ref attribute should not be handled with this method.
@@ -1591,10 +1636,10 @@ export class UITransformer {
 
         // JSX handles string literals and boolean true literals with a special syntax
         if (!initializer) {
-            staticValue = true;
+            return {name, value: true};
         }
         else if (TS.isStringLiteral(initializer)) {
-            staticValue = initializer.text;
+            return {name, value: initializer.text};
         }
         else {
             const expression = initializer.expression;
@@ -1602,66 +1647,103 @@ export class UITransformer {
                 ThrowErrorForNode(attribute, `Unexpected empty initializer for attribute "${name}".`);
             }
 
-            staticValue = ConstantOrLiteralValueOfExpression(expression, this);
+            if (TS.isCallExpression(expression) && expression.expression.getText() == UIKnownFunctionNames.BindProperty) {
+                // If this expression is a call expression to `bindProperty`, extract the value of both arguments
+                if (expression.arguments.length != 2) {
+                    ThrowErrorForNode(expression, `"${UIKnownFunctionNames.BindProperty}" must take two arguments.`);
+                }
 
-            if (!staticValue) {
-                if (TS.isObjectLiteralExpression(expression)) {
-                    // Another option for the static value is an object literal
-                    // In this case, the expression must be provided as a JSON string directly
-                    const text = expression.getText();
-                    try {
-                        staticValue = JSON.parse(text);
-                    }
-                    catch (e) {
-                        staticValue = JSONWithObjectLiteralExpression(expression, ThrowErrorForNode, this);
+                const values = [
+                    this.valueOfJSXInitializer(expression.arguments[0], attribute, name),
+                    this.valueOfJSXInitializer(expression.arguments[1], attribute, name)
+                ] as [UIJSXAttribute, UIJSXAttribute];
 
-                        if (!staticValue) {
-                            ThrowErrorForNode(attribute, `Object literal initializer must use JSON.`);
-                        }
+                // Expect the first argument to be a static value
+                if (!('value' in values[0])) {
+                    ThrowErrorForNode(expression.arguments[0], `The first argument for "${UIKnownFunctionNames.BindProperty}" must be a compile time constant.`);
+                }
+
+                if (!values[1].ref) {
+                    ThrowErrorForNode(expression.arguments[1], `The second argument for "${UIKnownFunctionNames.BindProperty}" must be a binding source.`)
+                }
+
+                return values;
+            }
+            else {
+                // Otherwise extract the value of the entire initializer
+                return this.valueOfJSXInitializer(expression, attribute, name);
+            }
+        }
+    }
+
+
+    /**
+     * Returns an object that describes the value of an expression used as the initializer for the specified
+     * JSX attribute and validates that the initializer value is supported for the attribute.
+     * @param initializer       The expression used to initialize the attribute.
+     * @param name              The name of the attribute.
+     * @param attribute         The JSX attribute.
+     * @returns                 An object describing the initializer.
+     */
+    valueOfJSXInitializer(initializer: TS.Expression, attribute: TS.JsxAttribute, name: string): UIJSXAttribute {
+        // First try to obtain a static value if a constant primitive value can be obtained from the expression
+        let staticValue = ConstantOrLiteralValueOfExpression(initializer, this);
+
+        // If a constant primitive value could not be obtained from the expression, try to determine if a constant
+        // object literal value can be obtained
+        if (typeof staticValue == 'undefined') {
+            if (TS.isObjectLiteralExpression(initializer)) {
+                // Another option for the static value is an object literal
+                // In this case, the expression must be provided as a JSON string directly
+                const text = initializer.getText();
+                try {
+                    staticValue = JSON.parse(text);
+                }
+                catch (e) {
+                    staticValue = JSONWithObjectLiteralExpression(initializer, ThrowErrorForNode, this);
+
+                    if (!staticValue) {
+                        ThrowErrorForNode(attribute, `Object literal initializer must use JSON.`);
                     }
                 }
-                else if (TS.isCallExpression(expression)) {
-                    // JSON content can also be imported via the "importJSON" function
-                    if (TS.isIdentifier(expression.expression) && expression.expression.text == 'importJSON') {
-                        const pathArgument = expression.arguments[0];
-                        if (!TS.isStringLiteralLike(pathArgument)) {
-                            ThrowErrorForNode(initializer, `The path for importJSON must be provided as a string literal.`);
-                        }
+            }
+            else if (TS.isCallExpression(initializer)) {
+                // JSON content can also be imported via the "importJSON" function
+                if (TS.isIdentifier(initializer.expression) && initializer.expression.text == 'importJSON') {
+                    const pathArgument = initializer.arguments[0];
+                    if (!TS.isStringLiteralLike(pathArgument)) {
+                        ThrowErrorForNode(initializer, `The path for importJSON must be provided as a string literal.`);
+                    }
 
-                        // Load the file and ensure it is a valid JSON
-                        const path = Path.resolve(this.sourceFile!.fileName, '../', pathArgument.text);
+                    // Load the file and ensure it is a valid JSON
+                    const path = Path.resolve(this.sourceFile!.fileName, '../', pathArgument.text);
+                    try {
+                        const text = FS.readFileSync(path, 'utf-8');
+
                         try {
-                            const text = FS.readFileSync(path, 'utf-8');
-
-                            try {
-                                staticValue = JSON.parse(text);
-                            }
-                            catch (e) {
-                                ThrowErrorForNode(initializer, `The specified file does not contain a JSON object. ${e}`);
-                            }
+                            staticValue = JSON.parse(text);
                         }
                         catch (e) {
-                            ThrowErrorForNode(initializer, `The specified JSON file could not be loaded. ${e}`);
+                            ThrowErrorForNode(initializer, `The specified file does not contain a JSON object. ${e}`);
                         }
+                    }
+                    catch (e) {
+                        ThrowErrorForNode(initializer, `The specified JSON file could not be loaded. ${e}`);
                     }
                 }
             }
         }
 
-        // If a static value could be obtained, return it directly
-        if (staticValue !== undefined) {
-            return {name, value: staticValue};
+        // If a static value could be obtained, return it directly and don't look for a binding
+        if (typeof staticValue != 'undefined') {
+            return {name, value: staticValue == ConstantValueUndefined ? undefined : staticValue};
         }
 
-        // Otherwise attempt to determine the binding kind. This branch can only be reached if the initializer
-        // is a non-empty expression
-        const expression = (initializer as TS.JsxExpression).expression!;
-
-        const bindingSource = this.bindingSourceDetailsForExpression(expression, name, attribute);
+        const bindingSource = this.bindingSourceDetailsForExpression(initializer, name, attribute);
 
         // If the binding source is a controller property, verify if it needs a @property decorator
         if (bindingSource.sourcePropertyName && bindingSource.ref?.kind == UIReferenceKind.Script) {
-            const propertyNode = this.controllerProperties[bindingSource.sourcePropertyName];
+            const propertyNode = this.unboundControllerProperties[bindingSource.sourcePropertyName];
 
             if (propertyNode) {
                 // Mark the property for replacement, then remove it from the dictionary
@@ -1674,7 +1756,7 @@ export class UITransformer {
                     propertyNode.initializer
                 ));
 
-                delete this.controllerProperties[bindingSource.sourcePropertyName];
+                delete this.unboundControllerProperties[bindingSource.sourcePropertyName];
             }
         }
         // If the binding targets array includes a controller service, decorate it
@@ -1719,6 +1801,8 @@ export class UITransformer {
         // - An array for event bindings
         // - A property access expression for property bindings
         if (TS.isPropertyAccessExpression(expression) || TS.isElementAccessExpression(expression)) {
+            // All bindings require determining the base type of the binding source
+            const sourcePropertyBaseType = this.baseTypeOfNode(expression);
 
             // Extract the components to determine which kind of binding it is
             const keyPath = this.keyPathForAccessExpression(expression);
@@ -1740,7 +1824,7 @@ export class UITransformer {
                             if (keyPath.length > 3) {
                                 ThrowErrorForNode(node, `AllData service bindings have a maximum depth of 3.`);
                             }
-                            return {name, ref, sourcePropertyName: keyPath[2] ?? '', sourceSection: 'AllData', sourcePropertyType: 'InfoTable'};
+                            return {name, ref, sourcePropertyName: keyPath[2] ?? '', sourceSection: 'AllData', sourcePropertyType: 'InfoTable', sourcePropertyBaseType};
                         case 'SelectedRows':
                             // For selected rows, the binding can have unlimited depth, but every odd index must be `SelectedRows`
                             if (keyPath.some((v, i) => i % 2 == 1 && v != 'SelectedRows')) {
@@ -1749,7 +1833,7 @@ export class UITransformer {
 
                             // Additionally, the source property name uses a special syntax for chained access
                             const sourcePropertyName = keyPath.slice(2).map((v, i) => i % 2 ? `[${v}]` : v).join('');
-                            return {name, ref, sourcePropertyName, sourceSection: 'SelectedRows', sourcePropertyType: 'InfoTable'};
+                            return {name, ref, sourcePropertyName, sourceSection: 'SelectedRows', sourcePropertyType: 'InfoTable', sourcePropertyBaseType};
                         default:
                             ThrowErrorForNode(node, `Service bindings must specify whether to use selected rows or all data.`);
                     }
@@ -1779,7 +1863,7 @@ export class UITransformer {
                                 if (keyPath.length > 4) {
                                     ThrowErrorForNode(node, `AllData mashup bindings have a maximum depth of 4.`);
                                 }
-                                return {name, ref, sourcePropertyName, sourceSection: 'AllData', subProperty: keyPath[3]};
+                                return {name, ref, sourcePropertyName, sourceSection: 'AllData', subProperty: keyPath[3], sourcePropertyBaseType};
                             }
                             case 'SelectedRows': {
                                 // For selected rows, the binding can have unlimited depth, but every even index except 0 must be `SelectedRows`
@@ -1791,12 +1875,12 @@ export class UITransformer {
     
                                 // Additionally, the source property name uses a special syntax for chained access
                                 const subProperty = subPropertyPath.slice(2).map((v, i) => i % 2 ? `[${v}]` : v).join('');
-                                return {name, ref, sourcePropertyName, sourceSection: 'SelectedRows', subProperty};
+                                return {name, ref, sourcePropertyName, sourceSection: 'SelectedRows', subProperty, sourcePropertyBaseType};
                             }
                         }
                     }
 
-                    return {name, ref, sourcePropertyName};
+                    return {name, ref, sourcePropertyName, sourcePropertyBaseType};
                 }
             }
         }
