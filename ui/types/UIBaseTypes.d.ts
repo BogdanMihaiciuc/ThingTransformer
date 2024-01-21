@@ -1,28 +1,71 @@
+/**
+ * Returns an object that represents the binding source interface of a widget of the specified kind so that
+ * it can participate in bindings.
+ * 
+ * The returned object must be associated to a widget instance via its `ref` property.
+ * @param cls       The kind of widget to obtain the binding interface for.
+ * @returns         An object whose properties can be used as binding sources for other widgets.
+ */
 declare function defineWidget<A extends keyof Mashups>(cls: typeof Navigation): UIOutputInterfaceNavigation<A>;
 declare function defineWidget<A extends keyof Mashups>(cls: typeof Navigationfunction): UIOutputInterfaceNavigationfunction<A>;
 declare function defineWidget<A extends keyof Mashups>(cls: typeof Mashupcontainer): UIOutputInterfaceMashupcontainer<A>;
 
 declare function defineWidget<T>(cls: T): T extends (...args: any[]) => infer R ? R : never;
 
-
+/**
+ * Defines a service to be used as a data source for the mashup then returns an object that represents the service result
+ * as a binding source interface so that it can participate in bindings.
+ * 
+ * The returned object must be associated to a service instance via its `ref` property.
+ * @param service       The kind of widget to obtain the binding interface for.
+ * @returns             An object representing whose properties can be used as binding sources for other widgets.
+ */
 declare function defineService<T extends Function>(service: T): T extends (arg: infer I) => infer O ? Invocable<I, O> : never;
+
+/**
+ * Defines a service with an `EntityName` input to be used as a data source for the mashup then returns an object
+ * that represents the service result as a binding source interface so that it can participate in bindings.
+ * 
+ * The returned object must be associated to a service instance via its `ref` property.
+ * @param service       The kind of widget to obtain the binding interface for.
+ * @returns             An object whose properties can be used as binding sources for other widgets.
+ */
 declare function defineDynamicService<T extends Function>(service: T): T extends (arg: infer I) => infer O ? Invocable<I & {EntityName: string}, O> : never;
+
+/**
+ * Defines the mashup parameters to use for the current maship, then returns an object that represents the binding
+ * source interface of the mashup widget of the specified kind so that it can participate in bindings.
+ * 
+ * The returned object must be associated to the root widget instance via its `ref` property.
+ * @param params        A class expression whose property declarations are used to declare mashup parameters.
+ * @returns             An object whose properties can be used as binding sources for other widgets.
+ */
 declare function defineMashup<T>(params: new (...args: any[]) => T): UIOutputInterfaceMashup<T>;
 
+/**
+ * Can only be used in mashups that make use of [BMCoreUIWidgets](https://github.com/ptc-iot-sharing/BMCoreUIWidgets), or [BMCoreUI](https://github.com/BogdanMihaiciuc/BMCoreUI) and [BMCodeHost](https://github.com/BogdanMihaiciuc/BMCodeHost).
+ * Returns an object that represents the binding source interface for the mashup controller, represented at runtime
+ * by a `TypeScript Class` widget, added as a child of the root mashup widget.
+ * @param cls           The mashup controller class.
+ * @returns             An object whose properties can be used as binding sources for other widgets.
+ */
 declare function defineController<T>(cls: T): T extends new (...args: any[]) => infer R ? ToMashupController<R> : never;
 
 /**
- * Marks an object as a binding source when used as a property key.
+ * Marks an object as a binding source when used as a property key. This property should not
+ * be accessed at runtime since it will not be defined.
  */
 declare const _isBindingSource: unique symbol;
 
 /**
- * Marks an object as a binding target when used as a property.
+ * Marks an object as a binding target when used as a property. This property should not
+ * be accessed at runtime since it will not be defined.
  */
 declare const _isBindingTarget: unique symbol;
 
 /**
- * Marks an object as a binding target when used as a property.
+ * Marks an object as a binding target when used as a property. This property should not
+ * be accessed at runtime since it will not be defined.
  */
 declare const _serviceRefType: unique symbol;
 
@@ -91,6 +134,14 @@ declare type ToBindingTarget<T> = {
  */
 declare type ToStaticAndBindingTarget<T> = {
     [K in keyof T]: T[K] | BindingTarget<T[K]>;
+}
+
+/**
+ * An object whose properties are all the unwrapped types of the binding target types
+ * of the target type's properties.
+ */
+declare type ToStaticTypes<T> = {
+    [K in keyof T]: T[K] extends BindingTarget<infer V> ? V : T[K];
 }
 
 /**
@@ -168,6 +219,8 @@ declare function Service<I, O>(props: ServiceProps<I, O>);
  * @param binding       A binding source.
  */
 declare function bindProperty<V, T, B extends BindingTarget<T>>(value: V, binding: B): V | B;
+
+declare function bindingExpression<T extends [...T2], T2 extends readonly unknown[], R>(sources: Readonly<T2>, expression: (...args: ToStaticTypes<T>) => R): BindingTarget<R>;
 
 /**
  * Can be any primitive type, such as number, string, boolean or Date.
