@@ -299,7 +299,10 @@ export class UITransformer {
 
         let repoDefaults;
         try {
-            const defaultsPath = Path.join(path, 'ui-static/defaults.json');
+            // In a multi-project repo, the repo path will contain the src folder, whereas
+            // in single-project mode, the repo path is one level up
+            const basePath = path.endsWith('/src') ? '../' : '';
+            const defaultsPath = Path.join(path, basePath + 'ui-static/defaults.json');
             const repoDefaultsText = FS.readFileSync(defaultsPath, 'utf-8');
             repoDefaults = JSON.parse(repoDefaultsText);
         }
@@ -321,6 +324,16 @@ export class UITransformer {
             this.widgetDefaults[key].Margin = '0';
         }
     }
+
+    /**
+     * Always `undefined` for UI transformers.
+     */
+    declare debug: undefined;
+
+    /**
+     * Always `undefined` for UI transformers.
+     */
+    declare trace: undefined;
 
     constructor(program: TS.Program, context: TS.TransformationContext, root: string, after: boolean, watch: boolean) {
         this.program = program;
@@ -450,7 +463,7 @@ export class UITransformer {
                 try {
                     // Module specifiers are normally always string literals and dynamic imports won't be visited
                     // by this method
-                    if ((node.moduleSpecifier as TS.StringLiteral).text == 'bm-thing-transformer/ui/core-ui') {
+                    if ((node.moduleSpecifier as TS.StringLiteral).text.endsWith('bm-thing-transformer/ui/core-ui')) {
                         this.isBMCoreUIMashup = true;
                     }
                 }
@@ -805,10 +818,17 @@ export class UITransformer {
                             ThrowErrorForNode(returnStatement, 'The "renderMashup" must return the mashup widget hierarchy.');
                         }
 
-                        if (TS.isJsxElement(returnStatement.expression)) {
-                            const rootWidget = this.visitMashupHierarchy(returnStatement.expression);
+                        // The JSX expression may be wrapped in a parentheses expression, for compatibility with prettier,
+                        // which requires multiline JSX expressions to be parenthesised
+                        let returnExpression = returnStatement.expression;
+                        if (TS.isParenthesizedExpression(returnExpression)) {
+                            returnExpression = returnExpression.expression;
+                        }
+
+                        if (TS.isJsxElement(returnExpression)) {
+                            const rootWidget = this.visitMashupHierarchy(returnExpression);
                             if (!rootWidget) {
-                                ThrowErrorForNode(returnStatement.expression, `The returned value is not a root widget.`);
+                                ThrowErrorForNode(returnExpression, `The returned value is not a root widget.`);
                             }
 
                             this.rootWidget = rootWidget;
