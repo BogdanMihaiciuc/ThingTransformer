@@ -3229,7 +3229,7 @@
         "MinWidth": 0,
         "MinHeight": 0,
         "IgnoreWarningsInViewMashup": false,
-        "ResponsiveLayout": false,
+        "ResponsiveLayout": true,
         "Style": "DefaultMashupStyle",
         "Title": "",
         "TitleBar": false,
