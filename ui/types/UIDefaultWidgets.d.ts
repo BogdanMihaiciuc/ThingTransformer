@@ -4,7 +4,8 @@
  * A small part of the widgets with special typings are declared in UIBaseWidgets.
  */
 
-/** */
+
+/** The properties and events that can be set or bound on the "Ptcsbreadcrumb" widget. */
 declare interface UIInputInterfacePtcsbreadcrumb<A> extends UIBaseInputInterface {
     
     /** Show the link for the current page on the breadcrumb */
@@ -23,8 +24,8 @@ declare interface UIInputInterfacePtcsbreadcrumb<A> extends UIBaseInputInterface
     "TabSequence"?: NUMBER;
 
 
-    /** Bind data from an infotable source to populate the breadcrumb entries */
-    "Data"?: BindingTarget<INFOTABLE>;
+    /** Bind data from an infotable source to populate the breadcrumb entries */ 
+    "Data"?: BindingTarget<INFOTABLE<A>>;
 
 
     /** Select the infotable field for the link display name */
@@ -126,6 +127,7 @@ declare interface UIInputInterfacePtcsbreadcrumb<A> extends UIBaseInputInterface
     ref?: UIOutputInterfacePtcsbreadcrumb<A>
 }
 
+/** The binding source properties and services that can be bound on the "Ptcsbreadcrumb" widget. */
 declare class UIOutputInterfacePtcsbreadcrumb<A> {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -140,9 +142,11 @@ declare class UIOutputInterfacePtcsbreadcrumb<A> {
     Mashup: BindingTarget<STRING>
 }
 
+/** Displays a list of Breadcrumbs */
 declare function Ptcsbreadcrumb<A>(props: UIInputInterfacePtcsbreadcrumb<A>): UIOutputInterfacePtcsbreadcrumb<A>
 
             
+/** The properties and events that can be set or bound on the "Ptcschartbar" widget. */
 declare interface UIInputInterfacePtcschartbar<A> extends UIBaseInputInterface {
     
     /**  */
@@ -225,8 +229,8 @@ declare interface UIInputInterfacePtcschartbar<A> extends UIBaseInputInterface {
     "HorizontalAxisMaxHeight"?: NUMBER | BindingTarget<NUMBER>;
 
 
-    /** The infotable data source for the chart */
-    "Data"?: BindingTarget<INFOTABLE>;
+    /** The infotable data source for the chart */ 
+    "Data"?: BindingTarget<INFOTABLE<A>>;
 
 
     /** Hides the value labels on the chart */
@@ -1352,6 +1356,7 @@ declare interface UIInputInterfacePtcschartbar<A> extends UIBaseInputInterface {
     ref?: UIOutputInterfacePtcschartbar<A>
 }
 
+/** The binding source properties and services that can be bound on the "Ptcschartbar" widget. */
 declare class UIOutputInterfacePtcschartbar<A> {
     
     /** Hides the legend area */
@@ -1370,9 +1375,11 @@ declare class UIOutputInterfacePtcschartbar<A> {
     ResetToDefaultValue: ServiceBindingTarget
 }
 
+/** Displays a bar chart */
 declare function Ptcschartbar<A>(props: UIInputInterfacePtcschartbar<A>): UIOutputInterfacePtcschartbar<A>
 
             
+/** The properties and events that can be set or bound on the "Ptcsbutton" widget. */
 declare interface UIInputInterfacePtcsbutton extends UIBaseInputInterface {
     
     /** Sets an icon image for the tooltip of the Button widget. */
@@ -1490,6 +1497,7 @@ declare interface UIInputInterfacePtcsbutton extends UIBaseInputInterface {
     ref?: UIOutputInterfacePtcsbutton
 }
 
+/** The binding source properties and services that can be bound on the "Ptcsbutton" widget. */
 declare class UIOutputInterfacePtcsbutton {
     
     /** Enables you to define the CSS to the top div of the widget. Multiple classes can be entered, separated by space */
@@ -1508,9 +1516,11 @@ declare class UIOutputInterfacePtcsbutton {
     TriggerClick: ServiceBindingTarget
 }
 
+/** Enables you to add a button and raise an event when it is clicked */
 declare function Ptcsbutton(props: UIInputInterfacePtcsbutton): UIOutputInterfacePtcsbutton
 
             
+/** The properties and events that can be set or bound on the "Ptcschartline" widget. */
 declare interface UIInputInterfacePtcschartline<A> extends UIBaseInputInterface {
     
     /**  */
@@ -1597,8 +1607,8 @@ declare interface UIInputInterfacePtcschartline<A> extends UIBaseInputInterface 
     "HorizontalAxisMaxHeight"?: NUMBER | BindingTarget<NUMBER>;
 
 
-    /** The infotable data source for the chart */
-    "Data"?: BindingTarget<INFOTABLE>;
+    /** The infotable data source for the chart */ 
+    "Data"?: BindingTarget<INFOTABLE<A>>;
 
 
     /** Specifies the appearance of the pointer when hovering on the chart. You can use guide lines to track a data value relative to an axis */
@@ -2980,6 +2990,7 @@ declare interface UIInputInterfacePtcschartline<A> extends UIBaseInputInterface 
     ref?: UIOutputInterfacePtcschartline<A>
 }
 
+/** The binding source properties and services that can be bound on the "Ptcschartline" widget. */
 declare class UIOutputInterfacePtcschartline<A> {
     
     /** Hides the legend area */
@@ -2998,9 +3009,11 @@ declare class UIOutputInterfacePtcschartline<A> {
     ResetToDefaultValue: ServiceBindingTarget
 }
 
+/** Displays a line chart */
 declare function Ptcschartline<A>(props: UIInputInterfacePtcschartline<A>): UIOutputInterfacePtcschartline<A>
 
             
+/** The properties and events that can be set or bound on the "Ptcschartpareto" widget. */
 declare interface UIInputInterfacePtcschartpareto<A> extends UIBaseInputInterface {
     
     /**  */
@@ -3087,8 +3100,8 @@ declare interface UIInputInterfacePtcschartpareto<A> extends UIBaseInputInterfac
     "HorizontalAxisMaxHeight"?: NUMBER | BindingTarget<NUMBER>;
 
 
-    /** The infotable data source for the chart */
-    "Data"?: BindingTarget<INFOTABLE>;
+    /** The infotable data source for the chart */ 
+    "Data"?: BindingTarget<INFOTABLE<A>>;
 
 
     /** Shows the value labels on the chart */
@@ -3890,6 +3903,7 @@ declare interface UIInputInterfacePtcschartpareto<A> extends UIBaseInputInterfac
     ref?: UIOutputInterfacePtcschartpareto<A>
 }
 
+/** The binding source properties and services that can be bound on the "Ptcschartpareto" widget. */
 declare class UIOutputInterfacePtcschartpareto<A> {
     
     /** Hides the legend area */
@@ -3908,9 +3922,11 @@ declare class UIOutputInterfacePtcschartpareto<A> {
     ResetToDefaultValue: ServiceBindingTarget
 }
 
+/** Displays a pareto chart */
 declare function Ptcschartpareto<A>(props: UIInputInterfacePtcschartpareto<A>): UIOutputInterfacePtcschartpareto<A>
 
             
+/** The properties and events that can be set or bound on the "Ptcschartschedule" widget. */
 declare interface UIInputInterfacePtcschartschedule<A> extends UIBaseInputInterface {
     
     /**  */
@@ -3965,8 +3981,8 @@ declare interface UIInputInterfacePtcschartschedule<A> extends UIBaseInputInterf
     "HorizontalAxisMaxHeight"?: NUMBER | BindingTarget<NUMBER>;
 
 
-    /** The infotable data source for the chart */
-    "Data"?: BindingTarget<INFOTABLE>;
+    /** The infotable data source for the chart */ 
+    "Data"?: BindingTarget<INFOTABLE<A>>;
 
 
     /** Controls how many data points a user can select at the same time. Choose multiple to allow a user to select more than one data point. */
@@ -4760,6 +4776,7 @@ declare interface UIInputInterfacePtcschartschedule<A> extends UIBaseInputInterf
     ref?: UIOutputInterfacePtcschartschedule<A>
 }
 
+/** The binding source properties and services that can be bound on the "Ptcschartschedule" widget. */
 declare class UIOutputInterfacePtcschartschedule<A> {
     
     /** Hides the legend area */
@@ -4778,9 +4795,11 @@ declare class UIOutputInterfacePtcschartschedule<A> {
     ResetToDefaultValue: ServiceBindingTarget
 }
 
+/** Displays a Schedule chart */
 declare function Ptcschartschedule<A>(props: UIInputInterfacePtcschartschedule<A>): UIOutputInterfacePtcschartschedule<A>
 
             
+/** The properties and events that can be set or bound on the "Ptcschartwaterfall" widget. */
 declare interface UIInputInterfacePtcschartwaterfall<A> extends UIBaseInputInterface {
     
     /**  */
@@ -4855,8 +4874,8 @@ declare interface UIInputInterfacePtcschartwaterfall<A> extends UIBaseInputInter
     "HorizontalAxisMaxHeight"?: NUMBER | BindingTarget<NUMBER>;
 
 
-    /** The infotable data source for the chart */
-    "Data"?: BindingTarget<INFOTABLE>;
+    /** The infotable data source for the chart */ 
+    "Data"?: BindingTarget<INFOTABLE<A>>;
 
 
     /** Shows the values labels on the chart */
@@ -5646,6 +5665,7 @@ declare interface UIInputInterfacePtcschartwaterfall<A> extends UIBaseInputInter
     ref?: UIOutputInterfacePtcschartwaterfall<A>
 }
 
+/** The binding source properties and services that can be bound on the "Ptcschartwaterfall" widget. */
 declare class UIOutputInterfacePtcschartwaterfall<A> {
     
     /** Hides the legend */
@@ -5664,9 +5684,11 @@ declare class UIOutputInterfacePtcschartwaterfall<A> {
     ResetToDefaultValue: ServiceBindingTarget
 }
 
+/** Enables you to visualize cumulative change as values are added to or substracted from an initial value. Each increase or decrease is colored to highlight a positive or a negative change. */
 declare function Ptcschartwaterfall<A>(props: UIInputInterfacePtcschartwaterfall<A>): UIOutputInterfacePtcschartwaterfall<A>
 
             
+/** The properties and events that can be set or bound on the "Ptcscheckbox" widget. */
 declare interface UIInputInterfacePtcscheckbox extends UIBaseInputInterface {
     
     /** Enables you to set the state of the checkbox widget, as selected or not selected */
@@ -5820,6 +5842,7 @@ declare interface UIInputInterfacePtcscheckbox extends UIBaseInputInterface {
     ref?: UIOutputInterfacePtcscheckbox
 }
 
+/** The binding source properties and services that can be bound on the "Ptcscheckbox" widget. */
 declare class UIOutputInterfacePtcscheckbox {
     
     /** Enables you to set the state of the checkbox widget, as selected or not selected */
@@ -5842,9 +5865,11 @@ declare class UIOutputInterfacePtcscheckbox {
     ResetToDefaultValue: ServiceBindingTarget
 }
 
+/** Enables you to select a checkbox and choose a particular option */
 declare function Ptcscheckbox(props: UIInputInterfacePtcscheckbox): UIOutputInterfacePtcscheckbox
 
             
+/** The properties and events that can be set or bound on the "Ptcschipdatafilter" widget. */
 declare interface UIInputInterfacePtcschipdatafilter extends UIBaseInputInterface {
     
     /** A bindable property for the JSON query used to retrieve the filtered data set. */
@@ -6266,6 +6291,7 @@ declare interface UIInputInterfacePtcschipdatafilter extends UIBaseInputInterfac
     ref?: UIOutputInterfacePtcschipdatafilter
 }
 
+/** The binding source properties and services that can be bound on the "Ptcschipdatafilter" widget. */
 declare class UIOutputInterfacePtcschipdatafilter {
     
     /** A bindable property for the JSON query used to retrieve the filtered data set. */
@@ -6280,9 +6306,11 @@ declare class UIOutputInterfacePtcschipdatafilter {
     ClearFilters: ServiceBindingTarget
 }
 
+/** Enables you to query and filter a large data set using chip-based filters. */
 declare function Ptcschipdatafilter(props: UIInputInterfacePtcschipdatafilter): UIOutputInterfacePtcschipdatafilter
 
             
+/** The properties and events that can be set or bound on the "Ptcsconfirmation" widget. */
 declare interface UIInputInterfacePtcsconfirmation extends UIBaseInputInterface {
     
     /** Enter a title for the confirmation dialog */
@@ -6436,15 +6464,18 @@ declare interface UIInputInterfacePtcsconfirmation extends UIBaseInputInterface 
     ref?: UIOutputInterfacePtcsconfirmation
 }
 
+/** The binding source properties and services that can be bound on the "Ptcsconfirmation" widget. */
 declare class UIOutputInterfacePtcsconfirmation {
     
     /**  */
     OpenConfirmation: ServiceBindingTarget
 }
 
+/**  */
 declare function Ptcsconfirmation(props: UIInputInterfacePtcsconfirmation): UIOutputInterfacePtcsconfirmation
 
             
+/** The properties and events that can be set or bound on the "Ptcsdatepicker" widget. */
 declare interface UIInputInterfacePtcsdatepicker extends UIBaseInputInterface {
     
     /** Sets an icon image for the tooltip of the Date Time Picker widget */
@@ -6810,6 +6841,7 @@ declare interface UIInputInterfacePtcsdatepicker extends UIBaseInputInterface {
     ref?: UIOutputInterfacePtcsdatepicker
 }
 
+/** The binding source properties and services that can be bound on the "Ptcsdatepicker" widget. */
 declare class UIOutputInterfacePtcsdatepicker {
     
     /** A bindable property used to retrieve the output of the widget validation. Returned values are undefined, unvalidated, valid, or invalid. */
@@ -6840,9 +6872,11 @@ declare class UIOutputInterfacePtcsdatepicker {
     ResetToDefaultValue: ServiceBindingTarget
 }
 
+/** Enables you to set a date and time */
 declare function Ptcsdatepicker(props: UIInputInterfacePtcsdatepicker): UIOutputInterfacePtcsdatepicker
 
             
+/** The properties and events that can be set or bound on the "Ptcsdivider" widget. */
 declare interface UIInputInterfacePtcsdivider extends UIBaseInputInterface {
     
     /** Enables you to define the CSS to the top div of the widget. Multiple classes can be entered, separated by space */
@@ -6912,15 +6946,18 @@ declare interface UIInputInterfacePtcsdivider extends UIBaseInputInterface {
     ref?: UIOutputInterfacePtcsdivider
 }
 
+/** The binding source properties and services that can be bound on the "Ptcsdivider" widget. */
 declare class UIOutputInterfacePtcsdivider {
     
     /** Enables you to define the CSS to the top div of the widget. Multiple classes can be entered, separated by space */
     CustomClass: BindingTarget<STRING>
 }
 
+/** Drawing tool for dividers */
 declare function Ptcsdivider(props: UIInputInterfacePtcsdivider): UIOutputInterfacePtcsdivider
 
             
+/** The properties and events that can be set or bound on the "Ptcsdropdown" widget. */
 declare interface UIInputInterfacePtcsdropdown<A> extends UIBaseInputInterface {
     
     /** Sets an icon image for the tooltip of the dropdown widget */
@@ -7015,8 +7052,8 @@ declare interface UIInputInterfacePtcsdropdown<A> extends UIBaseInputInterface {
     "TabSequence"?: NUMBER;
 
 
-    /** The infotable source */
-    "Data"?: BindingTarget<INFOTABLE>;
+    /** The infotable source */ 
+    "Data"?: BindingTarget<INFOTABLE<A>>;
 
 
     /** The infotable field that represents the data value */
@@ -7158,6 +7195,7 @@ declare interface UIInputInterfacePtcsdropdown<A> extends UIBaseInputInterface {
     ref?: UIOutputInterfacePtcsdropdown<A>
 }
 
+/** The binding source properties and services that can be bound on the "Ptcsdropdown" widget. */
 declare class UIOutputInterfacePtcsdropdown<A> {
     
     /** A bindable property used to retrieve the output of the widget validation. Returned values are undefined, unvalidated, valid, or invalid. */
@@ -7180,9 +7218,11 @@ declare class UIOutputInterfacePtcsdropdown<A> {
     ResetToDefaultValue: ServiceBindingTarget
 }
 
+/** Enables you to add a dropdown and make the selection */
 declare function Ptcsdropdown<A>(props: UIInputInterfacePtcsdropdown<A>): UIOutputInterfacePtcsdropdown<A>
 
             
+/** The properties and events that can be set or bound on the "Ptcsdynamicpanel" widget. */
 declare interface UIInputInterfacePtcsdynamicpanel extends UIBaseInputInterface {
     
     /** Disables the panel */
@@ -7348,6 +7388,7 @@ declare interface UIInputInterfacePtcsdynamicpanel extends UIBaseInputInterface 
     ref?: UIOutputInterfacePtcsdynamicpanel
 }
 
+/** The binding source properties and services that can be bound on the "Ptcsdynamicpanel" widget. */
 declare class UIOutputInterfacePtcsdynamicpanel {
     
     /** Enables you to define the CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space */
@@ -7374,9 +7415,11 @@ declare class UIOutputInterfacePtcsdynamicpanel {
     ResetInputsToDefaultValue: ServiceBindingTarget
 }
 
+/** Dynamic Panel */
 declare function Ptcsdynamicpanel(props: UIInputInterfacePtcsdynamicpanel): UIOutputInterfacePtcsdynamicpanel
 
             
+/** The properties and events that can be set or bound on the "Ptcsfileupload" widget. */
 declare interface UIInputInterfacePtcsfileupload extends UIBaseInputInterface {
     
     /** key 'tw.fileupload-ide.ptcs-properties.disabled (en)' returned an object instead of string. */
@@ -7634,6 +7677,7 @@ declare interface UIInputInterfacePtcsfileupload extends UIBaseInputInterface {
     ref?: UIOutputInterfacePtcsfileupload
 }
 
+/** The binding source properties and services that can be bound on the "Ptcsfileupload" widget. */
 declare class UIOutputInterfacePtcsfileupload {
     
     /** The file path inside the ThingWorx file repository */
@@ -7672,9 +7716,11 @@ declare class UIOutputInterfacePtcsfileupload {
     ResetToDefaultValue: ServiceBindingTarget
 }
 
+/** Upload files to a ThingWorx file repository */
 declare function Ptcsfileupload(props: UIInputInterfacePtcsfileupload): UIOutputInterfacePtcsfileupload
 
             
+/** The properties and events that can be set or bound on the "Ptcsgrid" widget. */
 declare interface UIInputInterfacePtcsgrid<A> extends UIBaseInputInterface {
     
     /** Shows the filter bar on the grid */
@@ -7737,8 +7783,8 @@ declare interface UIInputInterfacePtcsgrid<A> extends UIBaseInputInterface {
     "NoMatchesText"?: STRING | BindingTarget<STRING>;
 
 
-    /** The infotable data source for the grid */
-    "Data"?: BindingTarget<INFOTABLE>;
+    /** The infotable data source for the grid */ 
+    "Data"?: BindingTarget<INFOTABLE<A>>;
 
 
     /** Specifies the text for the grid label */
@@ -8240,6 +8286,7 @@ declare interface UIInputInterfacePtcsgrid<A> extends UIBaseInputInterface {
     ref?: UIOutputInterfacePtcsgrid<A>
 }
 
+/** The binding source properties and services that can be bound on the "Ptcsgrid" widget. */
 declare class UIOutputInterfacePtcsgrid<A> {
     
     /** Filter string of the simple filter box */
@@ -8302,9 +8349,11 @@ declare class UIOutputInterfacePtcsgrid<A> {
     Save: ServiceBindingTarget
 }
 
+/** Enables you to display sets of data as rows and columns. This widget is available as a preview that includes a subset of features from the current widget. Additional features and migration support will be added in future releases. */
 declare function Ptcsgrid<A>(props: UIInputInterfacePtcsgrid<A>): UIOutputInterfacePtcsgrid<A>
 
             
+/** The properties and events that can be set or bound on the "Ptcsicon" widget. */
 declare interface UIInputInterfacePtcsicon extends UIBaseInputInterface {
     
     /** Enables you to change the icon size. Select Custom to set the size using the widget Height and Width properties. */
@@ -8390,15 +8439,18 @@ declare interface UIInputInterfacePtcsicon extends UIBaseInputInterface {
     ref?: UIOutputInterfacePtcsicon
 }
 
+/** The binding source properties and services that can be bound on the "Ptcsicon" widget. */
 declare class UIOutputInterfacePtcsicon {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
     CustomClass: BindingTarget<STRING>
 }
 
+/** Displays an icon */
 declare function Ptcsicon(props: UIInputInterfacePtcsicon): UIOutputInterfacePtcsicon
 
             
+/** The properties and events that can be set or bound on the "Ptcsimage" widget. */
 declare interface UIInputInterfacePtcsimage extends UIBaseInputInterface {
     
     /** Select the position of the image inside the container */
@@ -8488,15 +8540,18 @@ declare interface UIInputInterfacePtcsimage extends UIBaseInputInterface {
     ref?: UIOutputInterfacePtcsimage
 }
 
+/** The binding source properties and services that can be bound on the "Ptcsimage" widget. */
 declare class UIOutputInterfacePtcsimage {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
     CustomClass: BindingTarget<STRING>
 }
 
+/** Displays an image */
 declare function Ptcsimage(props: UIInputInterfacePtcsimage): UIOutputInterfacePtcsimage
 
             
+/** The properties and events that can be set or bound on the "Ptcslabel" widget. */
 declare interface UIInputInterfacePtcslabel extends UIBaseInputInterface {
     
     /** Sets an icon image for the tooltip of the Label widget */
@@ -8610,15 +8665,18 @@ declare interface UIInputInterfacePtcslabel extends UIBaseInputInterface {
     ref?: UIOutputInterfacePtcslabel
 }
 
+/** The binding source properties and services that can be bound on the "Ptcslabel" widget. */
 declare class UIOutputInterfacePtcslabel {
     
     /** Enables you to define the CSS to the top div of the widget. Multiple classes can be entered, separated by space */
     CustomClass: BindingTarget<STRING>
 }
 
+/** Displays a read-only text label */
 declare function Ptcslabel(props: UIInputInterfacePtcslabel): UIOutputInterfacePtcslabel
 
             
+/** The properties and events that can be set or bound on the "Ptcslink" widget. */
 declare interface UIInputInterfacePtcslink extends UIBaseInputInterface {
     
     /** Sets an icon image for the tooltip of the Link widget */
@@ -8728,6 +8786,7 @@ declare interface UIInputInterfacePtcslink extends UIBaseInputInterface {
     ref?: UIOutputInterfacePtcslink
 }
 
+/** The binding source properties and services that can be bound on the "Ptcslink" widget. */
 declare class UIOutputInterfacePtcslink {
     
     /** Enables you to define the CSS to the top div of the widget. Multiple classes can be entered, separated by space */
@@ -8742,9 +8801,11 @@ declare class UIOutputInterfacePtcslink {
     Navigate: ServiceBindingTarget
 }
 
+/** Opens the user defined page */
 declare function Ptcslink(props: UIInputInterfacePtcslink): UIOutputInterfacePtcslink
 
             
+/** The properties and events that can be set or bound on the "Ptcslist" widget. */
 declare interface UIInputInterfacePtcslist<A> extends UIBaseInputInterface {
     
     /** Select an SVG icon to display within the status message when the validation succeeds. */
@@ -8811,8 +8872,8 @@ declare interface UIInputInterfacePtcslist<A> extends UIBaseInputInterface {
     "TabSequence"?: NUMBER;
 
 
-    /** The infotable source */
-    "Data"?: BindingTarget<INFOTABLE>;
+    /** The infotable source */ 
+    "Data"?: BindingTarget<INFOTABLE<A>>;
 
 
     /** The infotable field that represents the data value */
@@ -8962,6 +9023,7 @@ declare interface UIInputInterfacePtcslist<A> extends UIBaseInputInterface {
     ref?: UIOutputInterfacePtcslist<A>
 }
 
+/** The binding source properties and services that can be bound on the "Ptcslist" widget. */
 declare class UIOutputInterfacePtcslist<A> {
     
     /** A bindable property used to retrieve the output of the widget validation. Returned values are undefined, unvalidated, valid, or invalid. */
@@ -8984,9 +9046,11 @@ declare class UIOutputInterfacePtcslist<A> {
     ResetToDefaultValue: ServiceBindingTarget
 }
 
+/** Displays rows in a list */
 declare function Ptcslist<A>(props: UIInputInterfacePtcslist<A>): UIOutputInterfacePtcslist<A>
 
             
+/** The properties and events that can be set or bound on the "Ptcslistshuttle" widget. */
 declare interface UIInputInterfacePtcslistshuttle<A> extends UIBaseInputInterface {
     
     /**  */
@@ -9041,8 +9105,8 @@ declare interface UIInputInterfacePtcslistshuttle<A> extends UIBaseInputInterfac
     "TabSequence"?: NUMBER;
 
 
-    /** Infotable source */
-    "Data"?: BindingTarget<INFOTABLE>;
+    /** Infotable source */ 
+    "Data"?: BindingTarget<INFOTABLE<A>>;
 
 
     /** The infotable field that represents the data value */
@@ -9156,6 +9220,7 @@ declare interface UIInputInterfacePtcslistshuttle<A> extends UIBaseInputInterfac
     ref?: UIOutputInterfacePtcslistshuttle<A>
 }
 
+/** The binding source properties and services that can be bound on the "Ptcslistshuttle" widget. */
 declare class UIOutputInterfacePtcslistshuttle<A> {
     
     /** The infotable source of selected items in the list */
@@ -9170,9 +9235,11 @@ declare class UIOutputInterfacePtcslistshuttle<A> {
     ResetToDefaultValue: ServiceBindingTarget
 }
 
+/** List Shuttle */
 declare function Ptcslistshuttle<A>(props: UIInputInterfacePtcslistshuttle<A>): UIOutputInterfacePtcslistshuttle<A>
 
             
+/** The properties and events that can be set or bound on the "Ptcsmenubar" widget. */
 declare interface UIInputInterfacePtcsmenubar extends UIBaseInputInterface {
     
     /** <CURRENTLY NOT EXPOSED> */
@@ -9354,6 +9421,7 @@ declare interface UIInputInterfacePtcsmenubar extends UIBaseInputInterface {
     ref?: UIOutputInterfacePtcsmenubar
 }
 
+/** The binding source properties and services that can be bound on the "Ptcsmenubar" widget. */
 declare class UIOutputInterfacePtcsmenubar {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -9364,9 +9432,11 @@ declare class UIOutputInterfacePtcsmenubar {
     Mashup: BindingTarget<STRING>
 }
 
+/** Displays a menu bar from preconfigured menu or live data from a service. This widget is available as a preview that includes a subset of features from the current widget. Additional features and migration support will be added in future releases. */
 declare function Ptcsmenubar(props: UIInputInterfacePtcsmenubar): UIOutputInterfacePtcsmenubar
 
             
+/** The properties and events that can be set or bound on the "Ptcspagination" widget. */
 declare interface UIInputInterfacePtcspagination extends UIBaseInputInterface {
     
     /** The current page number. */
@@ -9480,6 +9550,7 @@ declare interface UIInputInterfacePtcspagination extends UIBaseInputInterface {
     ref?: UIOutputInterfacePtcspagination
 }
 
+/** The binding source properties and services that can be bound on the "Ptcspagination" widget. */
 declare class UIOutputInterfacePtcspagination {
     
     /** The current page number. */
@@ -9494,9 +9565,11 @@ declare class UIOutputInterfacePtcspagination {
     CustomClass: BindingTarget<STRING>
 }
 
+/** Enables you to divide a large data set into multiple pages that you can view separately. */
 declare function Ptcspagination(props: UIInputInterfacePtcspagination): UIOutputInterfacePtcspagination
 
             
+/** The properties and events that can be set or bound on the "Ptcspropertydisplay" widget. */
 declare interface UIInputInterfacePtcspropertydisplay<A> extends UIBaseInputInterface {
     
     /** Aligns the data in the vertical axis */
@@ -9535,8 +9608,8 @@ declare interface UIInputInterfacePtcspropertydisplay<A> extends UIBaseInputInte
     "TabSequence"?: NUMBER;
 
 
-    /** The data source for the Property Display  */
-    "Data"?: BindingTarget<INFOTABLE>;
+    /** The data source for the Property Display  */ 
+    "Data"?: BindingTarget<INFOTABLE<A>>;
 
 
     /** The field that contains the group title */
@@ -9654,15 +9727,18 @@ declare interface UIInputInterfacePtcspropertydisplay<A> extends UIBaseInputInte
     ref?: UIOutputInterfacePtcspropertydisplay<A>
 }
 
+/** The binding source properties and services that can be bound on the "Ptcspropertydisplay" widget. */
 declare class UIOutputInterfacePtcspropertydisplay<A> {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
     CustomClass: BindingTarget<STRING>
 }
 
+/** Displays a set of key/value pairs */
 declare function Ptcspropertydisplay<A>(props: UIInputInterfacePtcspropertydisplay<A>): UIOutputInterfacePtcspropertydisplay<A>
 
             
+/** The properties and events that can be set or bound on the "Ptcsradio" widget. */
 declare interface UIInputInterfacePtcsradio extends UIBaseInputInterface {
     
     /** Enables you to set the state of the radio button, as selected or not selected */
@@ -9760,6 +9836,7 @@ declare interface UIInputInterfacePtcsradio extends UIBaseInputInterface {
     ref?: UIOutputInterfacePtcsradio
 }
 
+/** The binding source properties and services that can be bound on the "Ptcsradio" widget. */
 declare class UIOutputInterfacePtcsradio {
     
     /** Enables you to set the state of the radio button, as selected or not selected */
@@ -9770,9 +9847,11 @@ declare class UIOutputInterfacePtcsradio {
     CustomClass: BindingTarget<STRING>
 }
 
+/** Enables you to choose one from a set of options */
 declare function Ptcsradio(props: UIInputInterfacePtcsradio): UIOutputInterfacePtcsradio
 
             
+/** The properties and events that can be set or bound on the "Ptcsslider" widget. */
 declare interface UIInputInterfacePtcsslider extends UIBaseInputInterface {
     
     /** Select an SVG icon to display within the status message when the validation succeeds. */
@@ -10058,6 +10137,7 @@ declare interface UIInputInterfacePtcsslider extends UIBaseInputInterface {
     ref?: UIOutputInterfacePtcsslider
 }
 
+/** The binding source properties and services that can be bound on the "Ptcsslider" widget. */
 declare class UIOutputInterfacePtcsslider {
     
     /** A bindable property used to retrieve the output of the widget validation. Returned values are undefined, unvalidated, valid, or invalid. */
@@ -10100,9 +10180,11 @@ declare class UIOutputInterfacePtcsslider {
     DecrementSecondHandle: ServiceBindingTarget
 }
 
+/** Value Slider */
 declare function Ptcsslider(props: UIInputInterfacePtcsslider): UIOutputInterfacePtcsslider
 
             
+/** The properties and events that can be set or bound on the "Ptcstabset" widget. */
 declare interface UIInputInterfacePtcstabset extends UIBaseInputInterface {
     
     /** Enables you to select a tab that you would like to show at runtime when the mashup is loaded. */
@@ -10468,6 +10550,7 @@ declare interface UIInputInterfacePtcstabset extends UIBaseInputInterface {
     ref?: UIOutputInterfacePtcstabset
 }
 
+/** The binding source properties and services that can be bound on the "Ptcstabset" widget. */
 declare class UIOutputInterfacePtcstabset {
     
     /** Enables you to select a tab that you would like to show at runtime when the mashup is loaded. */
@@ -10494,9 +10577,11 @@ declare class UIOutputInterfacePtcstabset {
     ResetInputsToDefaultValue: ServiceBindingTarget
 }
 
+/** Allows you to swap between various tabs easily */
 declare function Ptcstabset(props: UIInputInterfacePtcstabset): UIOutputInterfacePtcstabset
 
             
+/** The properties and events that can be set or bound on the "Ptcstextarea" widget. */
 declare interface UIInputInterfacePtcstextarea extends UIBaseInputInterface {
     
     /** Select an SVG icon to display within the status message when the validation succeeds */
@@ -10694,6 +10779,7 @@ declare interface UIInputInterfacePtcstextarea extends UIBaseInputInterface {
     ref?: UIOutputInterfacePtcstextarea
 }
 
+/** The binding source properties and services that can be bound on the "Ptcstextarea" widget. */
 declare class UIOutputInterfacePtcstextarea {
     
     /** A bindable property used to retrieve the output of the widget validation. Returned values are undefined, unvalidated, valid, or invalid. */
@@ -10712,9 +10798,11 @@ declare class UIOutputInterfacePtcstextarea {
     ResetToDefaultValue: ServiceBindingTarget
 }
 
+/** Enables you to enter a multi-line text */
 declare function Ptcstextarea(props: UIInputInterfacePtcstextarea): UIOutputInterfacePtcstextarea
 
             
+/** The properties and events that can be set or bound on the "Ptcstextfield" widget. */
 declare interface UIInputInterfacePtcstextfield extends UIBaseInputInterface {
     
     /** Select an SVG icon to display within the status message when the validation succeeds */
@@ -10924,6 +11012,7 @@ declare interface UIInputInterfacePtcstextfield extends UIBaseInputInterface {
     ref?: UIOutputInterfacePtcstextfield
 }
 
+/** The binding source properties and services that can be bound on the "Ptcstextfield" widget. */
 declare class UIOutputInterfacePtcstextfield {
     
     /** A bindable property used to retrieve the output of the widget validation. Returned values are undefined, unvalidated, valid, or invalid. */
@@ -10942,9 +11031,11 @@ declare class UIOutputInterfacePtcstextfield {
     ResetToDefaultValue: ServiceBindingTarget
 }
 
+/** Enables you to enter a single line text */
 declare function Ptcstextfield(props: UIInputInterfacePtcstextfield): UIOutputInterfacePtcstextfield
 
             
+/** The properties and events that can be set or bound on the "Ptcstogglebutton" widget. */
 declare interface UIInputInterfacePtcstogglebutton extends UIBaseInputInterface {
     
     /** Enables you to set the state of the toggle button, as selected or not selected */
@@ -11042,6 +11133,7 @@ declare interface UIInputInterfacePtcstogglebutton extends UIBaseInputInterface 
     ref?: UIOutputInterfacePtcstogglebutton
 }
 
+/** The binding source properties and services that can be bound on the "Ptcstogglebutton" widget. */
 declare class UIOutputInterfacePtcstogglebutton {
     
     /** Enables you to set the state of the toggle button, as selected or not selected */
@@ -11056,9 +11148,11 @@ declare class UIOutputInterfacePtcstogglebutton {
     ResetToDefaultValue: ServiceBindingTarget
 }
 
+/** Enables you to switch between two settings */
 declare function Ptcstogglebutton(props: UIInputInterfacePtcstogglebutton): UIOutputInterfacePtcstogglebutton
 
             
+/** The properties and events that can be set or bound on the "Ptcstoolbar" widget. */
 declare interface UIInputInterfacePtcstoolbar extends UIBaseInputInterface {
     
     /**  */
@@ -11260,6 +11354,7 @@ declare interface UIInputInterfacePtcstoolbar extends UIBaseInputInterface {
     ref?: UIOutputInterfacePtcstoolbar
 }
 
+/** The binding source properties and services that can be bound on the "Ptcstoolbar" widget. */
 declare class UIOutputInterfacePtcstoolbar {
     
     /** The JSON query used to retrieve the filtered data set. */
@@ -11278,9 +11373,11 @@ declare class UIOutputInterfacePtcstoolbar {
     ResetToDefaultValue: ServiceBindingTarget
 }
 
+/** Combines common elements that you can configure to display frequently used functions in a compact form. You can use toolbars to create filters, trigger services, and modify the view when working with widgets such as grids, lists, and charts. This widget is available as a preview that includes a subset of features from the current widget. Additional features and migration support will be added in future releases. */
 declare function Ptcstoolbar(props: UIInputInterfacePtcstoolbar): UIOutputInterfacePtcstoolbar
 
             
+/** The properties and events that can be set or bound on the "Ptcsvaluedisplay" widget. */
 declare interface UIInputInterfacePtcsvaluedisplay<A> extends UIBaseInputInterface {
     
     /** Sets an icon image for the tooltip of the Value Display widget */
@@ -11442,15 +11539,18 @@ declare interface UIInputInterfacePtcsvaluedisplay<A> extends UIBaseInputInterfa
     ref?: UIOutputInterfacePtcsvaluedisplay<A>
 }
 
+/** The binding source properties and services that can be bound on the "Ptcsvaluedisplay" widget. */
 declare class UIOutputInterfacePtcsvaluedisplay<A> {
     
     /** Enables you to define the CSS to the top div of the widget. Multiple classes can be entered, separated by space */
     CustomClass: BindingTarget<STRING>
 }
 
+/** Displays a single value */
 declare function Ptcsvaluedisplay<A>(props: UIInputInterfacePtcsvaluedisplay<A>): UIOutputInterfacePtcsvaluedisplay<A>
 
             
+/** The properties and events that can be set or bound on the "Autorefresh" widget. */
 declare interface UIInputInterfaceAutorefresh extends UIBaseInputInterface {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -11572,15 +11672,18 @@ declare interface UIInputInterfaceAutorefresh extends UIBaseInputInterface {
     ref?: UIOutputInterfaceAutorefresh
 }
 
+/** The binding source properties and services that can be bound on the "Autorefresh" widget. */
 declare class UIOutputInterfaceAutorefresh {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
     CustomClass: BindingTarget<STRING>
 }
 
+/** Automatically raises an event at user defined time intervals */
 declare function Autorefresh(props: UIInputInterfaceAutorefresh): UIOutputInterfaceAutorefresh
 
             
+/** The properties and events that can be set or bound on the "Autorefreshfunction" widget. */
 declare interface UIInputInterfaceAutorefreshfunction extends UIBaseInputInterface {
     
     /** The refresh interval in seconds */
@@ -11642,6 +11745,7 @@ declare interface UIInputInterfaceAutorefreshfunction extends UIBaseInputInterfa
     ref?: UIOutputInterfaceAutorefreshfunction
 }
 
+/** The binding source properties and services that can be bound on the "Autorefreshfunction" widget. */
 declare class UIOutputInterfaceAutorefreshfunction {
     
     /** The refresh interval in seconds */
@@ -11652,9 +11756,11 @@ declare class UIOutputInterfaceAutorefreshfunction {
     ActivateWidgetRefresh: ServiceBindingTarget
 }
 
+/** Auto Refresh function - Automatically raises an event at user defined time intervals */
 declare function Autorefreshfunction(props: UIInputInterfaceAutorefreshfunction): UIOutputInterfaceAutorefreshfunction
 
             
+/** The properties and events that can be set or bound on the "Blog" widget. */
 declare interface UIInputInterfaceBlog extends UIBaseInputInterface {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -11832,6 +11938,7 @@ declare interface UIInputInterfaceBlog extends UIBaseInputInterface {
     ref?: UIOutputInterfaceBlog
 }
 
+/** The binding source properties and services that can be bound on the "Blog" widget. */
 declare class UIOutputInterfaceBlog {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -11842,9 +11949,11 @@ declare class UIOutputInterfaceBlog {
     Refresh: ServiceBindingTarget
 }
 
+/** Enabled the user to manipulate a blog */
 declare function Blog(props: UIInputInterfaceBlog): UIOutputInterfaceBlog
 
             
+/** The properties and events that can be set or bound on the "Bubblechart" widget. */
 declare interface UIInputInterfaceBubblechart<A,B,C,D,E,F,G,H> extends UIBaseInputInterface {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -12011,8 +12120,8 @@ declare interface UIInputInterfaceBubblechart<A,B,C,D,E,F,G,H> extends UIBaseInp
     "ToolTipField"?: undefined;
 
 
-    /** Data Source */
-    "DataSource1"?: BindingTarget<INFOTABLE>;
+    /** Data Source */ 
+    "DataSource1"?: BindingTarget<INFOTABLE<A>>;
 
 
     /** X axis field */
@@ -12031,8 +12140,8 @@ declare interface UIInputInterfaceBubblechart<A,B,C,D,E,F,G,H> extends UIBaseInp
     "BubbleStyle1"?: STYLEDEFINITION;
 
 
-    /** Data Source */
-    "DataSource2"?: BindingTarget<INFOTABLE>;
+    /** Data Source */ 
+    "DataSource2"?: BindingTarget<INFOTABLE<B>>;
 
 
     /** X axis field */
@@ -12051,8 +12160,8 @@ declare interface UIInputInterfaceBubblechart<A,B,C,D,E,F,G,H> extends UIBaseInp
     "BubbleStyle2"?: STYLEDEFINITION;
 
 
-    /** Data Source */
-    "DataSource3"?: BindingTarget<INFOTABLE>;
+    /** Data Source */ 
+    "DataSource3"?: BindingTarget<INFOTABLE<C>>;
 
 
     /** X axis field */
@@ -12071,8 +12180,8 @@ declare interface UIInputInterfaceBubblechart<A,B,C,D,E,F,G,H> extends UIBaseInp
     "BubbleStyle3"?: STYLEDEFINITION;
 
 
-    /** Data Source */
-    "DataSource4"?: BindingTarget<INFOTABLE>;
+    /** Data Source */ 
+    "DataSource4"?: BindingTarget<INFOTABLE<D>>;
 
 
     /** X axis field */
@@ -12091,8 +12200,8 @@ declare interface UIInputInterfaceBubblechart<A,B,C,D,E,F,G,H> extends UIBaseInp
     "BubbleStyle4"?: STYLEDEFINITION;
 
 
-    /** Data Source */
-    "DataSource5"?: BindingTarget<INFOTABLE>;
+    /** Data Source */ 
+    "DataSource5"?: BindingTarget<INFOTABLE<E>>;
 
 
     /** X axis field */
@@ -12111,8 +12220,8 @@ declare interface UIInputInterfaceBubblechart<A,B,C,D,E,F,G,H> extends UIBaseInp
     "BubbleStyle5"?: STYLEDEFINITION;
 
 
-    /** Data Source */
-    "DataSource6"?: BindingTarget<INFOTABLE>;
+    /** Data Source */ 
+    "DataSource6"?: BindingTarget<INFOTABLE<F>>;
 
 
     /** X axis field */
@@ -12131,8 +12240,8 @@ declare interface UIInputInterfaceBubblechart<A,B,C,D,E,F,G,H> extends UIBaseInp
     "BubbleStyle6"?: STYLEDEFINITION;
 
 
-    /** Data Source */
-    "DataSource7"?: BindingTarget<INFOTABLE>;
+    /** Data Source */ 
+    "DataSource7"?: BindingTarget<INFOTABLE<G>>;
 
 
     /** X axis field */
@@ -12151,8 +12260,8 @@ declare interface UIInputInterfaceBubblechart<A,B,C,D,E,F,G,H> extends UIBaseInp
     "BubbleStyle7"?: STYLEDEFINITION;
 
 
-    /** Data Source */
-    "DataSource8"?: BindingTarget<INFOTABLE>;
+    /** Data Source */ 
+    "DataSource8"?: BindingTarget<INFOTABLE<H>>;
 
 
     /** X axis field */
@@ -12218,15 +12327,18 @@ declare interface UIInputInterfaceBubblechart<A,B,C,D,E,F,G,H> extends UIBaseInp
     ref?: UIOutputInterfaceBubblechart<A,B,C,D,E,F,G,H>
 }
 
+/** The binding source properties and services that can be bound on the "Bubblechart" widget. */
 declare class UIOutputInterfaceBubblechart<A,B,C,D,E,F,G,H> {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
     CustomClass: BindingTarget<STRING>
 }
 
+/** Displays a bubble/scatter chart */
 declare function Bubblechart<A,B,C,D,E,F,G,H>(props: UIInputInterfaceBubblechart<A,B,C,D,E,F,G,H>): UIOutputInterfaceBubblechart<A,B,C,D,E,F,G,H>
 
             
+/** The properties and events that can be set or bound on the "Button" widget. */
 declare interface UIInputInterfaceButton extends UIBaseInputInterface {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -12368,6 +12480,7 @@ declare interface UIInputInterfaceButton extends UIBaseInputInterface {
     ref?: UIOutputInterfaceButton
 }
 
+/** The binding source properties and services that can be bound on the "Button" widget. */
 declare class UIOutputInterfaceButton {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -12378,9 +12491,11 @@ declare class UIOutputInterfaceButton {
     ContextId: BindingTarget<STRING>
 }
 
+/** Raises an event when the user clicks it. */
 declare function Button(props: UIInputInterfaceButton): UIOutputInterfaceButton
 
             
+/** The properties and events that can be set or bound on the "Checkbox" widget. */
 declare interface UIInputInterfaceCheckbox extends UIBaseInputInterface {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -12470,6 +12585,7 @@ declare interface UIInputInterfaceCheckbox extends UIBaseInputInterface {
     ref?: UIOutputInterfaceCheckbox
 }
 
+/** The binding source properties and services that can be bound on the "Checkbox" widget. */
 declare class UIOutputInterfaceCheckbox {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -12484,9 +12600,11 @@ declare class UIOutputInterfaceCheckbox {
     ResetToDefaultValue: ServiceBindingTarget
 }
 
+/** Enables the user to select or de-select an option. */
 declare function Checkbox(props: UIInputInterfaceCheckbox): UIOutputInterfaceCheckbox
 
             
+/** The properties and events that can be set or bound on the "Collection" widget. */
 declare interface UIInputInterfaceCollection<A> extends UIBaseInputInterface {
     
     /** The width of the widget */
@@ -12497,8 +12615,8 @@ declare interface UIInputInterfaceCollection<A> extends UIBaseInputInterface {
     "Height"?: NUMBER;
 
 
-    /** Represents the data source of this collection widget. */
-    "Data"?: BindingTarget<INFOTABLE>;
+    /** Represents the data source of this collection widget. */ 
+    "Data"?: BindingTarget<INFOTABLE<A>>;
 
 
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -12868,6 +12986,7 @@ declare interface UIInputInterfaceCollection<A> extends UIBaseInputInterface {
     ref?: UIOutputInterfaceCollection<A>
 }
 
+/** The binding source properties and services that can be bound on the "Collection" widget. */
 declare class UIOutputInterfaceCollection<A> {
     
     /** Represents the data source of this collection widget. */
@@ -12894,9 +13013,11 @@ declare class UIOutputInterfaceCollection<A> {
     SelectAll: ServiceBindingTarget
 }
 
+/** A widget that manages a list of Mashup elements, adding and removing them from view based on the current scroll position. */
 declare function Collection<A>(props: UIInputInterfaceCollection<A>): UIOutputInterfaceCollection<A>
 
             
+/** The properties and events that can be set or bound on the "Container" widget. */
 declare interface UIInputInterfaceContainer extends UIBaseInputInterface {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -13006,6 +13127,7 @@ declare interface UIInputInterfaceContainer extends UIBaseInputInterface {
     ref?: UIOutputInterfaceContainer
 }
 
+/** The binding source properties and services that can be bound on the "Container" widget. */
 declare class UIOutputInterfaceContainer {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -13032,9 +13154,11 @@ declare class UIOutputInterfaceContainer {
     ResetInputsToDefaultValue: ServiceBindingTarget
 }
 
+/** Container */
 declare function Container(props: UIInputInterfaceContainer): UIOutputInterfaceContainer
 
             
+/** The properties and events that can be set or bound on the "Dashboard" widget. */
 declare interface UIInputInterfaceDashboard extends UIBaseInputInterface {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -13196,6 +13320,7 @@ declare interface UIInputInterfaceDashboard extends UIBaseInputInterface {
     ref?: UIOutputInterfaceDashboard
 }
 
+/** The binding source properties and services that can be bound on the "Dashboard" widget. */
 declare class UIOutputInterfaceDashboard {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -13206,9 +13331,11 @@ declare class UIOutputInterfaceDashboard {
     DashboardID: BindingTarget<DASHBOARDNAME>
 }
 
+/** Enables the user to show a dashboard of widgets */
 declare function Dashboard(props: UIInputInterfaceDashboard): UIOutputInterfaceDashboard
 
             
+/** The properties and events that can be set or bound on the "Dataexport" widget. */
 declare interface UIInputInterfaceDataexport extends UIBaseInputInterface {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -13322,6 +13449,7 @@ declare interface UIInputInterfaceDataexport extends UIBaseInputInterface {
     ref?: UIOutputInterfaceDataexport
 }
 
+/** The binding source properties and services that can be bound on the "Dataexport" widget. */
 declare class UIOutputInterfaceDataexport {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -13332,9 +13460,11 @@ declare class UIOutputInterfaceDataexport {
     Export: ServiceBindingTarget
 }
 
+/** Enables you to Export Data from any query to CSV */
 declare function Dataexport(props: UIInputInterfaceDataexport): UIOutputInterfaceDataexport
 
             
+/** The properties and events that can be set or bound on the "Datafilter" widget. */
 declare interface UIInputInterfaceDatafilter extends UIBaseInputInterface {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -13440,6 +13570,7 @@ declare interface UIInputInterfaceDatafilter extends UIBaseInputInterface {
     ref?: UIOutputInterfaceDatafilter
 }
 
+/** The binding source properties and services that can be bound on the "Datafilter" widget. */
 declare class UIOutputInterfaceDatafilter {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -13450,9 +13581,11 @@ declare class UIOutputInterfaceDatafilter {
     Query: BindingTarget<QUERY>
 }
 
+/** Enables you to dynamically build a query for Data Streams and Data Tables */
 declare function Datafilter(props: UIInputInterfaceDatafilter): UIOutputInterfaceDatafilter
 
             
+/** The properties and events that can be set or bound on the "Datetimepicker" widget. */
 declare interface UIInputInterfaceDatetimepicker extends UIBaseInputInterface {
     
     /** Enables you to define the CSS to the top div of the widget. Multiple classes can be entered, separated by space */
@@ -13574,6 +13707,7 @@ declare interface UIInputInterfaceDatetimepicker extends UIBaseInputInterface {
     ref?: UIOutputInterfaceDatetimepicker
 }
 
+/** The binding source properties and services that can be bound on the "Datetimepicker" widget. */
 declare class UIOutputInterfaceDatetimepicker {
     
     /** Enables you to define the CSS to the top div of the widget. Multiple classes can be entered, separated by space */
@@ -13588,9 +13722,11 @@ declare class UIOutputInterfaceDatetimepicker {
     ClearDateTime: ServiceBindingTarget
 }
 
+/** Provides a mechanism for selecting a date and time. */
 declare function Datetimepicker(props: UIInputInterfaceDatetimepicker): UIOutputInterfaceDatetimepicker
 
             
+/** The properties and events that can be set or bound on the "Dhxgrid" widget. */
 declare interface UIInputInterfaceDhxgrid extends UIBaseInputInterface {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -13752,6 +13888,7 @@ declare interface UIInputInterfaceDhxgrid extends UIBaseInputInterface {
     ref?: UIOutputInterfaceDhxgrid
 }
 
+/** The binding source properties and services that can be bound on the "Dhxgrid" widget. */
 declare class UIOutputInterfaceDhxgrid {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -13766,9 +13903,11 @@ declare class UIOutputInterfaceDhxgrid {
     CurrentScrollTop: BindingTarget<NUMBER>
 }
 
+/** Displays rows and columns of data in a grid */
 declare function Dhxgrid(props: UIInputInterfaceDhxgrid): UIOutputInterfaceDhxgrid
 
             
+/** The properties and events that can be set or bound on the "Dhxlist" widget. */
 declare interface UIInputInterfaceDhxlist<A> extends UIBaseInputInterface {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -13831,8 +13970,8 @@ declare interface UIInputInterfaceDhxlist<A> extends UIBaseInputInterface {
     "LabelAlignment"?: STRING<"left" | "right" | "center">;
 
 
-    /** Data that is bound to the list widget */
-    "Data"?: BindingTarget<INFOTABLE>;
+    /** Data that is bound to the list widget */ 
+    "Data"?: BindingTarget<INFOTABLE<A>>;
 
 
     /** The infotable field which represents the data value */
@@ -13994,15 +14133,18 @@ declare interface UIInputInterfaceDhxlist<A> extends UIBaseInputInterface {
     ref?: UIOutputInterfaceDhxlist<A>
 }
 
+/** The binding source properties and services that can be bound on the "Dhxlist" widget. */
 declare class UIOutputInterfaceDhxlist<A> {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
     CustomClass: BindingTarget<STRING>
 }
 
+/** Displays rows in a list. */
 declare function Dhxlist<A>(props: UIInputInterfaceDhxlist<A>): UIOutputInterfaceDhxlist<A>
 
             
+/** The properties and events that can be set or bound on the "Divider" widget. */
 declare interface UIInputInterfaceDivider extends UIBaseInputInterface {
     
     /** Enables you to define the CSS to the top div of the widget. Multiple classes can be entered, separated by space */
@@ -14060,15 +14202,18 @@ declare interface UIInputInterfaceDivider extends UIBaseInputInterface {
     ref?: UIOutputInterfaceDivider
 }
 
+/** The binding source properties and services that can be bound on the "Divider" widget. */
 declare class UIOutputInterfaceDivider {
     
     /** Enables you to define the CSS to the top div of the widget. Multiple classes can be entered, separated by space */
     CustomClass: BindingTarget<STRING>
 }
 
+/** Drawing tool for dividers. */
 declare function Divider(props: UIInputInterfaceDivider): UIOutputInterfaceDivider
 
             
+/** The properties and events that can be set or bound on the "Entitypicker" widget. */
 declare interface UIInputInterfaceEntitypicker extends UIBaseInputInterface {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -14178,6 +14323,7 @@ declare interface UIInputInterfaceEntitypicker extends UIBaseInputInterface {
     ref?: UIOutputInterfaceEntitypicker
 }
 
+/** The binding source properties and services that can be bound on the "Entitypicker" widget. */
 declare class UIOutputInterfaceEntitypicker {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -14192,9 +14338,11 @@ declare class UIOutputInterfaceEntitypicker {
     ResetToDefaultValue: ServiceBindingTarget
 }
 
+/** Allows runtime searching of entities by a variety of pre-filtering */
 declare function Entitypicker(props: UIInputInterfaceEntitypicker): UIOutputInterfaceEntitypicker
 
             
+/** The properties and events that can be set or bound on the "Eventchart" widget. */
 declare interface UIInputInterfaceEventchart<A> extends UIBaseInputInterface {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -14205,8 +14353,8 @@ declare interface UIInputInterfaceEventchart<A> extends UIBaseInputInterface {
     "SingleDataSource"?: BOOLEAN;
 
 
-    /** Data source */
-    "Data"?: BindingTarget<INFOTABLE>;
+    /** Data source */ 
+    "Data"?: BindingTarget<INFOTABLE<A>>;
 
 
     /** Type of chart */
@@ -14444,15 +14592,18 @@ declare interface UIInputInterfaceEventchart<A> extends UIBaseInputInterface {
     ref?: UIOutputInterfaceEventchart<A>
 }
 
+/** The binding source properties and services that can be bound on the "Eventchart" widget. */
 declare class UIOutputInterfaceEventchart<A> {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
     CustomClass: BindingTarget<STRING>
 }
 
+/** Displays an event chart */
 declare function Eventchart<A>(props: UIInputInterfaceEventchart<A>): UIOutputInterfaceEventchart<A>
 
             
+/** The properties and events that can be set or bound on the "Eventsrouter" widget. */
 declare interface UIInputInterfaceEventsrouter extends UIBaseInputInterface {
     
     /** Contains the last received input value */
@@ -14542,6 +14693,7 @@ declare interface UIInputInterfaceEventsrouter extends UIBaseInputInterface {
     ref?: UIOutputInterfaceEventsrouter
 }
 
+/** The binding source properties and services that can be bound on the "Eventsrouter" widget. */
 declare class UIOutputInterfaceEventsrouter {
     
     /** Contains the last received input value */
@@ -14552,9 +14704,11 @@ declare class UIOutputInterfaceEventsrouter {
     DataShape: BindingTarget<DATASHAPENAME>
 }
 
+/** Allows users to bind multiple source widgets or services to one target */
 declare function Eventsrouter(props: UIInputInterfaceEventsrouter): UIOutputInterfaceEventsrouter
 
             
+/** The properties and events that can be set or bound on the "Expression" widget. */
 declare interface UIInputInterfaceExpression extends UIBaseInputInterface {
     
     /** Width of widget */
@@ -14632,6 +14786,7 @@ declare interface UIInputInterfaceExpression extends UIBaseInputInterface {
     ref?: UIOutputInterfaceExpression
 }
 
+/** The binding source properties and services that can be bound on the "Expression" widget. */
 declare class UIOutputInterfaceExpression {
     
     /** The output from evaluated expression */
@@ -14642,9 +14797,11 @@ declare class UIOutputInterfaceExpression {
     Evaluate: ServiceBindingTarget
 }
 
+/** Evaluates a (Not Secure) expression */
 declare function Expression(props: UIInputInterfaceExpression): UIOutputInterfaceExpression
 
             
+/** The properties and events that can be set or bound on the "Expression2" widget. */
 declare interface UIInputInterfaceExpression2 extends UIBaseInputInterface {
     
     /** Width of widget */
@@ -14722,6 +14879,7 @@ declare interface UIInputInterfaceExpression2 extends UIBaseInputInterface {
     ref?: UIOutputInterfaceExpression2
 }
 
+/** The binding source properties and services that can be bound on the "Expression2" widget. */
 declare class UIOutputInterfaceExpression2 {
     
     /** The output from evaluated expression */
@@ -14732,9 +14890,11 @@ declare class UIOutputInterfaceExpression2 {
     Evaluate: ServiceBindingTarget
 }
 
+/** Evaluates a (Not Secure) expression */
 declare function Expression2(props: UIInputInterfaceExpression2): UIOutputInterfaceExpression2
 
             
+/** The properties and events that can be set or bound on the "Fieldset" widget. */
 declare interface UIInputInterfaceFieldset extends UIBaseInputInterface {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -14800,6 +14960,7 @@ declare interface UIInputInterfaceFieldset extends UIBaseInputInterface {
     ref?: UIOutputInterfaceFieldset
 }
 
+/** The binding source properties and services that can be bound on the "Fieldset" widget. */
 declare class UIOutputInterfaceFieldset {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -14810,9 +14971,11 @@ declare class UIOutputInterfaceFieldset {
     ResetInputsToDefaultValue: ServiceBindingTarget
 }
 
+/** Display a frame around a group of widgets with a title caption */
 declare function Fieldset(props: UIInputInterfaceFieldset): UIOutputInterfaceFieldset
 
             
+/** The properties and events that can be set or bound on the "Fileupload" widget. */
 declare interface UIInputInterfaceFileupload extends UIBaseInputInterface {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -14914,6 +15077,7 @@ declare interface UIInputInterfaceFileupload extends UIBaseInputInterface {
     ref?: UIOutputInterfaceFileupload
 }
 
+/** The binding source properties and services that can be bound on the "Fileupload" widget. */
 declare class UIOutputInterfaceFileupload {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -14936,9 +15100,11 @@ declare class UIOutputInterfaceFileupload {
     FullPath: BindingTarget<STRING>
 }
 
+/** Uploads a file from a client machine to a File Repository */
 declare function Fileupload(props: UIInputInterfaceFileupload): UIOutputInterfaceFileupload
 
             
+/** The properties and events that can be set or bound on the "Flexcontainer" widget. */
 declare interface UIInputInterfaceFlexcontainer extends UIBaseInputInterface {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -15096,6 +15262,7 @@ declare interface UIInputInterfaceFlexcontainer extends UIBaseInputInterface {
     ref?: UIOutputInterfaceFlexcontainer
 }
 
+/** The binding source properties and services that can be bound on the "Flexcontainer" widget. */
 declare class UIOutputInterfaceFlexcontainer {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -15134,9 +15301,11 @@ declare class UIOutputInterfaceFlexcontainer {
     ReloadContainer: ServiceBindingTarget
 }
 
+/** Displays a group of widgets */
 declare function Flexcontainer(props: UIInputInterfaceFlexcontainer): UIOutputInterfaceFlexcontainer
 
             
+/** The properties and events that can be set or bound on the "Foldingpanel" widget. */
 declare interface UIInputInterfaceFoldingpanel extends UIBaseInputInterface {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -15214,6 +15383,7 @@ declare interface UIInputInterfaceFoldingpanel extends UIBaseInputInterface {
     ref?: UIOutputInterfaceFoldingpanel
 }
 
+/** The binding source properties and services that can be bound on the "Foldingpanel" widget. */
 declare class UIOutputInterfaceFoldingpanel {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -15240,9 +15410,11 @@ declare class UIOutputInterfaceFoldingpanel {
     ResetInputsToDefaultValue: ServiceBindingTarget
 }
 
+/** Displays a group of widgets which can be minimized */
 declare function Foldingpanel(props: UIInputInterfaceFoldingpanel): UIOutputInterfaceFoldingpanel
 
             
+/** The properties and events that can be set or bound on the "Gauge" widget. */
 declare interface UIInputInterfaceGauge extends UIBaseInputInterface {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -15436,15 +15608,18 @@ declare interface UIInputInterfaceGauge extends UIBaseInputInterface {
     ref?: UIOutputInterfaceGauge
 }
 
+/** The binding source properties and services that can be bound on the "Gauge" widget. */
 declare class UIOutputInterfaceGauge {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
     CustomClass: BindingTarget<STRING>
 }
 
+/** A single-needle gauge */
 declare function Gauge(props: UIInputInterfaceGauge): UIOutputInterfaceGauge
 
             
+/** The properties and events that can be set or bound on the "Geotag" widget. */
 declare interface UIInputInterfaceGeotag extends UIBaseInputInterface {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -15510,6 +15685,7 @@ declare interface UIInputInterfaceGeotag extends UIBaseInputInterface {
     ref?: UIOutputInterfaceGeotag
 }
 
+/** The binding source properties and services that can be bound on the "Geotag" widget. */
 declare class UIOutputInterfaceGeotag {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -15540,9 +15716,11 @@ declare class UIOutputInterfaceGeotag {
     ErrorCode: BindingTarget<NUMBER>
 }
 
+/** Enables the user to set or track geo locations. An internet connection is required. Location accuracy is dependent upon device and type of connection (e.g. a GPS enabled phone may have greater accuracy than a wired laptop.). Aquisition of a location always requires permission of the end user. Not compliant with IE versions 6, 7, or 8. */
 declare function Geotag(props: UIInputInterfaceGeotag): UIOutputInterfaceGeotag
 
             
+/** The properties and events that can be set or bound on the "Gridadvanced" widget. */
 declare interface UIInputInterfaceGridadvanced extends UIBaseInputInterface {
     
     /** When enabled, uses the theme that is set for the mashup. */
@@ -15832,6 +16010,7 @@ declare interface UIInputInterfaceGridadvanced extends UIBaseInputInterface {
     ref?: UIOutputInterfaceGridadvanced
 }
 
+/** The binding source properties and services that can be bound on the "Gridadvanced" widget. */
 declare class UIOutputInterfaceGridadvanced {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -15858,9 +16037,11 @@ declare class UIOutputInterfaceGridadvanced {
     Reset: ServiceBindingTarget
 }
 
+/** Advanced grid widget for displaying rows and columns of data */
 declare function Gridadvanced(props: UIInputInterfaceGridadvanced): UIOutputInterfaceGridadvanced
 
             
+/** The properties and events that can be set or bound on the "Treegridadvanced" widget. */
 declare interface UIInputInterfaceTreegridadvanced extends UIBaseInputInterface {
     
     /** When enabled, uses the theme that is set for the mashup. */
@@ -16206,6 +16387,7 @@ declare interface UIInputInterfaceTreegridadvanced extends UIBaseInputInterface 
     ref?: UIOutputInterfaceTreegridadvanced
 }
 
+/** The binding source properties and services that can be bound on the "Treegridadvanced" widget. */
 declare class UIOutputInterfaceTreegridadvanced {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -16232,9 +16414,11 @@ declare class UIOutputInterfaceTreegridadvanced {
     Reset: ServiceBindingTarget
 }
 
+/** Advanced tree grid widget for displaying nested rows and columns of data. */
 declare function Treegridadvanced(props: UIInputInterfaceTreegridadvanced): UIOutputInterfaceTreegridadvanced
 
             
+/** The properties and events that can be set or bound on the "Htmltextarea" widget. */
 declare interface UIInputInterfaceHtmltextarea extends UIBaseInputInterface {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -16324,6 +16508,7 @@ declare interface UIInputInterfaceHtmltextarea extends UIBaseInputInterface {
     ref?: UIOutputInterfaceHtmltextarea
 }
 
+/** The binding source properties and services that can be bound on the "Htmltextarea" widget. */
 declare class UIOutputInterfaceHtmltextarea {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -16338,9 +16523,11 @@ declare class UIOutputInterfaceHtmltextarea {
     ResetToDefaultValue: ServiceBindingTarget
 }
 
+/** Enables the user to enter multi-line, HTML text */
 declare function Htmltextarea(props: UIInputInterfaceHtmltextarea): UIOutputInterfaceHtmltextarea
 
             
+/** The properties and events that can be set or bound on the "Image" widget. */
 declare interface UIInputInterfaceImage extends UIBaseInputInterface {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -16422,15 +16609,18 @@ declare interface UIInputInterfaceImage extends UIBaseInputInterface {
     ref?: UIOutputInterfaceImage
 }
 
+/** The binding source properties and services that can be bound on the "Image" widget. */
 declare class UIOutputInterfaceImage {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
     CustomClass: BindingTarget<STRING>
 }
 
+/** Displays an image. */
 declare function Image(props: UIInputInterfaceImage): UIOutputInterfaceImage
 
             
+/** The properties and events that can be set or bound on the "Label" widget. */
 declare interface UIInputInterfaceLabel extends UIBaseInputInterface {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -16508,15 +16698,18 @@ declare interface UIInputInterfaceLabel extends UIBaseInputInterface {
     ref?: UIOutputInterfaceLabel
 }
 
+/** The binding source properties and services that can be bound on the "Label" widget. */
 declare class UIOutputInterfaceLabel {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
     CustomClass: BindingTarget<STRING>
 }
 
+/** Displays a read-only text label. */
 declare function Label(props: UIInputInterfaceLabel): UIOutputInterfaceLabel
 
             
+/** The properties and events that can be set or bound on the "Labelchart" widget. */
 declare interface UIInputInterfaceLabelchart<A> extends UIBaseInputInterface {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -16535,8 +16728,8 @@ declare interface UIInputInterfaceLabelchart<A> extends UIBaseInputInterface {
     "OverlayYAxes"?: BOOLEAN;
 
 
-    /** Data source */
-    "Data"?: BindingTarget<INFOTABLE>;
+    /** Data source */ 
+    "Data"?: BindingTarget<INFOTABLE<A>>;
 
 
     /** Type of chart */
@@ -18158,15 +18351,18 @@ declare interface UIInputInterfaceLabelchart<A> extends UIBaseInputInterface {
     ref?: UIOutputInterfaceLabelchart<A>
 }
 
+/** The binding source properties and services that can be bound on the "Labelchart" widget. */
 declare class UIOutputInterfaceLabelchart<A> {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
     CustomClass: BindingTarget<STRING>
 }
 
+/** Displays a label chart */
 declare function Labelchart<A>(props: UIInputInterfaceLabelchart<A>): UIOutputInterfaceLabelchart<A>
 
             
+/** The properties and events that can be set or bound on the "Layout" widget. */
 declare interface UIInputInterfaceLayout extends UIBaseInputInterface {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -18348,6 +18544,7 @@ declare interface UIInputInterfaceLayout extends UIBaseInputInterface {
     ref?: UIOutputInterfaceLayout
 }
 
+/** The binding source properties and services that can be bound on the "Layout" widget. */
 declare class UIOutputInterfaceLayout {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -18362,9 +18559,11 @@ declare class UIOutputInterfaceLayout {
     ResetInputsToDefaultValue: ServiceBindingTarget
 }
 
+/** Allows you to build a responsive layout with multiple columns or rows */
 declare function Layout(props: UIInputInterfaceLayout): UIOutputInterfaceLayout
 
             
+/** The properties and events that can be set or bound on the "Leddisplay" widget. */
 declare interface UIInputInterfaceLeddisplay extends UIBaseInputInterface {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -18454,15 +18653,18 @@ declare interface UIInputInterfaceLeddisplay extends UIBaseInputInterface {
     ref?: UIOutputInterfaceLeddisplay
 }
 
+/** The binding source properties and services that can be bound on the "Leddisplay" widget. */
 declare class UIOutputInterfaceLeddisplay {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
     CustomClass: BindingTarget<STRING>
 }
 
+/** Simulates a LED Display */
 declare function Leddisplay(props: UIInputInterfaceLeddisplay): UIOutputInterfaceLeddisplay
 
             
+/** The properties and events that can be set or bound on the "Link" widget. */
 declare interface UIInputInterfaceLink extends UIBaseInputInterface {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -18560,6 +18762,7 @@ declare interface UIInputInterfaceLink extends UIBaseInputInterface {
     ref?: UIOutputInterfaceLink
 }
 
+/** The binding source properties and services that can be bound on the "Link" widget. */
 declare class UIOutputInterfaceLink {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -18570,9 +18773,11 @@ declare class UIOutputInterfaceLink {
     Navigate: ServiceBindingTarget
 }
 
+/** Opens the user defined page. */
 declare function Link(props: UIInputInterfaceLink): UIOutputInterfaceLink
 
             
+/** The properties and events that can be set or bound on the "Logoutbutton" widget. */
 declare interface UIInputInterfaceLogoutbutton extends UIBaseInputInterface {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -18706,15 +18911,18 @@ declare interface UIInputInterfaceLogoutbutton extends UIBaseInputInterface {
     ref?: UIOutputInterfaceLogoutbutton
 }
 
+/** The binding source properties and services that can be bound on the "Logoutbutton" widget. */
 declare class UIOutputInterfaceLogoutbutton {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
     CustomClass: BindingTarget<STRING>
 }
 
+/** Logs out the user when clicked */
 declare function Logoutbutton(props: UIInputInterfaceLogoutbutton): UIOutputInterfaceLogoutbutton
 
             
+/** The properties and events that can be set or bound on the "Logoutfunction" widget. */
 declare interface UIInputInterfaceLogoutfunction extends UIBaseInputInterface {
     
     /** tw.logoutfunction-ide.properties.mashup-name.description */
@@ -18776,15 +18984,17 @@ declare interface UIInputInterfaceLogoutfunction extends UIBaseInputInterface {
     ref?: UIOutputInterfaceLogoutfunction
 }
 
+/** The binding source properties and services that can be bound on the "Logoutfunction" widget. */
 declare class UIOutputInterfaceLogoutfunction {
     
     /**  */
     Logout: ServiceBindingTarget
 }
 
+/** LogOut function to another mashup */
 declare function Logoutfunction(props: UIInputInterfaceLogoutfunction): UIOutputInterfaceLogoutfunction
-
             
+/** The properties and events that can be set or bound on the "Maskedtextbox" widget. */
 declare interface UIInputInterfaceMaskedtextbox extends UIBaseInputInterface {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -18878,6 +19088,7 @@ declare interface UIInputInterfaceMaskedtextbox extends UIBaseInputInterface {
     ref?: UIOutputInterfaceMaskedtextbox
 }
 
+/** The binding source properties and services that can be bound on the "Maskedtextbox" widget. */
 declare class UIOutputInterfaceMaskedtextbox {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -18892,9 +19103,11 @@ declare class UIOutputInterfaceMaskedtextbox {
     ResetToDefaultValue: ServiceBindingTarget
 }
 
+/** Enables the user to enter data based on a mask. */
 declare function Maskedtextbox(props: UIInputInterfaceMaskedtextbox): UIOutputInterfaceMaskedtextbox
 
             
+/** The properties and events that can be set or bound on the "Menu" widget. */
 declare interface UIInputInterfaceMenu extends UIBaseInputInterface {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -19040,6 +19253,7 @@ declare interface UIInputInterfaceMenu extends UIBaseInputInterface {
     ref?: UIOutputInterfaceMenu
 }
 
+/** The binding source properties and services that can be bound on the "Menu" widget. */
 declare class UIOutputInterfaceMenu {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -19050,9 +19264,10 @@ declare class UIOutputInterfaceMenu {
     Mashup: BindingTarget<STRING>
 }
 
+/** Displays a menu from preconfigured menu or live data from a service */
 declare function Menu(props: UIInputInterfaceMenu): UIOutputInterfaceMenu
-
             
+/** The properties and events that can be set or bound on the "Numericentry" widget. */
 declare interface UIInputInterfaceNumericentry extends UIBaseInputInterface {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -19178,6 +19393,7 @@ declare interface UIInputInterfaceNumericentry extends UIBaseInputInterface {
     ref?: UIOutputInterfaceNumericentry
 }
 
+/** The binding source properties and services that can be bound on the "Numericentry" widget. */
 declare class UIOutputInterfaceNumericentry {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -19200,9 +19416,11 @@ declare class UIOutputInterfaceNumericentry {
     ResetToDefaultValue: ServiceBindingTarget
 }
 
+/** Enables the user to enter numeric values based on locale */
 declare function Numericentry(props: UIInputInterfaceNumericentry): UIOutputInterfaceNumericentry
 
             
+/** The properties and events that can be set or bound on the "Pagemashupcontainer" widget. */
 declare interface UIInputInterfacePagemashupcontainer extends UIBaseInputInterface {
     
     /** The name of the containing mashup */
@@ -19260,15 +19478,18 @@ declare interface UIInputInterfacePagemashupcontainer extends UIBaseInputInterfa
     ref?: UIOutputInterfacePagemashupcontainer
 }
 
+/** The binding source properties and services that can be bound on the "Pagemashupcontainer" widget. */
 declare class UIOutputInterfacePagemashupcontainer {
     
     /** To be used externally so you only have one auto-refresh on a page.  Does not refresh the browser, just triggers RefreshRequested which you then bind to the services you would like to trigger */
     Refresh: ServiceBindingTarget
 }
 
+/**  */
 declare function Pagemashupcontainer(props: UIInputInterfacePagemashupcontainer): UIOutputInterfacePagemashupcontainer
 
             
+/** The properties and events that can be set or bound on the "Panel" widget. */
 declare interface UIInputInterfacePanel extends UIBaseInputInterface {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -19346,6 +19567,7 @@ declare interface UIInputInterfacePanel extends UIBaseInputInterface {
     ref?: UIOutputInterfacePanel
 }
 
+/** The binding source properties and services that can be bound on the "Panel" widget. */
 declare class UIOutputInterfacePanel {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -19364,9 +19586,11 @@ declare class UIOutputInterfacePanel {
     ResetInputsToDefaultValue: ServiceBindingTarget
 }
 
+/** Displays a group of widgets */
 declare function Panel(props: UIInputInterfacePanel): UIOutputInterfacePanel
 
             
+/** The properties and events that can be set or bound on the "Piechart" widget. */
 declare interface UIInputInterfacePiechart<A> extends UIBaseInputInterface {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -19377,8 +19601,8 @@ declare interface UIInputInterfacePiechart<A> extends UIBaseInputInterface {
     "SingleDataSource"?: BOOLEAN;
 
 
-    /** Data source */
-    "Data"?: BindingTarget<INFOTABLE>;
+    /** Data source */ 
+    "Data"?: BindingTarget<INFOTABLE<A>>;
 
 
     /** The InfoTable column specifying the label data */
@@ -19520,15 +19744,18 @@ declare interface UIInputInterfacePiechart<A> extends UIBaseInputInterface {
     ref?: UIOutputInterfacePiechart<A>
 }
 
+/** The binding source properties and services that can be bound on the "Piechart" widget. */
 declare class UIOutputInterfacePiechart<A> {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
     CustomClass: BindingTarget<STRING>
 }
 
+/** Displays a pie chart */
 declare function Piechart<A>(props: UIInputInterfacePiechart<A>): UIOutputInterfacePiechart<A>
 
             
+/** The properties and events that can be set or bound on the "Propertydisplay" widget. */
 declare interface UIInputInterfacePropertydisplay extends UIBaseInputInterface {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -19614,6 +19841,7 @@ declare interface UIInputInterfacePropertydisplay extends UIBaseInputInterface {
     ref?: UIOutputInterfacePropertydisplay
 }
 
+/** The binding source properties and services that can be bound on the "Propertydisplay" widget. */
 declare class UIOutputInterfacePropertydisplay {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -19624,9 +19852,11 @@ declare class UIOutputInterfacePropertydisplay {
     Data: BindingTarget<INFOTABLE>
 }
 
+/** Displays a two-column grid of field name and value pairs */
 declare function Propertydisplay(props: UIInputInterfacePropertydisplay): UIOutputInterfacePropertydisplay
 
             
+/** The properties and events that can be set or bound on the "Preferences" widget. */
 declare interface UIInputInterfacePreferences extends UIBaseInputInterface {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -19740,15 +19970,18 @@ declare interface UIInputInterfacePreferences extends UIBaseInputInterface {
     ref?: UIOutputInterfacePreferences
 }
 
+/** The binding source properties and services that can be bound on the "Preferences" widget. */
 declare class UIOutputInterfacePreferences {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
     CustomClass: BindingTarget<STRING>
 }
 
+/** Form for editing user preferences */
 declare function Preferences(props: UIInputInterfacePreferences): UIOutputInterfacePreferences
 
             
+/** The properties and events that can be set or bound on the "Proportionalchart" widget. */
 declare interface UIInputInterfaceProportionalchart<A> extends UIBaseInputInterface {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -19763,8 +19996,8 @@ declare interface UIInputInterfaceProportionalchart<A> extends UIBaseInputInterf
     "NumberOfSeries"?: NUMBER;
 
 
-    /** Data source */
-    "Data"?: BindingTarget<INFOTABLE>;
+    /** Data source */ 
+    "Data"?: BindingTarget<INFOTABLE<A>>;
 
 
     /** Type of chart */
@@ -20434,15 +20667,18 @@ declare interface UIInputInterfaceProportionalchart<A> extends UIBaseInputInterf
     ref?: UIOutputInterfaceProportionalchart<A>
 }
 
+/** The binding source properties and services that can be bound on the "Proportionalchart" widget. */
 declare class UIOutputInterfaceProportionalchart<A> {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
     CustomClass: BindingTarget<STRING>
 }
 
+/** Displays a proportional chart */
 declare function Proportionalchart<A>(props: UIInputInterfaceProportionalchart<A>): UIOutputInterfaceProportionalchart<A>
 
             
+/** The properties and events that can be set or bound on the "Radiobuttonlist" widget. */
 declare interface UIInputInterfaceRadiobuttonlist extends UIBaseInputInterface {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -20536,6 +20772,7 @@ declare interface UIInputInterfaceRadiobuttonlist extends UIBaseInputInterface {
     ref?: UIOutputInterfaceRadiobuttonlist
 }
 
+/** The binding source properties and services that can be bound on the "Radiobuttonlist" widget. */
 declare class UIOutputInterfaceRadiobuttonlist {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -20550,9 +20787,11 @@ declare class UIOutputInterfaceRadiobuttonlist {
     SelectedText: BindingTarget<STRING>
 }
 
+/** Enables the user to select an option from a group of choices */
 declare function Radiobuttonlist(props: UIInputInterfaceRadiobuttonlist): UIOutputInterfaceRadiobuttonlist
 
             
+/** The properties and events that can be set or bound on the "Rangechart" widget. */
 declare interface UIInputInterfaceRangechart<A> extends UIBaseInputInterface {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -20563,8 +20802,8 @@ declare interface UIInputInterfaceRangechart<A> extends UIBaseInputInterface {
     "SingleDataSource"?: BOOLEAN;
 
 
-    /** Data source */
-    "Data"?: BindingTarget<INFOTABLE>;
+    /** Data source */ 
+    "Data"?: BindingTarget<INFOTABLE<A>>;
 
 
     /** Type of chart */
@@ -20838,15 +21077,18 @@ declare interface UIInputInterfaceRangechart<A> extends UIBaseInputInterface {
     ref?: UIOutputInterfaceRangechart<A>
 }
 
+/** The binding source properties and services that can be bound on the "Rangechart" widget. */
 declare class UIOutputInterfaceRangechart<A> {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
     CustomClass: BindingTarget<STRING>
 }
 
+/** Displays an range chart */
 declare function Rangechart<A>(props: UIInputInterfaceRangechart<A>): UIOutputInterfaceRangechart<A>
 
             
+/** The properties and events that can be set or bound on the "Remoteaccess" widget. */
 declare interface UIInputInterfaceRemoteaccess extends UIBaseInputInterface {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -20912,15 +21154,18 @@ declare interface UIInputInterfaceRemoteaccess extends UIBaseInputInterface {
     ref?: UIOutputInterfaceRemoteaccess
 }
 
+/** The binding source properties and services that can be bound on the "Remoteaccess" widget. */
 declare class UIOutputInterfaceRemoteaccess {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
     CustomClass: BindingTarget<STRING>
 }
 
+/** Enables connection to a remote thing */
 declare function Remoteaccess(props: UIInputInterfaceRemoteaccess): UIOutputInterfaceRemoteaccess
 
             
+/** The properties and events that can be set or bound on the "Repeater" widget. */
 declare interface UIInputInterfaceRepeater extends UIBaseInputInterface {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -21058,15 +21303,18 @@ declare interface UIInputInterfaceRepeater extends UIBaseInputInterface {
     ref?: UIOutputInterfaceRepeater
 }
 
+/** The binding source properties and services that can be bound on the "Repeater" widget. */
 declare class UIOutputInterfaceRepeater {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
     CustomClass: BindingTarget<STRING>
 }
 
+/** Displays rows of data using a specified mashup. */
 declare function Repeater(props: UIInputInterfaceRepeater): UIOutputInterfaceRepeater
 
             
+/** The properties and events that can be set or bound on the "Shape" widget. */
 declare interface UIInputInterfaceShape extends UIBaseInputInterface {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -21176,15 +21424,18 @@ declare interface UIInputInterfaceShape extends UIBaseInputInterface {
     ref?: UIOutputInterfaceShape
 }
 
+/** The binding source properties and services that can be bound on the "Shape" widget. */
 declare class UIOutputInterfaceShape {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
     CustomClass: BindingTarget<STRING>
 }
 
+/** Displays a shape */
 declare function Shape(props: UIInputInterfaceShape): UIOutputInterfaceShape
 
             
+/** The properties and events that can be set or bound on the "Slider" widget. */
 declare interface UIInputInterfaceSlider extends UIBaseInputInterface {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -21354,6 +21605,7 @@ declare interface UIInputInterfaceSlider extends UIBaseInputInterface {
     ref?: UIOutputInterfaceSlider
 }
 
+/** The binding source properties and services that can be bound on the "Slider" widget. */
 declare class UIOutputInterfaceSlider {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -21384,9 +21636,11 @@ declare class UIOutputInterfaceSlider {
     Decrement: ServiceBindingTarget
 }
 
+/** Horizontal value slider. */
 declare function Slider(props: UIInputInterfaceSlider): UIOutputInterfaceSlider
 
             
+/** The properties and events that can be set or bound on the "Statusmessage" widget. */
 declare interface UIInputInterfaceStatusmessage extends UIBaseInputInterface {
     
     /** Width of widget */
@@ -21444,15 +21698,18 @@ declare interface UIInputInterfaceStatusmessage extends UIBaseInputInterface {
     ref?: UIOutputInterfaceStatusmessage
 }
 
+/** The binding source properties and services that can be bound on the "Statusmessage" widget. */
 declare class UIOutputInterfaceStatusmessage {
     
     /** A bindable service to show the status message defined for this widget */
     ShowMessage: ServiceBindingTarget
 }
 
+/** Displays a message */
 declare function Statusmessage(props: UIInputInterfaceStatusmessage): UIOutputInterfaceStatusmessage
 
             
+/** The properties and events that can be set or bound on the "Tabs" widget. */
 declare interface UIInputInterfaceTabs extends UIBaseInputInterface {
     
     /** Enables you to define the CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space */
@@ -21886,6 +22143,7 @@ declare interface UIInputInterfaceTabs extends UIBaseInputInterface {
     ref?: UIOutputInterfaceTabs
 }
 
+/** The binding source properties and services that can be bound on the "Tabs" widget. */
 declare class UIOutputInterfaceTabs {
     
     /** Enables you to define the CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space */
@@ -21908,9 +22166,11 @@ declare class UIOutputInterfaceTabs {
     ResetInputsToDefaultValue: ServiceBindingTarget
 }
 
+/** Allows users to swap between various tabs easily. */
 declare function Tabs(props: UIInputInterfaceTabs): UIOutputInterfaceTabs
 
             
+/** The properties and events that can be set or bound on the "Tabsv2" widget. */
 declare interface UIInputInterfaceTabsv2 extends UIBaseInputInterface {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -22332,6 +22592,7 @@ declare interface UIInputInterfaceTabsv2 extends UIBaseInputInterface {
     ref?: UIOutputInterfaceTabsv2
 }
 
+/** The binding source properties and services that can be bound on the "Tabsv2" widget. */
 declare class UIOutputInterfaceTabsv2 {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -22354,9 +22615,11 @@ declare class UIOutputInterfaceTabsv2 {
     ResetInputsToDefaultValue: ServiceBindingTarget
 }
 
+/** Allows users to swap between various tabs easily. */
 declare function Tabsv2(props: UIInputInterfaceTabsv2): UIOutputInterfaceTabsv2
 
             
+/** The properties and events that can be set or bound on the "Tagcloud" widget. */
 declare interface UIInputInterfaceTagcloud<A> extends UIBaseInputInterface {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -22371,8 +22634,8 @@ declare interface UIInputInterfaceTagcloud<A> extends UIBaseInputInterface {
     "Height"?: NUMBER;
 
 
-    /** Tag data bound to widget */
-    "Data"?: BindingTarget<INFOTABLE>;
+    /** Tag data bound to widget */ 
+    "Data"?: BindingTarget<INFOTABLE<A>>;
 
 
     /** Size of the largest tag in the cloud in css em. Scales all other tags down from this size. */
@@ -22466,15 +22729,18 @@ declare interface UIInputInterfaceTagcloud<A> extends UIBaseInputInterface {
     ref?: UIOutputInterfaceTagcloud<A>
 }
 
+/** The binding source properties and services that can be bound on the "Tagcloud" widget. */
 declare class UIOutputInterfaceTagcloud<A> {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
     CustomClass: BindingTarget<STRING>
 }
 
+/** Displays Vocabulary Terms according to usage */
 declare function Tagcloud<A>(props: UIInputInterfaceTagcloud<A>): UIOutputInterfaceTagcloud<A>
 
             
+/** The properties and events that can be set or bound on the "Tagpicker" widget. */
 declare interface UIInputInterfaceTagpicker extends UIBaseInputInterface {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -22536,6 +22802,7 @@ declare interface UIInputInterfaceTagpicker extends UIBaseInputInterface {
     ref?: UIOutputInterfaceTagpicker
 }
 
+/** The binding source properties and services that can be bound on the "Tagpicker" widget. */
 declare class UIOutputInterfaceTagpicker {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -22546,9 +22813,11 @@ declare class UIOutputInterfaceTagpicker {
     Tags: BindingTarget<TAGS>
 }
 
+/** Allows users to select tags at runtime */
 declare function Tagpicker(props: UIInputInterfaceTagpicker): UIOutputInterfaceTagpicker
 
             
+/** The properties and events that can be set or bound on the "Targetmashup" widget. */
 declare interface UIInputInterfaceTargetmashup extends UIBaseInputInterface {
     
     /** The style theme applied to this mashup */
@@ -22646,6 +22915,7 @@ declare interface UIInputInterfaceTargetmashup extends UIBaseInputInterface {
     ref?: UIOutputInterfaceTargetmashup
 }
 
+/** The binding source properties and services that can be bound on the "Targetmashup" widget. */
 declare class UIOutputInterfaceTargetmashup {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -22656,9 +22926,11 @@ declare class UIOutputInterfaceTargetmashup {
     ResetInputsToDefaultValue: ServiceBindingTarget
 }
 
+/**  */
 declare function Targetmashup(props: UIInputInterfaceTargetmashup): UIOutputInterfaceTargetmashup
 
             
+/** The properties and events that can be set or bound on the "Textarea" widget. */
 declare interface UIInputInterfaceTextarea extends UIBaseInputInterface {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -22760,6 +23032,7 @@ declare interface UIInputInterfaceTextarea extends UIBaseInputInterface {
     ref?: UIOutputInterfaceTextarea
 }
 
+/** The binding source properties and services that can be bound on the "Textarea" widget. */
 declare class UIOutputInterfaceTextarea {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -22774,9 +23047,11 @@ declare class UIOutputInterfaceTextarea {
     ResetToDefaultValue: ServiceBindingTarget
 }
 
+/** Enables the user to enter multi-line text. */
 declare function Textarea(props: UIInputInterfaceTextarea): UIOutputInterfaceTextarea
 
             
+/** The properties and events that can be set or bound on the "Textbox" widget. */
 declare interface UIInputInterfaceTextbox extends UIBaseInputInterface {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -22898,6 +23173,7 @@ declare interface UIInputInterfaceTextbox extends UIBaseInputInterface {
     ref?: UIOutputInterfaceTextbox
 }
 
+/** The binding source properties and services that can be bound on the "Textbox" widget. */
 declare class UIOutputInterfaceTextbox {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -22916,9 +23192,11 @@ declare class UIOutputInterfaceTextbox {
     ResetToDefaultValue: ServiceBindingTarget
 }
 
+/** Enables the user to enter text. */
 declare function Textbox(props: UIInputInterfaceTextbox): UIOutputInterfaceTextbox
 
             
+/** The properties and events that can be set or bound on the "Thingshapemashup" widget. */
 declare interface UIInputInterfaceThingshapemashup extends UIBaseInputInterface {
     
     /** Width of widget */
@@ -22992,6 +23270,7 @@ declare interface UIInputInterfaceThingshapemashup extends UIBaseInputInterface 
     ref?: UIOutputInterfaceThingshapemashup
 }
 
+/** The binding source properties and services that can be bound on the "Thingshapemashup" widget. */
 declare class UIOutputInterfaceThingshapemashup {
     
     /** The entity to use */
@@ -23010,9 +23289,11 @@ declare class UIOutputInterfaceThingshapemashup {
     ResetInputsToDefaultValue: ServiceBindingTarget
 }
 
+/**  */
 declare function Thingshapemashup(props: UIInputInterfaceThingshapemashup): UIOutputInterfaceThingshapemashup
 
             
+/** The properties and events that can be set or bound on the "Thingtemplatemashup" widget. */
 declare interface UIInputInterfaceThingtemplatemashup extends UIBaseInputInterface {
     
     /** Width of widget */
@@ -23086,6 +23367,7 @@ declare interface UIInputInterfaceThingtemplatemashup extends UIBaseInputInterfa
     ref?: UIOutputInterfaceThingtemplatemashup
 }
 
+/** The binding source properties and services that can be bound on the "Thingtemplatemashup" widget. */
 declare class UIOutputInterfaceThingtemplatemashup {
     
     /** The entity to use */
@@ -23104,9 +23386,11 @@ declare class UIOutputInterfaceThingtemplatemashup {
     ResetInputsToDefaultValue: ServiceBindingTarget
 }
 
+/**  */
 declare function Thingtemplatemashup(props: UIInputInterfaceThingtemplatemashup): UIOutputInterfaceThingtemplatemashup
 
             
+/** The properties and events that can be set or bound on the "Timeselector" widget. */
 declare interface UIInputInterfaceTimeselector extends UIBaseInputInterface {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -23248,6 +23532,7 @@ declare interface UIInputInterfaceTimeselector extends UIBaseInputInterface {
     ref?: UIOutputInterfaceTimeselector
 }
 
+/** The binding source properties and services that can be bound on the "Timeselector" widget. */
 declare class UIOutputInterfaceTimeselector {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -23262,9 +23547,11 @@ declare class UIOutputInterfaceTimeselector {
     EndDateTime: BindingTarget<DATETIME>
 }
 
+/** Enables the user to select a time range */
 declare function Timeselector(props: UIInputInterfaceTimeselector): UIOutputInterfaceTimeselector
 
             
+/** The properties and events that can be set or bound on the "Tree" widget. */
 declare interface UIInputInterfaceTree<A> extends UIBaseInputInterface {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -23327,8 +23614,8 @@ declare interface UIInputInterfaceTree<A> extends UIBaseInputInterface {
     "SelectedBreadcrumb"?: STRING;
 
 
-    /** Data source */
-    "Data"?: BindingTarget<INFOTABLE>;
+    /** Data source */ 
+    "Data"?: BindingTarget<INFOTABLE<A>>;
 
 
     /** Width of widget */
@@ -23394,6 +23681,7 @@ declare interface UIInputInterfaceTree<A> extends UIBaseInputInterface {
     ref?: UIOutputInterfaceTree<A>
 }
 
+/** The binding source properties and services that can be bound on the "Tree" widget. */
 declare class UIOutputInterfaceTree<A> {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -23404,9 +23692,11 @@ declare class UIOutputInterfaceTree<A> {
     SelectedBreadcrumb: BindingTarget<STRING>
 }
 
+/** Displays a tree using a dataset containing nested infotables */
 declare function Tree<A>(props: UIInputInterfaceTree<A>): UIOutputInterfaceTree<A>
 
             
+/** The properties and events that can be set or bound on the "Timeserieschart" widget. */
 declare interface UIInputInterfaceTimeserieschart<A> extends UIBaseInputInterface {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -23421,8 +23711,8 @@ declare interface UIInputInterfaceTimeserieschart<A> extends UIBaseInputInterfac
     "NumberOfSeries"?: NUMBER;
 
 
-    /** Data source */
-    "Data"?: BindingTarget<INFOTABLE>;
+    /** Data source */ 
+    "Data"?: BindingTarget<INFOTABLE<A>>;
 
 
     /** Type of chart */
@@ -24608,15 +24898,18 @@ declare interface UIInputInterfaceTimeserieschart<A> extends UIBaseInputInterfac
     ref?: UIOutputInterfaceTimeserieschart<A>
 }
 
+/** The binding source properties and services that can be bound on the "Timeserieschart" widget. */
 declare class UIOutputInterfaceTimeserieschart<A> {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
     CustomClass: BindingTarget<STRING>
 }
 
+/** Displays a time series chart */
 declare function Timeserieschart<A>(props: UIInputInterfaceTimeserieschart<A>): UIOutputInterfaceTimeserieschart<A>
 
             
+/** The properties and events that can be set or bound on the "Validator" widget. */
 declare interface UIInputInterfaceValidator extends UIBaseInputInterface {
     
     /** Width of widget */
@@ -24686,6 +24979,7 @@ declare interface UIInputInterfaceValidator extends UIBaseInputInterface {
     ref?: UIOutputInterfaceValidator
 }
 
+/** The binding source properties and services that can be bound on the "Validator" widget. */
 declare class UIOutputInterfaceValidator {
     
     /** The output from evaluated expression */
@@ -24696,9 +24990,11 @@ declare class UIOutputInterfaceValidator {
     Evaluate: ServiceBindingTarget
 }
 
+/** Evaluates a (Not Secure) expression to a true/false result */
 declare function Validator(props: UIInputInterfaceValidator): UIOutputInterfaceValidator
 
             
+/** The properties and events that can be set or bound on the "Validator2" widget. */
 declare interface UIInputInterfaceValidator2 extends UIBaseInputInterface {
     
     /** Width of widget */
@@ -24768,6 +25064,7 @@ declare interface UIInputInterfaceValidator2 extends UIBaseInputInterface {
     ref?: UIOutputInterfaceValidator2
 }
 
+/** The binding source properties and services that can be bound on the "Validator2" widget. */
 declare class UIOutputInterfaceValidator2 {
     
     /** The output from evaluated expression */
@@ -24778,9 +25075,11 @@ declare class UIOutputInterfaceValidator2 {
     Evaluate: ServiceBindingTarget
 }
 
+/** Evaluates a (Not Secure) expression to a true/false result */
 declare function Validator2(props: UIInputInterfaceValidator2): UIOutputInterfaceValidator2
 
             
+/** The properties and events that can be set or bound on the "Valuedisplay" widget. */
 declare interface UIInputInterfaceValuedisplay extends UIBaseInputInterface {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -24906,15 +25205,18 @@ declare interface UIInputInterfaceValuedisplay extends UIBaseInputInterface {
     ref?: UIOutputInterfaceValuedisplay
 }
 
+/** The binding source properties and services that can be bound on the "Valuedisplay" widget. */
 declare class UIOutputInterfaceValuedisplay {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
     CustomClass: BindingTarget<STRING>
 }
 
+/** Displays a single value */
 declare function Valuedisplay(props: UIInputInterfaceValuedisplay): UIOutputInterfaceValuedisplay
 
             
+/** The properties and events that can be set or bound on the "Verticalslider" widget. */
 declare interface UIInputInterfaceVerticalslider extends UIBaseInputInterface {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -25084,6 +25386,7 @@ declare interface UIInputInterfaceVerticalslider extends UIBaseInputInterface {
     ref?: UIOutputInterfaceVerticalslider
 }
 
+/** The binding source properties and services that can be bound on the "Verticalslider" widget. */
 declare class UIOutputInterfaceVerticalslider {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -25114,9 +25417,11 @@ declare class UIOutputInterfaceVerticalslider {
     Decrement: ServiceBindingTarget
 }
 
+/** Vertical value slider. */
 declare function Verticalslider(props: UIInputInterfaceVerticalslider): UIOutputInterfaceVerticalslider
 
             
+/** The properties and events that can be set or bound on the "Webframe" widget. */
 declare interface UIInputInterfaceWebframe extends UIBaseInputInterface {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -25174,15 +25479,18 @@ declare interface UIInputInterfaceWebframe extends UIBaseInputInterface {
     ref?: UIOutputInterfaceWebframe
 }
 
+/** The binding source properties and services that can be bound on the "Webframe" widget. */
 declare class UIOutputInterfaceWebframe {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
     CustomClass: BindingTarget<STRING>
 }
 
+/** Displays a portal to another URL */
 declare function Webframe(props: UIInputInterfaceWebframe): UIOutputInterfaceWebframe
 
             
+/** The properties and events that can be set or bound on the "Wiki" widget. */
 declare interface UIInputInterfaceWiki extends UIBaseInputInterface {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -25308,15 +25616,18 @@ declare interface UIInputInterfaceWiki extends UIBaseInputInterface {
     ref?: UIOutputInterfaceWiki
 }
 
+/** The binding source properties and services that can be bound on the "Wiki" widget. */
 declare class UIOutputInterfaceWiki {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
     CustomClass: BindingTarget<STRING>
 }
 
+/** Display a wiki article */
 declare function Wiki(props: UIInputInterfaceWiki): UIOutputInterfaceWiki
 
             
+/** The properties and events that can be set or bound on the "Xychart" widget. */
 declare interface UIInputInterfaceXychart<A> extends UIBaseInputInterface {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
@@ -25331,8 +25642,8 @@ declare interface UIInputInterfaceXychart<A> extends UIBaseInputInterface {
     "NumberOfSeries"?: NUMBER;
 
 
-    /** Data source */
-    "Data"?: BindingTarget<INFOTABLE>;
+    /** Data source */ 
+    "Data"?: BindingTarget<INFOTABLE<A>>;
 
 
     /** Type of chart */
@@ -26514,10 +26825,12 @@ declare interface UIInputInterfaceXychart<A> extends UIBaseInputInterface {
     ref?: UIOutputInterfaceXychart<A>
 }
 
+/** The binding source properties and services that can be bound on the "Xychart" widget. */
 declare class UIOutputInterfaceXychart<A> {
     
     /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
     CustomClass: BindingTarget<STRING>
 }
 
+/** Displays an XY/scatter chart */
 declare function Xychart<A>(props: UIInputInterfaceXychart<A>): UIOutputInterfaceXychart<A>
