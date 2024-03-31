@@ -45,6 +45,9 @@ declare function ThingDefinition<K extends new (...args) => GenericThing>(target
 declare function valueStream(stream: KeysOfType<Things, ValueStream>): <T extends abstract new (...args) => GenericThing>(target: T) => void;
 
 /**
+ * @deprecated This decorator should be avoided in new projects. Consider defining
+ * a naming scheme where class names are typescript identifiers.
+ * ---
  * Specifies that the name of the entity should be different from the name of the class.
  * @param identifier    The identifier to use.
  */
@@ -52,7 +55,7 @@ declare function exportName(identifier: string): <T extends abstract new (...arg
 
 /**
  * Applies the given identifier to this Thing class.
- * @param identifier    The identigier to use.
+ * @param identifier    The identifier to use.
  */
 declare function identifier(identifier: string): <T extends new (...args) => GenericThing>(target: T) => void;
 

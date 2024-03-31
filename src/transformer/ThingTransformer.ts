@@ -1,8 +1,10 @@
 import * as ts from 'typescript';
 import { InlineSQL, SuperCallOptions, MethodHelpers, TWConfig } from '../configuration/TWConfig';
-import { TWEntityKind, TWPropertyDefinition, TWServiceDefinition, TWEventDefinition, TWSubscriptionDefinition, TWBaseTypes, TWPropertyDataChangeKind, TWFieldBase, TWPropertyRemoteBinding, TWPropertyRemoteFoldKind, TWPropertyRemotePushKind, TWPropertyRemoteStartKind, TWPropertyBinding, TWSubscriptionSourceKind, TWServiceParameter, TWDataShapeField, TWConfigurationTable, TWRuntimePermissionsList, TWVisibility, TWExtractedPermissionLists, TWRuntimePermissionDeclaration, TWPrincipal, TWPermission, TWUser, TWUserGroup, TWPrincipalBase, TWOrganizationalUnit, TWConnection, TWDataThings, TWInfoTable, GlobalFunction, GlobalFunctionReference, DiagnosticMessage, DiagnosticMessageKind, TWThing, TraceKind, TraceNodeInformation, DeploymentEndpoint } from './TWCoreTypes';
+import { TWEntityKind, TWPropertyDefinition, TWServiceDefinition, TWEventDefinition, TWSubscriptionDefinition, TWBaseTypes, TWPropertyDataChangeKind, TWFieldBase, TWPropertyRemoteBinding, TWPropertyRemoteFoldKind, TWPropertyRemotePushKind, TWPropertyRemoteStartKind, TWPropertyBinding, TWSubscriptionSourceKind, TWServiceParameter, TWDataShapeField, TWConfigurationTable, TWRuntimePermissionsList, TWVisibility, TWExtractedPermissionLists, TWRuntimePermissionDeclaration, TWPrincipal, TWPermission, TWUser, TWUserGroup, TWPrincipalBase, TWOrganizationalUnit, TWConnection, TWDataThings, TWInfoTable, GlobalFunction, GlobalFunctionReference, DiagnosticMessage, DiagnosticMessageKind, TWThing, TraceKind, TraceNodeInformation, DeploymentEndpoint, TWStyleDefinition, TWStateDefinition } from './TWCoreTypes';
 import { Breakpoint } from './DebugTypes';
 import { Builder } from 'xml2js';
+import { UITransformer } from './UITransformer';
+import { ConfigurationTablesDefinitionWithClassExpression, ConfigurationWithObjectLiteralExpression, ConstantOrLiteralValueOfExpression, ConstantValueOfExpression, HasDecoratorNamed, JSONWithObjectLiteralExpression, ThrowErrorForNode, XMLRepresentationOfInfotable } from './SharedFunctions';
 import * as fs from 'fs';
 import * as crypto from 'crypto';
 import * as path from 'path';
@@ -54,7 +56,25 @@ function CreateTraceReleaseStatement(): ts.ExpressionStatement {
 /**
  * A value that signifies that the inlined value of a constant should be `undefined`.
  */
-const ConstantValueUndefined = {};
+export const ConstantValueUndefined = {};
+
+/**
+ * Contains the default style definition fields that used in cases where these fields are omitted.
+ */
+export const StyleDefinitionDefault = {
+    backgroundColor: "",
+    displayString: "",
+    fontEmphasisBold: false,
+    fontEmphasisItalic: false,
+    fontEmphasisUnderline: false,
+    foregroundColor: "",
+    image: "",
+    lineColor: "",
+    lineStyle: "solid",
+    lineThickness: 1,
+    secondaryBackgroundColor: "",
+    textSize: "normal"
+};
 
 /**
  * The interface for a store object that is used to hold references to transformers
@@ -666,6 +686,16 @@ export class TWThingTransformer implements TWCodeTransformer {
     orgConnections: TWConnection[] = [];
 
     /**
+     * A dictionary of style definitions declared in this entity.
+     */
+    styleDefinitions: { [key: string]: TWStyleDefinition } = {};
+
+    /**
+     * A dictionary of state definitions declared in this entity.
+     */
+    stateDefinitions: { [key: string]: TWStateDefinition } = {};
+
+    /**
      * When enabled, ordinal values will be generated for data shape fields, in the order in which they
      * appear, starting from 0.
      * 
@@ -838,23 +868,7 @@ export class TWThingTransformer implements TWCodeTransformer {
      * @param error     The error message to display.
      */
     throwErrorForNode(node: ts.Node, error: string): never {
-        const limit = Error.stackTraceLimit;
-        try {
-            Error.stackTraceLimit = 0;
-            const sourceFile = node.getSourceFile() || this.sourceFile;
-            try {
-                const {line, character} = sourceFile.getLineAndCharacterOfPosition(node.getStart());
-                throw new Error(`Error in file ${sourceFile.fileName}:${line},${character}\n\n${error}\n
-    Failed parsing at: \n${node.getText()}\n\n`);
-            }
-            catch (e) {
-                // For synthetic nodes, the line and character positions cannot be determined
-                throw new Error(`Error in file ${sourceFile?.fileName}\n\n${error}\n`);
-            }
-        }
-        finally {
-            Error.stackTraceLimit = limit;
-        }
+        return ThrowErrorForNode(node, error, this.sourceFile);
     }
 
     /**
@@ -902,27 +916,7 @@ export class TWThingTransformer implements TWCodeTransformer {
      * @returns             The constant value if it could be resolved, `undefined` otherwise.
      */
     constantOrLiteralValueOfExpression(expression: ts.Expression): unknown {
-        if (ts.isNumericLiteral(expression)) {
-            return parseFloat((expression as ts.NumericLiteral).text);
-        }
-        else if (ts.isPrefixUnaryExpression(expression) && ts.isNumericLiteral(expression.operand) && expression.operator == ts.SyntaxKind.MinusToken) {
-            // check for negative number
-            return parseFloat('-' + (expression.operand as ts.NumericLiteral).text);
-        }
-        else if (ts.isStringLiteral(expression)) {
-            return expression.text;
-        }
-        else if (expression.kind == ts.SyntaxKind.TrueKeyword) {
-            return true;
-        }
-        else if (expression.kind == ts.SyntaxKind.FalseKeyword) {
-            return false;
-        }
-        else if (ts.isPropertyAccessExpression(expression)) {
-            return this.constantValueOfExpression(expression);
-        }
-
-        return undefined;
+        return ConstantOrLiteralValueOfExpression(expression, this);
     }
 
     /**
@@ -934,120 +928,7 @@ export class TWThingTransformer implements TWCodeTransformer {
      *                      value itself should be `undefined`, the constant `ConstantValueUndefined` will be returned.
      */
     constantValueOfExpression(this: TWCodeTransformer, expression: ts.Expression): unknown {
-        if (expression.kind != ts.SyntaxKind.PropertyAccessExpression) return undefined;
-
-        const propertyAccess = expression as ts.PropertyAccessExpression
-        
-        const sourceObject = propertyAccess.expression;
-        const value = propertyAccess.name.text;
-
-        if (sourceObject.kind == ts.SyntaxKind.PropertyAccessExpression) {
-            // If the source object is itself a property acess expression, it may refer to an env variable
-            const sourceExpression = sourceObject as ts.PropertyAccessExpression;
-            const sourceExpressionSource = sourceExpression.expression.getText();
-            const sourceExpressionValue = sourceExpression.name.text;
-
-            if (sourceExpressionSource == 'process' && sourceExpressionValue == 'env') {
-                // If the environment variable is not defined, replace the expression with `undefined
-                if (!(value in process.env)) {
-                    // Log a diagnostic message about this value
-                    const position = this.sourceFile && ts.getLineAndCharacterOfPosition(this.sourceFile, this.positionOffset || 0 + propertyAccess.name.pos);
-                    this.store['@diagnosticMessages'] = this.store['@diagnosticMessages'] || [];
-                    this.store['@diagnosticMessages'].push({
-                        kind: DiagnosticMessageKind.Warning, 
-                        message: `Referenced environment variable ${value} is not defined.`, 
-                        file: this.sourceFile?.fileName,
-                        line: position?.line,
-                        column: position?.character
-                    });
-                    return ConstantValueUndefined;
-                }
-
-                // If this is an environment variable, inline it
-                return process.env[value];
-            }
-        }
-        else {
-            // Otherwise it may just be a const enum
-            const emitResolver: ts.TypeChecker = (this.context as any).getEmitResolver();
-
-            if (emitResolver) {
-                // If this has an offset defined, determine the actual node to use in the original source file
-                if (this.positionOffset && this.sourceFile) {
-                    let originalNode: ts.PropertyAccessExpression | undefined;
-
-                    /**
-                     * Verifies if the specified node is the original node in the original source file,
-                     * otherwise continues to search for it in the specified node's descendants.
-                     * @param node          The node to verify.
-                     * @returns             The `node` argument.
-                     */
-                    const findNode = (node: ts.Node): void => {
-                        // If the original node was already found, stop searching
-                        if (originalNode) {
-                            return;
-                        }
-
-                        // The original node should have the same syntax kind and position
-                        if (node.kind == ts.SyntaxKind.PropertyAccessExpression && node.pos == this.positionOffset! + expression.pos) {
-                            // And additionally the same text
-                            try {
-                                if (node.getText() == expression.getText()) {
-                                    originalNode = node as ts.PropertyAccessExpression;
-                                }
-                            }
-                            catch (e) {
-                                // getText can fail for certain synthetic nodes, if this happens move on to the next node
-                            }
-                        }
-
-                        ts.forEachChild(node, findNode);
-                    }
-
-                    // Recursively search for the original node in the original source file
-                    ts.forEachChild(this.sourceFile, findNode);
-
-                    // If the source node was found, use it to determine the constant value
-                    if (originalNode) {
-                        return emitResolver.getConstantValue(originalNode);
-                    }
-                }
-
-                // The emit resolver is able to get the constant value directly
-                return emitResolver.getConstantValue(propertyAccess);
-            }
-            else {
-                // If the emit resolver isn't available (e.g. due to using ts.transform)
-                // Use the type checker to determine if the source object is an enum
-                // and find the initializer for its field
-
-                // NOTE: the type checker also has a getConstantValue method, but this
-                // does not appear to work when directly called against an enum member access
-                // expression
-                
-                const typeChecker = this.program.getTypeChecker();
-                const symbol = typeChecker.getSymbolAtLocation(propertyAccess);
-
-                if (symbol && symbol.declarations) {
-                    // If the symbol has multiple declarations, return the constant value
-                    // of the first one that can be computed, if any
-                    for (const declaration of symbol.declarations) {
-                        if (
-                            ts.isPropertyAccessExpression(declaration) || 
-                            ts.isEnumMember(declaration) || 
-                            ts.isElementAccessExpression(declaration)
-                        ) {
-                            const constantValue = typeChecker.getConstantValue(declaration);
-                            if (constantValue) {
-                                return constantValue;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        return undefined;
+        return ConstantValueOfExpression(expression, this);
     }
 
     /**
@@ -1057,25 +938,7 @@ export class TWThingTransformer implements TWCodeTransformer {
      * @return          `true` if the decorator was found, `false` otherwise.
      */
     hasDecoratorNamed(name: string, node: ts.Node): boolean {
-        if (!node.decorators) return false;
-
-        // Getting the decorator name depends on whether the decorator is applied directly or via a
-        // decorator factory
-        for (const decorator of node.decorators) {
-            if (decorator.expression.kind == ts.SyntaxKind.CallExpression) {
-                const callExpression = decorator.expression as ts.CallExpression;
-                if (callExpression.expression.getText() == name) {
-                    return true;
-                }
-            }
-            else if (decorator.expression.kind == ts.SyntaxKind.Identifier) {
-                const identifierExpression = decorator.expression as ts.Identifier;
-                if (identifierExpression.text == name) {
-                    return true;
-                }
-            }
-        }
-        return false;
+        return HasDecoratorNamed(name, node);
     }
 
 
@@ -1837,6 +1700,9 @@ export class TWThingTransformer implements TWCodeTransformer {
                 else if (baseClass.escapedText == 'OrganizationBase') {
                     this.entityKind = TWEntityKind.Organization;
                 }
+                else if (baseClass.escapedText == 'StyleLibrary') {
+                    this.entityKind = TWEntityKind.StyleLibrary;
+                }
                 else {
                     this.entityKind = this.entityKindOfClassNode(classNode);
                     this.thingTemplateName = baseClass.text;
@@ -2008,9 +1874,9 @@ export class TWThingTransformer implements TWCodeTransformer {
             }
 
             // In watch mode, it is not needed to visit class members since they are not needed for the declaration files,
-            // except for user lists whose members each correspond to an entity and organizations whose units must be specified
-            // as type arguments
-            if (!this.watch || this.entityKind == TWEntityKind.UserList || this.entityKind == TWEntityKind.Organization) {
+            // except for user lists whose members each correspond to an entity, organizations whose units must be specified
+            // as type arguments and style libraries that work similar to user lists
+            if (!this.watch || this.entityKind == TWEntityKind.UserList || this.entityKind == TWEntityKind.Organization || this.entityKind == TWEntityKind.StyleLibrary) {
                 for (const member of classNode.members) {
                     this.visitClassMember(member);
                 }
@@ -2105,6 +1971,9 @@ export class TWThingTransformer implements TWCodeTransformer {
             }
             else if (this.entityKind == TWEntityKind.UserList) {
                 this.visitUserListField(propertyDeclarationNode);
+            }
+            else if (this.entityKind == TWEntityKind.StyleLibrary) {
+                this.visitStyleLibraryField(propertyDeclarationNode);
             }
             else if (this.entityKind == TWEntityKind.Organization) {
                 if (node.name?.kind != ts.SyntaxKind.Identifier || (node.name as ts.Identifier)?.text != 'units') {
@@ -2230,7 +2099,7 @@ export class TWThingTransformer implements TWCodeTransformer {
     }
 
     /**
-     * Visits a data shape property declaration.
+     * Visits a user list property declaration.
      * @param node      The node to visit.
      */
     visitUserListField(node: ts.PropertyDeclaration) {
@@ -2322,6 +2191,100 @@ export class TWThingTransformer implements TWCodeTransformer {
             const user = principal as TWUser;
             user.extensions = {};
             this.users[user.name] = user;
+        }
+
+        // Extract the permissions to be applied per user
+        this.runtimePermissions = this.mergePermissionListsForNode([this.runtimePermissions].concat(this.permissionsOfNode(node, node.name.text)), node);
+    }
+
+    /**
+     * Visits a style library property declaration.
+     * @param node      The node to visit.
+     */
+    visitStyleLibraryField(node: ts.PropertyDeclaration) {
+        const definition = {} as TWStyleDefinition | TWStateDefinition;
+        if (node.name.kind != ts.SyntaxKind.Identifier) {
+            this.throwErrorForNode(node, `Computed property names are not supported in Thingwrox classes.`);
+        }
+
+        // First obtain the name of the property
+        definition.name = node.name.text;
+        definition.description = this.documentationOfNode(node);
+        definition.definition = {};
+
+        if (!node.initializer) {
+            this.throwErrorForNode(node, `Style library items must have an initializer.`);
+        }
+
+        if (!ts.isObjectLiteralExpression(node.initializer)) {
+            this.throwErrorForNode(node, `Style library items must be object literals.`);
+        }
+
+        // Extract the literal value
+        let value = JSONWithObjectLiteralExpression(node.initializer, (node, message) => this.throwErrorForNode(node, message), this);
+        if (!value) {
+            this.throwErrorForNode(node, `Unable to parse the value of the style library item`);
+        }
+
+        if ('stateType' in value) {
+            // If the value contains a stateType, it is a state definition
+            (definition as TWStateDefinition).stateNames = [];
+
+            // Perform some light validation on the state definition
+            if (value.stateType != 'numeric' && value.stateType != 'string') {
+                this.throwErrorForNode(node, `The "stateType" field must be either 'numeric' or 'string'.`);
+            }
+
+            if (!('stateDefinitions' in value) || !Array.isArray(value.stateDefinitions)) {
+                this.throwErrorForNode(node, `State definitions must contain an array of states'.`);
+            }
+
+            // State definitions must contain exactly one default state and all state names must be unique
+            let hasDefaultState = false;
+            let names = {};
+            value.stateDefinitions.forEach((item, i) => {
+                if (!('comparator' in item) && !('defaultValue' in item)) {
+                    if (hasDefaultState) {
+                        this.throwErrorForNode(node.initializer!, 'State definitions cannot contain more than one default state.');
+                    }
+
+                    hasDefaultState = true;
+                }
+
+                if (typeof item.name != 'string') {
+                    this.throwErrorForNode(node.initializer!, 'State definition names must be string literals.');
+                }
+                (definition as TWStateDefinition).stateNames.push(item.name);
+
+                // Ensure that the state name is unique
+                if (names[item.name]) {
+                    this.throwErrorForNode(node.initializer!, `State definition state names must be unique, but "${item.name}" is a duplicate name.`);
+                }
+                names[item.name] = item.name;
+
+                // Fill out ommitted fileds with default values
+                item.description ??= '';
+                item.displayString ??= item.name;
+
+                if (typeof item.defaultStyleDefinition == 'object') {
+                    item.defaultStyleDefinition = Object.assign({}, StyleDefinitionDefault, item.defaultStyleDefinition);
+                }
+            });
+
+            if (!hasDefaultState) {
+                this.throwErrorForNode(node.initializer, 'State definitions must contain one default state.');
+            }
+
+            definition.definition = value;
+            this.stateDefinitions[definition.name] = definition as TWStateDefinition;
+        }
+        else {
+            // Otherwise it is considered to be a style definition. Since all fields are optional and properly typed,
+            // there is no validation to perform here, just fill out missing fields with defaults
+            value = Object.assign({}, StyleDefinitionDefault, value) as TWStyleDefinition['definition'];
+            definition.definition = value;
+
+            this.styleDefinitions[definition.name] = definition as TWStyleDefinition;
         }
 
         // Extract the permissions to be applied per user
@@ -5877,59 +5840,9 @@ finally {
      * Visits a class expression that represents a configuration table definition.
      * @param node      The node to visit.
      */
-    visitConfigurationTablesDefinition(node: ts.ClassExpression) {
-        if (node.name) this.throwErrorForNode(node, `The argument for the @ConfigurationTables decorator must be an anonymous class.`);
-        if (node.heritageClauses) this.throwErrorForNode(node, `The argument for the @ConfigurationTables decorator must be a root class.`);
-
-        for (const member of node.members) {
-            if (member.kind == ts.SyntaxKind.MethodDeclaration) this.throwErrorForNode(node, `The @ConfigurationTables class cannot contain methods.`);
-
-            if (!member.name || member.name.kind != ts.SyntaxKind.Identifier) this.throwErrorForNode(member, `Configuration table names cannot be computed.`);
-
-            const table: TWConfigurationTable = {
-                category: '',
-                description: '',
-                'isHidden': false,
-                name: member.name.text,
-                dataShapeName: '',
-                isMultiRow: false
-            };
-
-            const property = member as ts.PropertyDeclaration;
-
-            const type = property.type as ts.TypeReferenceNode;
-            if (!type) this.throwErrorForNode(member, `Configuration table properties must be typed as either "Table" or "MultiRowTable".`);
-
-            if (property.type!.kind != ts.SyntaxKind.TypeReference) {
-                this.throwErrorForNode(member, `Configuration table properties must be typed as either "Table" or "MultiRowTable".`);
-            }
-
-            if (type.typeName.getText() == 'Table') {
-                table.isMultiRow = false;
-            }
-            else if (type.typeName.getText() == 'MultiRowTable') {
-                table.isMultiRow = true;
-            }
-            else {
-                this.throwErrorForNode(member, `Configuration table properties must be typed as either "Table" or "MultiRowTable".`);
-            }
-
-            if (!type.typeArguments || type.typeArguments.length != 1) this.throwErrorForNode(member, `Configuration table properties must have one type parameter representing the data shape name.`);
-
-            const typeArgument = type.typeArguments[0];
-            if (typeArgument.kind == ts.SyntaxKind.TypeReference) {
-                table.dataShapeName = (typeArgument as ts.TypeReferenceNode).typeName.getText();
-            }
-            else if (typeArgument.kind == ts.SyntaxKind.LiteralType) {
-                table.dataShapeName = ((typeArgument as ts.LiteralTypeNode).literal as ts.StringLiteral).text;
-            }
-            else {
-                this.throwErrorForNode(member, `The configuration table type argument must be a data shape class reference or exported name.`);
-            } 
-            
-
-            this.configurationTableDefinitions.push(table);
-        }
+    visitConfigurationTablesDefinition(node: ts.ClassExpression) { 
+        const tables = ConfigurationTablesDefinitionWithClassExpression(node, (node, err) => this.throwErrorForNode(node, err));
+        this.configurationTableDefinitions.push(...tables);
     }
 
     /**
@@ -5976,57 +5889,7 @@ finally {
      * @param node      The node to visit.
      */
     visitConfiguration(node: ts.ObjectLiteralExpression) {
-        this.configuration = {};
-
-        for (const member of node.properties) {
-            if (member.kind == ts.SyntaxKind.MethodDeclaration) this.throwErrorForNode(node, `The @config object cannot contain methods.`);
-
-            if (member.kind != ts.SyntaxKind.PropertyAssignment) this.throwErrorForNode(node, `The @config object must contain only property assignments.`);
-
-            if (!member.name || member.name.kind != ts.SyntaxKind.Identifier) this.throwErrorForNode(member, `Configuration table names cannot be computed.`);
-
-            const name = member.name.text;
-
-            const property = member as ts.PropertyAssignment;
-
-            const table: TWInfoTable = {
-                dataShape: {
-                    fieldDefinitions: {}
-                },
-                rows: []
-            };
-
-            switch (property.initializer.kind) {
-                case ts.SyntaxKind.ObjectLiteralExpression:
-                    table.rows.push(this.extractObjectLiteral(property.initializer as ts.ObjectLiteralExpression));
-                    break;
-                case ts.SyntaxKind.ArrayLiteralExpression:
-                    const array = property.initializer as ts.ArrayLiteralExpression;
-                    for (const element of array.elements) {
-                        if (element.kind != ts.SyntaxKind.ObjectLiteralExpression) {
-                            this.throwErrorForNode(array, 'Configuration rows must be object literals.');
-                        }
-                        table.rows.push(this.extractObjectLiteral(element as ts.ObjectLiteralExpression));
-                    }
-                    break;
-                default:
-                    this.throwErrorForNode(property, 'Configuration properties must be array or object literals.');
-            }
-
-            // Extract the data shape from the first row
-            const row = table.rows[0];
-            for (const key of Object.keys(row)) {
-                table.dataShape.fieldDefinitions[key] = {
-                    name: key,
-                    description: '',
-                    aspects: {},
-                    baseType: TWBaseTypes[typeof row[key]],
-                    ordinal: 0
-                }
-            }
-
-            this.configuration[name] = table;
-        }
+        this.configuration = ConfigurationWithObjectLiteralExpression(node, (node, err) => this.throwErrorForNode(node, err), this);
     }
 
     /**
@@ -6046,53 +5909,6 @@ finally {
         return '';
     }
 
-    /**
-     * Extracts the given object literal expression to an equivalent object literal.
-     * @param literal   The literal to extract.
-     * @returns         An object.
-     */
-    private extractObjectLiteral(literal: ts.ObjectLiteralExpression): Record<string, unknown> {
-        const result: Record<string, unknown> = {};
-
-        for (const member of literal.properties) {
-            if (member.kind != ts.SyntaxKind.PropertyAssignment) {
-                this.throwErrorForNode(literal, 'Configuration fields must be property assignments');
-            }
-            if (!member.name || member.name.kind != ts.SyntaxKind.Identifier) this.throwErrorForNode(member, `Configuration field names cannot be computed.`);
-
-            const name = member.name.text;
-
-            switch (member.initializer.kind) {
-                case ts.SyntaxKind.TrueKeyword:
-                    result[name] = true;
-                    break;
-                case ts.SyntaxKind.FalseKeyword:
-                    result[name] = false;
-                    break;
-                case ts.SyntaxKind.StringLiteral:
-                    result[name] = (member.initializer as ts.StringLiteral).text;
-                    break;
-                case ts.SyntaxKind.NumericLiteral:
-                    result[name] = parseFloat((member.initializer as ts.NumericLiteral).text);
-                    break;
-                case ts.SyntaxKind.PropertyAccessExpression:
-                    const constant = this.constantValueOfExpression(member.initializer);
-                    if (constant === undefined) {
-                        this.throwErrorForNode(member, `Configuration field values must be compile time constants.`)
-                    }
-                    if (constant === ConstantValueUndefined) {
-                        // If the value is undefined, don't add this key
-                        break;
-                    }
-                    result[name] = constant;
-                    break;
-                default:
-                    this.throwErrorForNode(member, `Configuration field values can only be literal primitives`);
-            }
-        }
-
-        return result;
-    }
 
     //#region Post transform actions
 
@@ -6463,37 +6279,7 @@ finally {
      * @returns                 An object.
      */
     private XMLRepresentationOfInfotable(infotable: TWInfoTable, withOrdinals = false) {
-        return {
-            $: {} as Record<string, string>,
-            DataShape: [
-                {
-                    FieldDefinitions: [
-                        {
-                            FieldDefinition: Object.values(infotable.dataShape.fieldDefinitions).map(f => {
-                                const fieldDefinition: any = {
-                                    $: {
-                                        baseType: f.baseType,
-                                        description: f.description,
-                                        name: f.name
-                                    }
-                                };
-
-                                if (withOrdinals) {
-                                    fieldDefinition.$.ordinal = f.ordinal
-                                }
-
-                                return fieldDefinition;
-                            })
-                        }
-                    ]
-                }
-            ],
-            Rows: [
-                {
-                    Row: infotable.rows
-                }
-            ]
-        };
+        return XMLRepresentationOfInfotable(infotable, withOrdinals);
     }
 
     /**
@@ -6747,6 +6533,8 @@ finally {
         if (this.entityKind == TWEntityKind.UserList) return this.toUserListXML();
 
         if (this.entityKind == TWEntityKind.Organization) return this.toOrganizationXML();
+
+        if (this.entityKind == TWEntityKind.StyleLibrary) return this.toStyleListXML();
 
         const collectionKind = this.entityKind + 's';
         const entityKind = this.entityKind;
@@ -7580,6 +7368,111 @@ finally {
         return (new Builder()).buildObject(XML);
     }
 
+
+
+    /**
+     * Returns an array of XML entities containing the styles and states in the file processed by this transformer.
+     */
+    private toStyleListXML(): string {
+        const XML = {} as any;
+        XML.Entities = {};
+        XML.Entities.StyleDefinitions = [{}];
+        XML.Entities.StyleDefinitions[0].StyleDefinition = [];
+        XML.Entities.StateDefinitions = [{}];
+        XML.Entities.StateDefinitions[0].StateDefinition = [];
+
+        for (const style in this.styleDefinitions) {
+            const collectionKind = 'StyleDefinitions';
+            const entityKind = 'StyleDefinition';
+
+            const entity: any = {$: {}};
+    
+            entity.$.name = style;
+
+            if (this.projectName) entity.$.projectName = this.projectName;
+            if (this.editable) entity.$['aspect.isEditableExtensionObject'] = this.editable;
+    
+            // Tags are yet unsupported
+            entity.$.tags = '';
+    
+            if (this.styleDefinitions[style].description) entity.$.description = this.styleDefinitions[style].description;
+
+            entity.content = [JSON.stringify(this.styleDefinitions[style].definition)];
+
+            if (this.runtimePermissions.runtime) {
+                entity.RunTimePermissions = [{Permissions: []}];
+    
+                for (const resource in this.runtimePermissions.runtime) {
+                    // For user lists, the resource name represents the entity to which the permissions apply
+                    if (resource != style) continue;
+
+                    const permissionDefinition = {$: {resourceName: '*'}};
+    
+                    for (const permission in this.runtimePermissions.runtime[resource]) {
+                        const principals = this.runtimePermissions.runtime[resource][permission].map(p => ({$: {name: p.principal, type: p.type, isPermitted: p.isPermitted}}));
+                        permissionDefinition[permission] = [{Principal: principals}];
+                    }
+    
+                    entity.RunTimePermissions[0].Permissions.push(permissionDefinition);
+                }
+            }
+
+            if (this.visibilityPermissions.length) {
+                entity.VisibilityPermissions = [{Visibility: []}];
+                entity.VisibilityPermissions[0].Visibility[0] = {Principal: this.visibilityPermissions.map(p => ({$: p}))};
+            }
+
+            XML.Entities[collectionKind][0][entityKind].push(entity);
+
+        }
+
+        for (const state in this.stateDefinitions) {
+            const collectionKind = 'StateDefinitions';
+            const entityKind = 'StateDefinition';
+            
+            const entity: any = {$:{}};
+    
+            entity.$.name = state;
+
+            if (this.projectName) entity.$.projectName = this.projectName;
+            if (this.editable) entity.$['aspect.isEditableExtensionObject'] = this.editable;
+    
+            // Tags are yet unsupported
+            entity.$.tags = '';
+    
+            if (this.stateDefinitions[state].description) entity.$.description = this.stateDefinitions[state].description;
+
+            entity.content = [JSON.stringify(this.stateDefinitions[state].definition)];
+
+            if (this.runtimePermissions.runtime) {
+                entity.RunTimePermissions = [{Permissions: []}];
+    
+                for (const resource in this.runtimePermissions.runtime) {
+                    // For user lists, the resource name represents the entity to which the permissions apply
+                    if (resource != state) continue;
+
+                    const permissionDefinition = {$: {resourceName: '*'}};
+    
+                    for (const permission in this.runtimePermissions.runtime[resource]) {
+                        const principals = this.runtimePermissions.runtime[resource][permission].map(p => ({$: {name: p.principal, type: p.type, isPermitted: p.isPermitted}}));
+                        permissionDefinition[permission] = [{Principal: principals}];
+                    }
+    
+                    entity.RunTimePermissions[0].Permissions.push(permissionDefinition);
+                }
+            }
+
+            if (this.visibilityPermissions.length) {
+                entity.VisibilityPermissions = [{Visibility: []}];
+                entity.VisibilityPermissions[0].Visibility[0] = {Principal: this.visibilityPermissions.map(p => ({$: p}))};
+            }
+
+            XML.Entities[collectionKind][0][entityKind].push(entity);
+        }
+
+        return (new Builder).buildObject(XML);
+    }
+
     //#endregion
 
     /**
@@ -7609,6 +7502,11 @@ finally {
             }
             else if (this.entityKind == TWEntityKind.Organization) {
                 return `declare interface ${this.entityKind}s { ${JSON.stringify(this.exportedName)}: ${this.entityKind}Entity<${this.orgUnits.map(u => JSON.stringify(u.name)).join(' | ') || 'string'}>}`;
+            }
+            else if (this.entityKind == TWEntityKind.StyleLibrary) {
+                const styles = `declare interface StyleDefinitions { ${Object.values(this.styleDefinitions).map(s => `${JSON.stringify(s.name)}: StyleDefinitionEntity;`).join(' ')} }\n\n`;
+                const states = `declare interface StateDefinitions { ${Object.values(this.stateDefinitions).map(s => `${JSON.stringify(s.name)}: StateDefinitionEntity<${s.stateNames.map(n => JSON.stringify(n)).join(' | ')}>;`).join(' ')} }\n\n`;
+                return styles + states;
             }
             else {
                 let declaration = `declare interface ${this.entityKind}s { ${JSON.stringify(this.exportedName)}: ${this.entityKind}Entity<${this.className}>}`;
@@ -7669,64 +7567,126 @@ export { TWConfig, MethodHelpers };
 
 export * from './TWCoreTypes';
 
-export function TWThingTransformerFactory(program: ts.Program, root: string, after: boolean = false, watch: boolean = false, project?: string | TWConfig) {
+/**
+ * Returns a typescript AST node visitor that extracts information from the source file it is invoked on
+ * and can output a matching thingworx entity XML file.
+ * @param program           The typescript program the source file is part of.
+ * @param root              The root path of the typescript program.
+ * @param after             Defaults to `false`. Must be set to `true` if this transformer is created for the `after` phase.
+ * @param watch             Defaults to `false`. Should be set to `true` for declaration builds to avoid unnecessary processing
+ *                          as these builds don't need the complete information from the source files to be generated.
+ * @param config            The `twconfig.json` file associated with the project which contains various  compilation settings.
+ *                          Additionally, this should be set to an object that is shared across all transformers used for the project
+ *                          and is also used for storing project-level compilation information such as global function references.
+ * @returns 
+ */
+export function TWThingTransformerFactory(program: ts.Program, root: string, after = false, watch = false, config: TWConfig) {
+
+    /**
+     * Creates a transformer and returns a visitor function that will use it to visit the AST for the source file it is invoked with.
+     */
     return function TWThingTransformerFunction(context: ts.TransformationContext) {
-        const transformer = new TWThingTransformer(program, context, root, after, watch);
 
         // The path normalized for the current platform, this is needed in multi project
         // builds because typescript filenames will also be normalized
         const rootPath = path.normalize(root);
+        let repoPath = rootPath;
 
-        if (project) {
-            if (typeof project == 'string') {
-                transformer.projectName = project;
+        // The target project name is is obtained differently based on whether the repo is in multi-repo
+        // mode or not and on whether a transformer config file is provided or not
+        let projectName: string;
+
+        // Set to `true` for multi-project repositories
+        let isAutoProject = false;
+
+        if (config) {
+            if (typeof config == 'string') {
+                // For very old gulp-based projects, the config argument was just a string representing the project name
+                projectName = config;
             }
             else {
                 // If the project name is "@auto", the project name must be derived from the last
                 // component of the root path
-                if (project.projectName == '@auto') {
-                    transformer.projectName = rootPath.split(path.sep).pop();
-                    transformer.repoPath = rootPath.substring(0, rootPath.length - transformer.projectName!.length - 1);
-                    transformer.isAutoProject = true;
+                if (config.projectName == '@auto') {
+                    projectName = rootPath.split(path.sep).pop() ?? '';
+                    repoPath = rootPath.substring(0, rootPath.length - projectName!.length - 1);
+
+                    isAutoProject = true;
                 }
                 else {
-                    transformer.projectName = project.projectName;
-                    transformer.repoPath = rootPath;
+                    projectName = config.projectName;
                 }
-                transformer.experimentalGlobals = project.experimentalGlobals;
-                transformer.autoGenerateDataShapeOrdinals = project.autoGenerateDataShapeOrdinals || false;
-                transformer.store = project.store;
-                transformer.debug = project.debug;
-                transformer.trace = project.trace || false;
-                transformer.generateThingInstances = project.generateThingInstances;
-                transformer.methodHelpers = project.methodHelpers;
-                transformer.globalFunctionsEnabled = project.globalFunctions;
-                transformer.inlineSQLOptions = project.inlineSQL;
-                transformer.superCallOptions = project.superCalls;
             }
+        }
+        else {
+
         }
     
         return (node: ts.SourceFile) => {
+            // The transformer that will process the file
+            let targetTransformer: TWThingTransformer | UITransformer;
+            const isUIFile = node.fileName.endsWith('.tsx');
+
+            // Create an appropriate transformer based on whether a mashup file is processed or not.
+            // Mashup files used a separate transformer because of the significantly different syntax.
+            if (isUIFile) {
+                if (typeof config !== 'object') {
+                    // Mashups require a twconfig store and shared store
+                    throw new Error(`Unable to process file "${node.fileName}". A twconfig.json file and shared store is required for mashups.`);
+                }
+
+                const mashupTransformer = new UITransformer(program, context, root, after, watch);
+                mashupTransformer.repoPath = repoPath;
+                mashupTransformer.projectName = projectName;
+                mashupTransformer.store = config.store;
+                targetTransformer = mashupTransformer;
+            }
+            else {
+                const transformer = new TWThingTransformer(program, context, root, after, watch);
+                transformer.projectName = projectName;
+                
+                if (config.projectName == '@auto') {
+                    transformer.repoPath = repoPath;
+                    transformer.isAutoProject = true;
+                }
+                else {
+                    transformer.repoPath = rootPath;
+                }
+
+                transformer.experimentalGlobals = config.experimentalGlobals;
+                transformer.autoGenerateDataShapeOrdinals = config.autoGenerateDataShapeOrdinals || false;
+                transformer.store = config.store;
+                transformer.debug = config.debug;
+                transformer.trace = config.trace || false;
+                transformer.generateThingInstances = config.generateThingInstances;
+                transformer.methodHelpers = config.methodHelpers;
+                transformer.globalFunctionsEnabled = config.globalFunctions;
+                transformer.inlineSQLOptions = config.inlineSQL;
+                transformer.superCallOptions = config.superCalls;
+
+                targetTransformer = transformer;
+            }
+            
             try {
-                if (typeof project == 'object') {
+                if (typeof config == 'object') {
                     if (!after) {
-                        project.transformerWillStartFile?.(node.fileName);
+                        config.transformerWillStartFile?.(node.fileName);
                     }
                 }
 
                 // Exclude files that originate from other projects, whose path does not contain
                 // this project's root path
-                if (transformer.isAutoProject && !path.normalize(node.fileName).startsWith(rootPath)) {
+                if (isAutoProject && !path.normalize(node.fileName).startsWith(rootPath)) {
                     return node;
                 }
     
-                if (!after && (transformer.debug || transformer.trace)) {
-                    if (transformer.store['@debugInformation']?.[node.fileName]) {
+                if (!after && (targetTransformer.debug || targetTransformer.trace) && !isUIFile) {
+                    if (targetTransformer.store['@debugInformation']?.[node.fileName]) {
                         // When running in debug mode, a different transformer may have already visited parts of this
                         // transformer's file and added debug information to it
                         // If that has happened, load the debug state saved by that transformer
-                        const debugStore = transformer.store['@debugInformation'][node.fileName];
-                        Object.assign(transformer, {
+                        const debugStore = targetTransformer.store['@debugInformation'][node.fileName];
+                        Object.assign(targetTransformer, {
                             _debugBreakpointCounter: debugStore._debugBreakpointCounter,
                             breakpointLocations: debugStore.breakpointLocations,
                             breakpointPositions: debugStore.breakpointPositions,
@@ -7735,24 +7695,24 @@ export function TWThingTransformerFactory(program: ts.Program, root: string, aft
                     }
                     else {
                         // Otherwise initialize a debug store for this file
-                        transformer.store['@debugInformation'] = transformer.store['@debugInformation'] || {};
-                        transformer.store['@debugInformation'][node.fileName] = {
-                            _debugBreakpointCounter: transformer._debugBreakpointCounter,
-                            breakpointLocations: transformer.breakpointLocations,
-                            breakpointPositions: transformer.breakpointPositions,
-                            breakpoints: transformer.breakpoints,
+                        targetTransformer.store['@debugInformation'] = targetTransformer.store['@debugInformation'] || {};
+                        targetTransformer.store['@debugInformation'][node.fileName] = {
+                            _debugBreakpointCounter: targetTransformer._debugBreakpointCounter,
+                            breakpointLocations: targetTransformer.breakpointLocations,
+                            breakpointPositions: targetTransformer.breakpointPositions,
+                            breakpoints: targetTransformer.breakpoints,
                         };
                     }
                 }
     
-                const result = ts.visitNode(node, node => transformer.visit(node));
+                const result = ts.visitNode(node, node => targetTransformer.visit(node));
 
                 return result;
             }
             finally {
-                if (typeof project == 'object') {
+                if (typeof config == 'object') {
                     if (after) {
-                        project.transformerDidFinishFile?.(node.fileName);
+                        config.transformerDidFinishFile?.(node.fileName);
                     }
                 }
             }
