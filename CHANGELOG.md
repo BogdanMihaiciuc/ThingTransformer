@@ -1,3 +1,9 @@
+# 2.0.1
+
+Fixes a bug that caused certain global function dependencies to not be properly copied depending on where the global functions were defined.
+
+Updates the schema of the `twconfig.json` file to include the documentation for the `UIPlugin` property.
+
 # 2.0.0
 
 Adds support for the following entity kinds:
