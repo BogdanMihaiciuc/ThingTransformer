@@ -140,6 +140,14 @@
             "type": "boolean",
             "description": "A flag that, when enabled, will allow the use of global code. Support for this feature is experimental and is likely to break in future versions of thingworx.",
             "markdownDescription": "A flag that, when enabled, will allow the use of global code. Support for this feature is experimental and is likely to break in future versions of thingworx."
+        },
+        "UIPlugins": {
+            "type": "object",
+            "description": "A dictionary having widget names as keys and the UIPlugins that will process them as values. The UIPlugins must represent the path to a module file or dependency having a default export set to a UIPlugin class.",
+            "markdownDescription": "A dictionary having widget names as keys and the UIPlugins that will process them as values. The UIPlugins must represent the path to a module file or dependency having a default export set to a UIPlugin class.",
+            "additionalProperties": {
+                "type": "string"
+            }
         }
     },
     "required": ["projectName"]
