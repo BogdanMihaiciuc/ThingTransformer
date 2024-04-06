@@ -3137,9 +3137,10 @@ declare class MachineTemplate extends GenericThing {
 	 * @param propertyName Property name
 	 * @param eventName Event name
 	 * @param thingName Thing name
+	 * @param subscriptionName Subscription name
 	 * @return result
 	 */
-	DisableSubscription(args?:{propertyName?: STRING, eventName?: STRING, thingName?: THINGNAME}): NOTHING;
+	DisableSubscription(args?:{propertyName?: STRING, eventName?: STRING, thingName?: THINGNAME} | {subscriptionName?: STRING}): NOTHING;
 
 	/**
 	 * Get Training Statistics for given Alert
@@ -3594,9 +3595,10 @@ declare class MachineTemplate extends GenericThing {
 	 * @param propertyName Property name
 	 * @param eventName Event name
 	 * @param thingName Thing name
+	 * @param subscriptionName Subscription name
 	 * @return result
 	 */
-	EnableSubscription(args?:{propertyName?: STRING, eventName?: STRING, thingName?: THINGNAME}): NOTHING;
+	EnableSubscription(args?:{propertyName?: STRING, eventName?: STRING, thingName?: THINGNAME} | {subscriptionName?: STRING}): NOTHING;
 
 	/**
 	 * Get the date edit was last modified
@@ -7217,9 +7219,10 @@ declare class GenericThing {
 	 * @param propertyName Property name
 	 * @param eventName Event name
 	 * @param thingName Thing name
+	 * @param subscriptionName Subscription name
 	 * @return result
 	 */
-	DisableSubscription(args?:{propertyName?: STRING, eventName?: STRING, thingName?: THINGNAME}): NOTHING;
+	DisableSubscription(args?:{propertyName?: STRING, eventName?: STRING, thingName?: THINGNAME} | {subscriptionName?: STRING}): NOTHING;
 
 	/**
 	 * Get Training Statistics for given Alert
@@ -7674,9 +7677,10 @@ declare class GenericThing {
 	 * @param propertyName Property name
 	 * @param eventName Event name
 	 * @param thingName Thing name
+	 * @param subscriptionName Subscription name
 	 * @return result
 	 */
-	EnableSubscription(args?:{propertyName?: STRING, eventName?: STRING, thingName?: THINGNAME}): NOTHING;
+	EnableSubscription(args?:{propertyName?: STRING, eventName?: STRING, thingName?: THINGNAME} | {subscriptionName?: STRING}): NOTHING;
 
 	/**
 	 * Get the date edit was last modified
