@@ -205,6 +205,13 @@ const AllowedRootNodeKinds = [
 interface TWCodeTransformer {
 
     /**
+     * Should be set to `true` for code transformers that are global function transformers.
+     * These transformer instances must always process other global function dependencies even
+     * from within the same file because they are limited to processing their own functions.
+     */
+    isGlobalFunctionTransformer?: boolean;
+
+    /**
      * The typescript program.
      */
     program: ts.Program;
@@ -3904,6 +3911,7 @@ export class TWThingTransformer implements TWCodeTransformer {
         // Create a new code transformer with the appropriate properties and the methods
         // copied over from this transformer
         const transformer: TWCodeTransformer = {
+            isGlobalFunctionTransformer: true,
             _debugBreakpointCounter: debugInformation._debugBreakpointCounter,
             debug: this.debug,
             trace: this.trace,
@@ -4106,7 +4114,9 @@ export class TWThingTransformer implements TWCodeTransformer {
                         // If this function is defined in a different file and hasn't yet been processed, do it now
                         // This is required because otherwise, in the after phase, there will be no reference to this
                         // function that can be inlined
-                        if (this.filename && filename != path.normalize(this.filename)) {
+                        // For global function transformers, compile other functions even if they are in the same file
+                        // as this transformer instance will not be able to reach that function's node
+                        if (this.isGlobalFunctionTransformer || (this.filename && filename != path.normalize(this.filename))) {
                             if (!this.store['@globalFunctions']?.[name]) {
                                 this.compileGlobalFunction(functionDeclaration);
                             }
