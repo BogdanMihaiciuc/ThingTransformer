@@ -7,6 +7,8 @@ import { ConstantValueUndefined, type TransformerStore } from './ThingTransforme
  * with the shared functions.
  */
 interface TransformerBase {
+    isGlobalFunctionTransformer?: boolean;
+
     program: TS.Program;
     context: TS.TransformationContext;
     sourceFile?: TS.SourceFile;
@@ -190,9 +192,13 @@ export function ConstantValueOfExpression(expression: TS.Expression, transformer
         const emitResolver: TS.TypeChecker = (transformer.context as any).getEmitResolver();
 
         if (emitResolver) {
-            // If this has an offset defined, determine the actual node to use in the original source file
-            if (transformer.positionOffset && transformer.sourceFile) {
+            // If this has an offset defined or is a global function transformer, determine the
+            // actual node to use in the original source file
+            const hasOffset = transformer.positionOffset && transformer.sourceFile;
+            const isGlobalFunctionTransformer = transformer.isGlobalFunctionTransformer && transformer.sourceFile;
+            if (hasOffset || isGlobalFunctionTransformer) {
                 let originalNode: TS.PropertyAccessExpression | undefined;
+                const offset = transformer.positionOffset ?? 0;
 
                 /**
                  * Verifies if the specified node is the original node in the original source file,
@@ -207,7 +213,7 @@ export function ConstantValueOfExpression(expression: TS.Expression, transformer
                     }
 
                     // The original node should have the same syntax kind and position
-                    if (node.kind == TS.SyntaxKind.PropertyAccessExpression && node.pos == transformer.positionOffset! + expression.pos) {
+                    if (node.kind == TS.SyntaxKind.PropertyAccessExpression && node.pos == offset! + expression.pos) {
                         // And additionally the same text
                         try {
                             if (node.getText() == expression.getText()) {
@@ -223,7 +229,7 @@ export function ConstantValueOfExpression(expression: TS.Expression, transformer
                 }
 
                 // Recursively search for the original node in the original source file
-                TS.forEachChild(transformer.sourceFile, findNode);
+                TS.forEachChild(transformer.sourceFile!, findNode);
 
                 // If the source node was found, use it to determine the constant value
                 if (originalNode) {

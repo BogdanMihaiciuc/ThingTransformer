@@ -1,3 +1,7 @@
+# 2.0.2
+
+Fixes a bug where enum members were not properly inlined when referenced by global functions defined on the first line of a file.
+
 # 2.0.1
 
 Fixes a bug that caused certain global function dependencies to not be properly copied depending on where the global functions were defined.
