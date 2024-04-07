@@ -1389,9 +1389,10 @@ declare class ThingShapeEntity<T extends ThingShapeBase> extends RootEntity {
 	 * @param propertyName Property name
 	 * @param thingName Thing name
 	 * @param eventName Event name
+	 * @param subscriptionName Subscription name
 	 * @return result
 	 */
-	DisableSubscription(args?:{propertyName?: STRING, thingName?: THINGNAME, eventName?: STRING}): NOTHING;
+	DisableSubscription(args?:{propertyName?: STRING, thingName?: THINGNAME, eventName?: STRING} | {subscriptionName?: STRING}): NOTHING;
 
 	/**
 	 * Add or update an event definition
@@ -1955,9 +1956,10 @@ declare class ThingShapeEntity<T extends ThingShapeBase> extends RootEntity {
 	 * @param propertyName Property name
 	 * @param thingName Thing name
 	 * @param eventName Event name
+	 * @param subscriptionName Subscription name
 	 * @return result
 	 */
-	EnableSubscription(args?:{propertyName?: STRING, thingName?: THINGNAME, eventName?: STRING}): NOTHING;
+	EnableSubscription(args?:{propertyName?: STRING, thingName?: THINGNAME, eventName?: STRING} | {subscriptionName?: STRING}): NOTHING;
 
 	/**
 	 * Get the date edit was last modified
@@ -3187,9 +3189,10 @@ declare class ThingTemplateEntity<T extends GenericThing> extends RootEntity {
 	 * @param propertyName Property name
 	 * @param thingName Thing name
 	 * @param eventName Event name
+	 * @param subscriptionName Subscription name
 	 * @return result
 	 */
-	DisableSubscription(args?:{propertyName?: STRING, thingName?: THINGNAME, eventName?: STRING}): NOTHING;
+	DisableSubscription(args?:{propertyName?: STRING, thingName?: THINGNAME, eventName?: STRING} | {subscriptionName?: STRING}): NOTHING;
 
 	/**
 	 * Add or update an event definition
@@ -3843,9 +3846,10 @@ declare class ThingTemplateEntity<T extends GenericThing> extends RootEntity {
 	 * @param propertyName Property name
 	 * @param thingName Thing name
 	 * @param eventName Event name
+	 * @param subscriptionName Subscription name
 	 * @return result
 	 */
-	EnableSubscription(args?:{propertyName?: STRING, thingName?: THINGNAME, eventName?: STRING}): NOTHING;
+	EnableSubscription(args?:{propertyName?: STRING, thingName?: THINGNAME, eventName?: STRING} | {subscriptionName?: STRING}): NOTHING;
 
 	/**
 	 * Get the date edit was last modified
