@@ -194,7 +194,7 @@ const AllowedRootNodeKinds = [
     ts.SyntaxKind.EnumDeclaration,
     ts.SyntaxKind.ImportClause,
     ts.SyntaxKind.SingleLineCommentTrivia,
-    ts.SyntaxKind.JSDocComment,
+    ts.SyntaxKind.JSDoc,
     ts.SyntaxKind.MultiLineCommentTrivia
 ];
 
@@ -1269,12 +1269,12 @@ export class TWThingTransformer implements TWCodeTransformer {
      */
     documentationOfNode(node: ts.Node): string {
         // This method appears to not be included in the type definition
-        const documentation = (ts as any).getJSDocCommentsAndTags(node, true) as ts.Node[];
+        const documentation = ts.getJSDocCommentsAndTags(node);
 
         // Get the first documentation node and use it as the description
         if (documentation.length) {
             for (const documentationNode of documentation) {
-                if (documentationNode.kind == ts.SyntaxKind.JSDocComment) {
+                if (documentationNode.kind == ts.SyntaxKind.JSDoc) {
 
                     const comment = (documentationNode as ts.JSDoc).comment || '';
                     if (typeof comment != 'string') {
@@ -1418,7 +1418,7 @@ export class TWThingTransformer implements TWCodeTransformer {
                     permissionKind = 'runtimeInstance';
                     break;
                 default:
-                    this.throwErrorForNode(node, `Unkown permission decorator '${text}' specified.`)
+                    this.throwErrorForNode(node, `Unknown permission decorator '${text}' specified.`)
             }
 
             // For template and thing shape fields, the permission kind is always runtime instance
@@ -1927,7 +1927,7 @@ export class TWThingTransformer implements TWCodeTransformer {
             ts.SyntaxKind.FunctionDeclaration,
             ts.SyntaxKind.EnumDeclaration, 
             ts.SyntaxKind.SingleLineCommentTrivia, 
-            ts.SyntaxKind.JSDocComment, 
+            ts.SyntaxKind.JSDoc, 
             ts.SyntaxKind.MultiLineCommentTrivia
         ].includes(node.kind)) {
             this.throwErrorForNode(node, `Only declarations are permitted at the root level.`);
@@ -2123,7 +2123,7 @@ export class TWThingTransformer implements TWCodeTransformer {
     visitUserListField(node: ts.PropertyDeclaration) {
         const principal = {} as TWPrincipalBase;
         if (node.name.kind != ts.SyntaxKind.Identifier) {
-            this.throwErrorForNode(node, `Computed property names are not supported in ThingWrox classes.`);
+            this.throwErrorForNode(node, `Computed property names are not supported in ThingWorx classes.`);
         }
 
         // First obtain the name of the property
@@ -2222,7 +2222,7 @@ export class TWThingTransformer implements TWCodeTransformer {
     visitStyleLibraryField(node: ts.PropertyDeclaration) {
         const definition = {} as TWStyleDefinition | TWStateDefinition;
         if (node.name.kind != ts.SyntaxKind.Identifier) {
-            this.throwErrorForNode(node, `Computed property names are not supported in Thingwrox classes.`);
+            this.throwErrorForNode(node, `Computed property names are not supported in ThingWorx classes.`);
         }
 
         // First obtain the name of the property
@@ -2280,7 +2280,7 @@ export class TWThingTransformer implements TWCodeTransformer {
                 }
                 names[item.name] = item.name;
 
-                // Fill out ommitted fileds with default values
+                // Fill out omitted fields with default values
                 item.description ??= '';
                 item.displayString ??= item.name;
 
@@ -2443,7 +2443,7 @@ export class TWThingTransformer implements TWCodeTransformer {
 
         const property = {} as TWPropertyDefinition;
         if (node.name.kind != ts.SyntaxKind.Identifier) {
-            this.throwErrorForNode(node, `Computed property names are not supported in ThingWrox classes.`);
+            this.throwErrorForNode(node, `Computed property names are not supported in ThingWorx classes.`);
         }
 
         // First obtain the name of the property
@@ -3461,12 +3461,12 @@ export class TWThingTransformer implements TWCodeTransformer {
         }
 
         // Use the JSDoc comments as the service documentation
-        const documentation = (ts as any).getJSDocCommentsAndTags(node) as ts.Node[];
+        const documentation = ts.getJSDocCommentsAndTags(node);
 
         if (documentation && documentation.length) {
             for (const documentationNode of documentation) {
                 // Get the first JSDocComment
-                if (documentationNode.kind != ts.SyntaxKind.JSDocComment) continue;
+                if (documentationNode.kind != ts.SyntaxKind.JSDoc) continue;
                 // Its text represents the service description
                 const JSDocComment = documentationNode as ts.JSDoc;
                 service.description = this.getDescription(JSDocComment) || '';
@@ -5937,7 +5937,7 @@ finally {
         this.validateConstraints();
         this.inheritDataShapes();
         this.copyBaseServiceImplementations();
-        this.installTargettedSQLServices();
+        this.installTargetedSQLServices();
     }
 
     /**
@@ -6055,7 +6055,7 @@ finally {
      * This method may only be invoked after all transformers in the project have finished
      * processing their files.
      */
-    private installTargettedSQLServices(): void {
+    private installTargetedSQLServices(): void {
         // Only applies to things, thing templates and thing shapes
         if (this.entityKind != TWEntityKind.Thing && this.entityKind != TWEntityKind.ThingShape && this.entityKind != TWEntityKind.ThingTemplate) {
             return;
