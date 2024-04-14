@@ -1,3 +1,30 @@
+# 2.0.2
+
+Fixes a bug where enum members were not properly inlined when referenced by global functions defined on the first line of a file.
+
+Update the typings for the `DisableSubscription` and `EnableSubscription` to support the new signatures in Thingworx 9. ([kklorenzotesta](https://github.com/kklorenzotesta))
+
+# 2.0.1
+
+Fixes a bug that caused certain global function dependencies to not be properly copied depending on where the global functions were defined.
+
+Updates the schema of the `twconfig.json` file to include the documentation for the `UIPlugin` property.
+
+# 2.0.0
+
+Adds support for the following entity kinds:
+ - `Mashup`
+ - `StyleDefinition`
+ - `StateDefinition`
+
+Adds a new `UITransformer` class that can be used to convert `.tsx` files into mashup entities. This can work together with optional `UIPlugin` objects that can further customize the output of this transformer.
+
+Adds support for loading JSON and CSS files in mashup or widget properties instead of specifying them inline.
+
+Adds support for core ui mashups. These are mashups that use a `TypeScript Class` widget to enable additional arbitrary code to be specified alongside the usual mashup JSX structure.
+
+Removes the declaration for a series of test mashups that typical thingworx instances will not contain.
+
 # 1.7.4
 
 Reverted the change to the `LOCATION` type. It is now additionally a union with a `Location` type that defines the `toJSON` method.

@@ -1389,9 +1389,10 @@ declare class ThingShapeEntity<T extends ThingShapeBase> extends RootEntity {
 	 * @param propertyName Property name
 	 * @param thingName Thing name
 	 * @param eventName Event name
+	 * @param subscriptionName Subscription name
 	 * @return result
 	 */
-	DisableSubscription(args?:{propertyName?: STRING, thingName?: THINGNAME, eventName?: STRING}): NOTHING;
+	DisableSubscription(args?:{propertyName?: STRING, thingName?: THINGNAME, eventName?: STRING} | {subscriptionName?: STRING}): NOTHING;
 
 	/**
 	 * Add or update an event definition
@@ -1955,9 +1956,10 @@ declare class ThingShapeEntity<T extends ThingShapeBase> extends RootEntity {
 	 * @param propertyName Property name
 	 * @param thingName Thing name
 	 * @param eventName Event name
+	 * @param subscriptionName Subscription name
 	 * @return result
 	 */
-	EnableSubscription(args?:{propertyName?: STRING, thingName?: THINGNAME, eventName?: STRING}): NOTHING;
+	EnableSubscription(args?:{propertyName?: STRING, thingName?: THINGNAME, eventName?: STRING} | {subscriptionName?: STRING}): NOTHING;
 
 	/**
 	 * Get the date edit was last modified
@@ -3187,9 +3189,10 @@ declare class ThingTemplateEntity<T extends GenericThing> extends RootEntity {
 	 * @param propertyName Property name
 	 * @param thingName Thing name
 	 * @param eventName Event name
+	 * @param subscriptionName Subscription name
 	 * @return result
 	 */
-	DisableSubscription(args?:{propertyName?: STRING, thingName?: THINGNAME, eventName?: STRING}): NOTHING;
+	DisableSubscription(args?:{propertyName?: STRING, thingName?: THINGNAME, eventName?: STRING} | {subscriptionName?: STRING}): NOTHING;
 
 	/**
 	 * Add or update an event definition
@@ -3843,9 +3846,10 @@ declare class ThingTemplateEntity<T extends GenericThing> extends RootEntity {
 	 * @param propertyName Property name
 	 * @param thingName Thing name
 	 * @param eventName Event name
+	 * @param subscriptionName Subscription name
 	 * @return result
 	 */
-	EnableSubscription(args?:{propertyName?: STRING, thingName?: THINGNAME, eventName?: STRING}): NOTHING;
+	EnableSubscription(args?:{propertyName?: STRING, thingName?: THINGNAME, eventName?: STRING} | {subscriptionName?: STRING}): NOTHING;
 
 	/**
 	 * Get the date edit was last modified
@@ -6816,7 +6820,9 @@ declare class MenuEntity extends RootEntity {
 
 
 
-declare class MashupEntity extends RootEntity {
+declare class MashupEntity<T = {}> extends RootEntity {
+
+	__mashupParametersType: T;
 
 	/**
 	 * Get the outgoing dependencies as a network
@@ -7408,6 +7414,7 @@ declare class MashupEntity extends RootEntity {
 
 
 declare class StyleDefinitionEntity extends RootEntity {
+
 
 	/**
 	 * Get the outgoing dependencies as a network
@@ -8503,7 +8510,9 @@ declare class StyleThemeEntity extends RootEntity {
 	GetPermissionsForUser(args?:{name?: STRING, user?: STRING, permissionName?: STRING}): INFOTABLE<UserPermissions>;
 
 }
-declare class StateDefinitionEntity extends RootEntity {
+declare class StateDefinitionEntity<T = never> extends RootEntity {
+
+	__stateDefinitionNames: T;
 
 	/**
 	 * Get the outgoing dependencies as a network
@@ -15847,22 +15856,7 @@ declare interface Mashups {
 	/**
 	 * 
 	 */
-	testcss: MashupEntity;
-
-	/**
-	 * 
-	 */
 	ContentCrawlerMashup: MashupEntity;
-
-	/**
-	 * 
-	 */
-	oldl: MashupEntity;
-
-	/**
-	 * 
-	 */
-	ExampleMashup: MashupEntity;
 
 	/**
 	 * 
@@ -15878,11 +15872,6 @@ declare interface Mashups {
 	 * 
 	 */
 	MonitoringPlatformStats: MashupEntity;
-
-	/**
-	 * 
-	 */
-	InfotestSub: MashupEntity;
 
 	/**
 	 * Container with header
@@ -15915,11 +15904,6 @@ declare interface Mashups {
 	MonitoringFederationStatus: MashupEntity;
 
 	/**
-	 * 
-	 */
-	test_old_value_display: MashupEntity;
-
-	/**
 	 * Container with header and footer
 	 */
 	"Header and Footer": MashupEntity;
@@ -15942,22 +15926,12 @@ declare interface Mashups {
 	/**
 	 * 
 	 */
-	oldvd: MashupEntity;
-
-	/**
-	 * 
-	 */
 	WikiContributorMashup: MashupEntity;
 
 	/**
 	 * 
 	 */
 	DataTableMashup: MashupEntity;
-
-	/**
-	 * 
-	 */
-	DebuggerMashup: MashupEntity;
 
 	/**
 	 * Connection Server Status Monitoring
@@ -15992,17 +15966,7 @@ declare interface Mashups {
 	/**
 	 * 
 	 */
-	test2: MashupEntity;
-
-	/**
-	 * 
-	 */
 	MonitoringSubsystemSelector: MashupEntity;
-
-	/**
-	 * 
-	 */
-	newvd: MashupEntity;
 
 	/**
 	 * 
@@ -16017,11 +15981,6 @@ declare interface Mashups {
 	/**
 	 * 
 	 */
-	valuedisplay: MashupEntity;
-
-	/**
-	 * 
-	 */
 	MonitoringUserManagementSubsystem: MashupEntity;
 
 	/**
@@ -16032,27 +15991,12 @@ declare interface Mashups {
 	/**
 	 * 
 	 */
-	oldvdtest: MashupEntity;
-
-	/**
-	 * 
-	 */
 	MonitoringUserStatus: MashupEntity;
 
 	/**
 	 * 
 	 */
 	ThingWorxMonitor: MashupEntity;
-
-	/**
-	 * 
-	 */
-	newltest: MashupEntity;
-
-	/**
-	 * 
-	 */
-	view: MashupEntity;
 
 	/**
 	 * 
@@ -16072,22 +16016,7 @@ declare interface Mashups {
 	/**
 	 * 
 	 */
-	test: MashupEntity;
-
-	/**
-	 * 
-	 */
-	oldltest: MashupEntity;
-
-	/**
-	 * 
-	 */
 	WikiMashup: MashupEntity;
-
-	/**
-	 * 
-	 */
-	newvdtest: MashupEntity;
 
 	/**
 	 * Container with left panel
@@ -16098,21 +16027,6 @@ declare interface Mashups {
 	 * Detail mashup for use in Subsystem Mashup Repeater
 	 */
 	SubsystemDetail: MashupEntity;
-
-	/**
-	 * 
-	 */
-	vtest: MashupEntity;
-
-	/**
-	 * 
-	 */
-	vtest2: MashupEntity;
-
-	/**
-	 * 
-	 */
-	testtestestestest: MashupEntity;
 
 	/**
 	 * 
@@ -16137,27 +16051,12 @@ declare interface Mashups {
 	/**
 	 * 
 	 */
-	Infotest: MashupEntity;
-
-	/**
-	 * 
-	 */
 	DataTableEditor: MashupEntity;
 
 	/**
 	 * 
 	 */
-	test_new_value_display: MashupEntity;
-
-	/**
-	 * 
-	 */
 	MonitoringFileTransferSubsystem: MashupEntity;
-
-	/**
-	 * 
-	 */
-	newl: MashupEntity;
 
 }
 

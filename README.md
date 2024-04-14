@@ -111,6 +111,7 @@ To build the project, run `npm run build` in the root of the project. This will 
  - [elena-bi](https://github.com/elena-bi): bug fixes
  - [s-amory](https://github.com/s-amory): `SQLThing` type definition.
  - [CozminM](https://github.com/CozminM): compatiblity with thingworx 8.5
+ - [kklorenzotesta](https://github.com/kklorenzotesta): thingworx API typing updates
 
 #  License
 

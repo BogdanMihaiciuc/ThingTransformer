@@ -3,6 +3,7 @@ tsconfigTest.json
 node_modules
 dist
 build
+handbook
 src/support
 src/thingworx
 src/MyDataShape.ts
