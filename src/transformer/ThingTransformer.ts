@@ -1191,7 +1191,11 @@ export class TWThingTransformer implements TWCodeTransformer {
                         return ts.factory.createStringLiteral(constantValue);
                     }
                     else if (typeof constantValue == 'number') {
-                        return ts.factory.createNumericLiteral(constantValue.toString());
+                        if(constantValue < 0) {
+                            return ts.factory.createPrefixUnaryExpression(ts.SyntaxKind.MinusToken, ts.factory.createNumericLiteral((-constantValue).toString()));
+                        } else {
+                            return ts.factory.createNumericLiteral(constantValue.toString());
+                        }
                     }
                     else if (constantValue == ConstantValueUndefined) {
                         return ts.factory.createIdentifier('undefined');
@@ -4197,8 +4201,11 @@ export class TWThingTransformer implements TWCodeTransformer {
                         return ts.factory.createStringLiteral(constantValue);
                     }
                     else if (typeof constantValue == 'number') {
-                        return ts.factory.createNumericLiteral(constantValue.toString());
-                    }
+                        if(constantValue < 0) {
+                            return ts.factory.createPrefixUnaryExpression(ts.SyntaxKind.MinusToken, ts.factory.createNumericLiteral((-constantValue).toString()));
+                        } else {
+                            return ts.factory.createNumericLiteral(constantValue.toString());
+                        }                    }
                     else if (constantValue == ConstantValueUndefined) {
                         return ts.factory.createIdentifier('undefined');
                     }
