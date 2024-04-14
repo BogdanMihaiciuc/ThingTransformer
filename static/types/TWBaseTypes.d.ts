@@ -440,8 +440,16 @@ declare const process: {
 }
 
 type NOTHING = void;
-type STRING<T extends string = string> = T;
-type NUMBER<T extends number = number> = T;
+/**
+ * A symbol that marks the STRING/INTEGER/NUMBER/TWJSON type as a branded type, so it's not aliased into its primitive type
+ * 
+ * !!!**DO NOT USE THIS IN YOUR CODE**!!!
+ */
+declare const __typeDetails: unique symbol;
+type STRING<T extends string = string> = T & {readonly __stringBrand?: undefined };
+type INTEGER<T extends number = number> = T & { readonly __number?: undefined };
+type LONG<T extends number = number> = (T & { readonly __number?: undefined });
+type NUMBER<T extends number = number> = (T & { readonly __number?: undefined });
 type BOOLEAN = boolean;
 
 type DATETIME = Date;
@@ -450,7 +458,7 @@ type datetime = Date;
 type TIMESPAN = number;
 type timespan = number;
 
-type TWJSON<T = any> = T extends (...args: any[]) => any ? never : (T extends Object ? Struct<T> : T);
+type TWJSON<T = any> = (T extends (...args: any[]) => any ? never : (T extends Object ? Struct<T> : T));
 type json<T = any> = TWJSON<T>;
 
 interface LocationConvertible {
@@ -479,8 +487,7 @@ type SCHEDULE = string;
 type VARIANT = any;
 type GUID = string;
 type BLOB = any;
-type INTEGER<T extends number = number> = T;
-type LONG<T extends number = number> = T;
+
 type PROPERTYNAME = string;
 type SERVICENAME = string;
 type EVENTNAME = string;
@@ -515,7 +522,7 @@ type NOTIFICATIONCONTENTNAME = string;
 type NOTIFICATIONDEFINITIONNAME = string;
 type EVENT<T> = T extends keyof DataShapes ? ({[_event]: true}) & ((eventData?: Partial<DataShapes[T]['__dataShapeType']>) => void) : ({[_event]: true}) & ((eventData?: Partial<T>) => void);
 type THINGNAME<Template extends keyof ThingTemplates | undefined = undefined, Shape extends keyof ThingShapes | undefined = undefined> = 
-    Template extends keyof ThingTemplates ? 
+    (Template extends keyof ThingTemplates ? 
         (Shape extends keyof ThingShapes ? 
             // Shape & Template
             KeysOfType<Things, ThingTemplates[Template]['__thingTemplateType'] & ThingShapes[Shape]['__thingShapeType']> :
@@ -526,7 +533,14 @@ type THINGNAME<Template extends keyof ThingTemplates | undefined = undefined, Sh
             // Shape
             KeysOfType<Things, ThingShapes[Shape]['__thingShapeType']> : 
             // None
-            keyof Things);
+            keyof Things)) & {
+                /**
+                * A symbol that marks the THINGNAME type as a branded type, so it's not aliased into a KeyofType
+                * 
+                * !!!**DO NOT USE THIS IN YOUR CODE**!!!
+                */
+                readonly __thingBrand?: undefined 
+            };
 
 /**
  * The union of all keys of the specified type from the given type.

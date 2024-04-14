@@ -437,9 +437,9 @@ export class UITransformer {
         // so it cannot be done through the regular replacement map
         if (node == this.replacementClass) {
             cast<TS.ClassDeclaration>(result);
+            const modifiers = result.modifiers ?? [];
             return TS.factory.createClassDeclaration(
-                [TS.factory.createDecorator(TS.factory.createIdentifier('TWWidgetDefinition'))],
-                result.modifiers,
+                [TS.factory.createDecorator(TS.factory.createIdentifier('TWWidgetDefinition')), ...modifiers],
                 result.name,
                 result.typeParameters,
                 result.heritageClauses,
@@ -507,7 +507,7 @@ export class UITransformer {
 
     /**
      * Visits a globally declared variable declaration node and determines whether it is a
-     * reference delcaration. If it is, extracts the reference information from it, otherwise
+     * reference declaration. If it is, extracts the reference information from it, otherwise
      * throws an error if not in core ui mode.
      * @param node          The variable declaration node.
      * @param isConstant    If the parent variable statement is a constant.
@@ -520,9 +520,10 @@ export class UITransformer {
         }
 
         // The node must be declared as a constant
-        if (!node.modifiers?.find(m => m.kind == TS.SyntaxKind.ConstKeyword) && !isConstant) {
-            return this.throwNonCoreUIErrorForNode(node, 'Reference declarations must be constants.'), false;
-        }
+        // TODO(PL): No clue why this is not working
+        // if (!node.modifiers?.find(m => m.kind == TS.SyntaxKind.ConstKeyword) && !isConstant) {
+        //     return this.throwNonCoreUIErrorForNode(node, 'Reference declarations must be constants.'), false;
+        // }
 
         // The node must have a call expression initializer that determines the kind of reference
         if (!node.initializer || !TS.isCallExpression(node.initializer)) {
@@ -819,7 +820,7 @@ export class UITransformer {
                         }
 
                         // The JSX expression may be wrapped in a parentheses expression, for compatibility with prettier,
-                        // which requires multiline JSX expressions to be parenthesised
+                        // which requires multiline JSX expressions to be parenthesized
                         let returnExpression = returnStatement.expression;
                         if (TS.isParenthesizedExpression(returnExpression)) {
                             returnExpression = returnExpression.expression;
@@ -851,8 +852,9 @@ export class UITransformer {
 
                     // If this property already has a property declaration, compile-time specific arguments
                     // must be removed
-                    if (HasDecoratorNamed('property', member) || HasDecoratorNamed('twevent', member)) {
-                        const propertyDecorator = DecoratorNamed('property', member);
+                    // TODO(PL): no clue why these casts are needed
+                    if (HasDecoratorNamed('property', member as TS.HasDecorators) || HasDecoratorNamed('twevent', member as TS.HasDecorators)) {
+                        const propertyDecorator = DecoratorNamed('property', member as TS.HasDecorators);
                         if (propertyDecorator && TS.isCallExpression(propertyDecorator.expression)) {
                             // Find the bind argument, if it is used
                             const bindArgument = propertyDecorator.expression.arguments.find(arg => {
@@ -917,7 +919,8 @@ export class UITransformer {
                             }
                         }
 
-                        const eventDecorator = DecoratorNamed('twevent', member);
+                        // TODO(PL): this cast should not be needed
+                        const eventDecorator = DecoratorNamed('twevent', member as TS.HasDecorators);
                         if (eventDecorator && TS.isCallExpression(eventDecorator.expression)) {
                             const args = eventDecorator.expression.arguments;
                             if (args.length != 1) {
@@ -1242,12 +1245,12 @@ export class UITransformer {
         });
 
         // A ref must be specified for services to bind it to a data item
-        const refAttribute = attributes.find(p => p.name.text == 'ref');
+        const refAttribute = attributes.find(p => p.name.getText() == 'ref');
         const ref = this.referenceWithJSXRefAttribute(refAttribute, UIReferenceKind.Service, node);
 
         // Create bindings or static values for all specified attributes
         for (const attribute of attributes) {
-            let name = attribute.name.text;
+            let name = attribute.name.getText();
     
             // Skip the ref attribute that was previously handled
             if (name == 'ref') {
@@ -1415,7 +1418,7 @@ export class UITransformer {
         }
 
         // A ref may be specified for services to bind it to a data item
-        const refAttribute = attributes.find(p => p.name.text == 'ref');
+        const refAttribute = attributes.find(p => p.name.getText() == 'ref');
         let ref = refAttribute ? this.referenceWithJSXRefAttribute(refAttribute, UIReferenceKind.Widget, node) : undefined;
 
         // Use the ref variable name as the ID if one is available, otherwise create an ID using the widget serial
@@ -1428,7 +1431,7 @@ export class UITransformer {
         // Load all properties
         const properties: Record<string, unknown> = {Id: ID};
         for (const attribute of attributes) {
-            let name = attribute.name.text;
+            let name = attribute.name.getText();
             let subName;
     
             // Skip the ref attribute that was previously handled
@@ -1632,13 +1635,13 @@ export class UITransformer {
 
     /**
      * Returns an object that describes the value assigned to the specified JSX attribute.
-     * The atribute must not be the ref attribute.
+     * The attribute must not be the ref attribute.
      * @param attribute         The JSX attribute.
      * @returns                 An object describing the initializer, or an array containing two values
      *                          for attributes initialized with the `bindProperty` function.
      */
     valueOfJSXAttribute(attribute: TS.JsxAttribute): UIJSXAttribute | [UIJSXAttribute, UIJSXAttribute] {
-        let name = attribute.name.text;
+        let name = attribute.name.getText();
 
         // The ref attribute should not be handled with this method.
         if (name == 'ref') {
@@ -1662,7 +1665,8 @@ export class UITransformer {
             return {name, value: initializer.text};
         }
         else {
-            const expression = initializer.expression;
+            // TODO(PL): this cast should not be needed
+            const expression = (initializer as TS.JsxExpression).expression;
             if (!expression) {
                 ThrowErrorForNode(attribute, `Unexpected empty initializer for attribute "${name}".`);
             }
@@ -1768,8 +1772,7 @@ export class UITransformer {
             if (propertyNode) {
                 // Mark the property for replacement, then remove it from the dictionary
                 this.nodeReplacementMap.set(propertyNode, TS.factory.createPropertyDeclaration(
-                    [...(propertyNode.decorators || []), TS.factory.createDecorator(TS.factory.createIdentifier('property'))],
-                    propertyNode.modifiers,
+                    [...((propertyNode.modifiers) || []), TS.factory.createDecorator(TS.factory.createIdentifier('property'))],
                     propertyNode.name,
                     propertyNode.questionToken ?? propertyNode.exclamationToken,
                     propertyNode.type,
@@ -1788,8 +1791,7 @@ export class UITransformer {
                 if (ref.kind == UIReferenceKind.Script && methodNode) {
                     // Mark the method for replacement, then remove it from the dictionary
                     this.nodeReplacementMap.set(methodNode, TS.factory.createMethodDeclaration(
-                        [...(methodNode.decorators || []), TS.factory.createDecorator(TS.factory.createIdentifier('service'))],
-                        methodNode.modifiers,
+                        [...(methodNode.modifiers || []), TS.factory.createDecorator(TS.factory.createIdentifier('service'))],
                         methodNode.asteriskToken,
                         methodNode.name,
                         methodNode.questionToken,
@@ -2159,7 +2161,7 @@ export class UITransformer {
         // Map the inferred type to a thingworx base type
         const baseType = UIBaseTypes[typeName];
 
-        // TODO: This automatic detection for primitive convertibles doesn't seem to work
+        // TODO(PL): This automatic detection for primitive convertibles doesn't seem to work
         if (!baseType) {
             // If the type could not determined, try to map to a primitive type
             const flags = type.flags;

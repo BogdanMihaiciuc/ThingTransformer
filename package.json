@@ -24,12 +24,13 @@
         "ui"
     ],
     "devDependencies": {
-        "@microsoft/tsdoc": "^0.12.19",
-        "@types/node": "^8.10.11"
+        "@microsoft/tsdoc": "^0.14.2",
+        "@types/node": "^20.10.6"
     },
     "dependencies": {
-        "typescript": "4.6.3",
-        "xml2js": "^0.5.0",
-        "typescriptwebpacksupport": "^2.3.1"
+        "ts-json-schema-generator": "^1.5.0",
+        "typescript": "5.3.3",
+        "typescriptwebpacksupport": "^2.3.1",
+        "xml2js": "^0.6.2"
     }
 }
