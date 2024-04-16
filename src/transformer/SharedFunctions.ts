@@ -201,39 +201,7 @@ export function ConstantValueOfExpression(expression: TS.Expression, transformer
             const hasOffset = transformer.positionOffset && transformer.sourceFile;
             const isGlobalFunctionTransformer = transformer.isGlobalFunctionTransformer && transformer.sourceFile;
             if (hasOffset || isGlobalFunctionTransformer) {
-                let originalNode: TS.PropertyAccessExpression | undefined;
-                const offset = transformer.positionOffset ?? 0;
-
-                /**
-                 * Verifies if the specified node is the original node in the original source file,
-                 * otherwise continues to search for it in the specified node's descendanTS.
-                 * @param node          The node to verify.
-                 * @returns             The `node` argument.
-                 */
-                const findNode = (node: TS.Node): void => {
-                    // If the original node was already found, stop searching
-                    if (originalNode) {
-                        return;
-                    }
-
-                    // The original node should have the same syntax kind and position
-                    if (node.kind == TS.SyntaxKind.PropertyAccessExpression && node.pos == offset! + expression.pos) {
-                        // And additionally the same text
-                        try {
-                            if (node.getText() == expression.getText()) {
-                                originalNode = node as TS.PropertyAccessExpression;
-                            }
-                        }
-                        catch (e) {
-                            // getText can fail for certain synthetic nodes, if this happens move on to the next node
-                        }
-                    }
-
-                    TS.forEachChild(node, findNode);
-                }
-
-                // Recursively search for the original node in the original source file
-                TS.forEachChild(transformer.sourceFile!, findNode);
+                const originalNode = FindOriginalNodeOfExpression(propertyAccess, transformer);
 
                 // If the source node was found, use it to determine the constant value
                 if (originalNode) {
@@ -276,6 +244,62 @@ export function ConstantValueOfExpression(expression: TS.Expression, transformer
     }
 
     return undefined;
+}
+
+/**
+ * Find the original node in the original source file that corresponds to the specified expression.
+ * 
+ * This is used in global function transformers to determine the actual node to use in the original source file.
+ * @param expression Expression node in the transformed source file to be matched with the original node.
+ * @param transformer The transformer instance containing details about the project.
+ * @returns 
+ */
+export function FindOriginalNodeOfExpression<T extends TS.Expression>(expression: T, transformer: TransformerBase): T | undefined {
+    // If this has an offset defined or is a global function transformer, determine the
+    // actual node to use in the original source file
+    const hasOffset = transformer.positionOffset && transformer.sourceFile;
+    const isGlobalFunctionTransformer = transformer.isGlobalFunctionTransformer && transformer.sourceFile;
+    if (hasOffset || isGlobalFunctionTransformer) {
+        let originalNode: T | undefined;
+        const offset = transformer.positionOffset ?? 0;
+
+        /**
+         * Verifies if the specified node is the original node in the original source file,
+         * otherwise continues to search for it in the specified node's descendants.
+         * @param node          The node to verify.
+         * @returns             The `node` argument.
+         */
+        const findNode = (node: TS.Node): void => {
+            // If the original node was already found, stop searching
+            if (originalNode) {
+                return;
+            }
+
+            // The original node should have the same syntax kind and position
+            if (node.kind == expression.kind && node.pos == offset! + expression.pos) {
+                // And additionally the same text
+                try {
+                    if (node.getText() == expression.getText()) {
+                        originalNode = node as T;
+                    }
+                }
+                catch (e) {
+                    // getText can fail for certain synthetic nodes, if this happens move on to the next node
+                }
+            }
+
+            TS.forEachChild(node, findNode);
+        }
+
+        // Recursively search for the original node in the original source file
+        TS.forEachChild(transformer.sourceFile!, findNode);
+
+        // If the source node was found, use it to determine the constant value
+        return originalNode;
+    } else {
+        return undefined;
+    }
+        
 }
 
 // #endregion

@@ -4,7 +4,7 @@ import { TWEntityKind, TWPropertyDefinition, TWServiceDefinition, TWEventDefinit
 import { Breakpoint } from './DebugTypes';
 import { Builder } from 'xml2js';
 import { UITransformer } from './UITransformer';
-import { ConfigurationTablesDefinitionWithClassExpression, ConfigurationWithObjectLiteralExpression, ConstantOrLiteralValueOfExpression, ConstantValueOfExpression, HasDecoratorNamed, JSONWithObjectLiteralExpression, ThrowErrorForNode, XMLRepresentationOfInfotable } from './SharedFunctions';
+import { ConfigurationTablesDefinitionWithClassExpression, ConfigurationWithObjectLiteralExpression, ConstantOrLiteralValueOfExpression, ConstantValueOfExpression, FindOriginalNodeOfExpression, HasDecoratorNamed, JSONWithObjectLiteralExpression, ThrowErrorForNode, XMLRepresentationOfInfotable } from './SharedFunctions';
 import * as fs from 'fs';
 import * as crypto from 'crypto';
 import * as path from 'path';
@@ -3969,7 +3969,7 @@ export class TWThingTransformer implements TWCodeTransformer {
     compileGlobalFunction(this: TWCodeTransformer, functionDeclaration: ts.FunctionDeclaration): void {
         const name = functionDeclaration.name!.text;
         const sourceFile = functionDeclaration.getSourceFile();
-        const filename = sourceFile.fileName
+        const filename = sourceFile.fileName;
 
         if (!this.store['@globalFunctions']?.[name]) {
             const fn = {
@@ -3978,6 +3978,10 @@ export class TWThingTransformer implements TWCodeTransformer {
                 methodHelperDependencies: new Set,
                 sourceFile
             } as GlobalFunction;
+            // Store the function in the global store, indexed by its name. This way if it's encountered again, it can be skipped
+            // Additionally, since the call to this function may end up being recursive (as the code transformer may encounter the same function, especially in case of parsing global recursive functions), this prevents infinite loops
+            this.store['@globalFunctions'] = this.store['@globalFunctions'] || {};
+            this.store['@globalFunctions'][name] = fn;
 
             let compiledCode: string | undefined;
             let transformedNode: ts.Node = functionDeclaration;
@@ -4053,10 +4057,6 @@ export class TWThingTransformer implements TWCodeTransformer {
             // Save the transformation result
             fn.node = functionDeclaration;
             fn.compiledCode = compiledCode;
-
-            
-            this.store['@globalFunctions'] = this.store['@globalFunctions'] || {};
-            this.store['@globalFunctions'][name] = fn;
         }
     }
 
@@ -4068,6 +4068,9 @@ export class TWThingTransformer implements TWCodeTransformer {
      *                          `undefined` otherwise.
      */
     evaluateGlobalCallExpression(this: TWCodeTransformer, expression: ts.CallExpression): GlobalFunctionReference | undefined {
+        // Find the original node of the expression, in the original source file
+        expression = FindOriginalNodeOfExpression(expression, this) ?? expression;
+
         const name = expression.expression as ts.Identifier;
         if (name.kind != ts.SyntaxKind.Identifier) {
             return;
@@ -4171,6 +4174,7 @@ export class TWThingTransformer implements TWCodeTransformer {
                 if (dependency) {
                     fn.dependencies.add(dependency.name);
                 }
+                break;
             case ts.SyntaxKind.Identifier:
                 // For identifiers, verify if they represent helper names and if they do add them
                 // as dependencies
