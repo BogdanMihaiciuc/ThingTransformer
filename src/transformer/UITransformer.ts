@@ -1663,9 +1663,15 @@ export class UITransformer {
             return {name, value: initializer.text};
         }
         else {
-            const expression = initializer.kind == TS.SyntaxKind.JsxExpression && initializer.expression;
+            let expression = initializer.kind == TS.SyntaxKind.JsxExpression && initializer.expression;
+
             if (!expression) {
                 ThrowErrorForNode(attribute, `Unexpected empty initializer for attribute "${name}".`);
+            }
+
+            // If this is a type assertion, evaluate the base expression
+            while (TS.isAsExpression(expression) || TS.isTypeAssertionExpression(expression)) {
+                expression = expression.expression;
             }
 
             if (TS.isCallExpression(expression) && expression.expression.getText() == UIKnownFunctionNames.BindProperty) {
@@ -2039,7 +2045,13 @@ export class UITransformer {
      * @param node          The node whose base type should be retrieved.
      */
     baseTypeOfNode(node: TS.Node): string {
-        // If the node is a type assertion, use the asserted type
+        // If the node is a type assertion or part of a type assertion, use the asserted type
+        let parent = node.parent;
+        while (parent && (TS.isTypeAssertionExpression(parent) || TS.isAsExpression(parent))) {
+            node = parent;
+            parent = node.parent;
+        }
+
         if (TS.isAsExpression(node) || TS.isTypeAssertionExpression(node)) {
             let baseType: string;
             const type = node.type;
@@ -2122,6 +2134,16 @@ export class UITransformer {
             if (types.length == 1) {
                 // If only one type remains, this will be the type that represents the base type
                 type = types[0];
+            }
+        }
+
+        // If the type is a binding target type, extract the generic argument and resolve it
+        if (type.symbol?.escapedName == 'BindingTarget') {
+            if ('typeArguments' in type) {
+                const argument = (type.typeArguments as TS.TypeParameter[])?.[0];
+                if (argument) {
+                    return this.baseTypeOfType(argument);
+                }
             }
         }
 
