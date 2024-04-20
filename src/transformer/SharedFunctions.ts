@@ -26,26 +26,28 @@ interface TransformerBase {
  */
 export function ThrowErrorForNode(node: TS.Node, error: string, sourceFileFallback?: TS.SourceFile): never {
     const limit = Error.stackTraceLimit;
-    try {
-        Error.stackTraceLimit = 0;
-        const sourceFile = node.getSourceFile() || sourceFileFallback;
-        let line, character;
         try {
-            const pos = sourceFile.getLineAndCharacterOfPosition(node.getStart());
-            line = pos.line;
-            character = pos.character;
-        }
-        catch (e) {
-            // For synthetic nodes, the line and character positions cannot be determined
-            throw new Error(`Error in file ${sourceFile?.fileName}\n\n${error}\n`);
-        }
+            Error.stackTraceLimit = 0;
+            const sourceFile = node.getSourceFile() || sourceFileFallback;
+            let position: TS.LineAndCharacter | undefined;
+            try {
+                position = sourceFile.getLineAndCharacterOfPosition(node.getStart());
+            }
+            catch (ignored) {
+                // For synthetic nodes, the line and character positions cannot be determined
+            }
 
-        throw new Error(`Error in file ${sourceFile.fileName}:${line},${character}\n\n${error}\n
-Failed parsing at: \n${node.getText()}\n\n`);
-    }
-    finally {
-        Error.stackTraceLimit = limit;
-    }
+            if (position) {
+                // Line and character positions are 0-indexed, but we want to display them as 1-indexed, as it's easier for the user
+                throw new Error(`Error in file ${sourceFile.fileName}:${position.line + 1}:${position.character + 1}\n\n${error}\n
+    Failed parsing at: \n${node.getText()}\n\n`);
+            } else {
+                throw new Error(`Error in file ${sourceFile?.fileName}\n\n${error}\n`);
+            }
+        }
+        finally {
+            Error.stackTraceLimit = limit;
+        }
 }
 
 // #region Decorator helpers
@@ -56,12 +58,13 @@ Failed parsing at: \n${node.getText()}\n\n`);
  * @param node      The node in which to search.
  * @return          A decorator if one is defined on the node, `undefined` otherwise.
  */
-export function DecoratorNamed(name: string, node: TS.Node): TS.Decorator | undefined {
-    if (!node.decorators) return undefined;
+export function DecoratorNamed(name: string, node: TS.HasDecorators): TS.Decorator | undefined {
+    const decorators = TS.getDecorators(node);
+    if (!decorators) return undefined;
 
     // Getting the decorator name depends on whether the decorator is applied directly or via a
     // decorator factory
-    for (const decorator of node.decorators) {
+    for (const decorator of decorators) {
         if (decorator.expression.kind == TS.SyntaxKind.CallExpression) {
             const callExpression = decorator.expression as TS.CallExpression;
             if (callExpression.expression.getText() == name) {
@@ -84,7 +87,7 @@ export function DecoratorNamed(name: string, node: TS.Node): TS.Decorator | unde
  * @param node      The node in which to search.
  * @return          `true` if the decorator was found, `false` otherwise.
  */
-export function HasDecoratorNamed(name: string, node: TS.Node): boolean {
+export function HasDecoratorNamed(name: string, node: TS.HasDecorators): boolean {
     return !!DecoratorNamed(name, node);
 }
 
@@ -95,10 +98,11 @@ export function HasDecoratorNamed(name: string, node: TS.Node): boolean {
  * @param node      The node in which to search.
  * @return          An array of expressions representing the arguments, or `undefined` if they could not be retrieved.
  */
-export function ArgumentsOfDecoratorNamed(name: string, node: TS.Node): TS.NodeArray<TS.Expression> | undefined {
-    if (!node.decorators) return;
+export function ArgumentsOfDecoratorNamed(name: string, node: TS.HasDecorators): TS.NodeArray<TS.Expression> | undefined {
+    const decorators = TS.getDecorators(node);
+    if (!decorators) return;
     
-    for (const decorator of node.decorators) {
+    for (const decorator of decorators) {
         if (decorator.expression.kind == TS.SyntaxKind.CallExpression) {
             const callExpression = decorator.expression as TS.CallExpression;
             if (callExpression.expression.getText() == name) {
@@ -197,39 +201,7 @@ export function ConstantValueOfExpression(expression: TS.Expression, transformer
             const hasOffset = transformer.positionOffset && transformer.sourceFile;
             const isGlobalFunctionTransformer = transformer.isGlobalFunctionTransformer && transformer.sourceFile;
             if (hasOffset || isGlobalFunctionTransformer) {
-                let originalNode: TS.PropertyAccessExpression | undefined;
-                const offset = transformer.positionOffset ?? 0;
-
-                /**
-                 * Verifies if the specified node is the original node in the original source file,
-                 * otherwise continues to search for it in the specified node's descendanTS.
-                 * @param node          The node to verify.
-                 * @returns             The `node` argument.
-                 */
-                const findNode = (node: TS.Node): void => {
-                    // If the original node was already found, stop searching
-                    if (originalNode) {
-                        return;
-                    }
-
-                    // The original node should have the same syntax kind and position
-                    if (node.kind == TS.SyntaxKind.PropertyAccessExpression && node.pos == offset! + expression.pos) {
-                        // And additionally the same text
-                        try {
-                            if (node.getText() == expression.getText()) {
-                                originalNode = node as TS.PropertyAccessExpression;
-                            }
-                        }
-                        catch (e) {
-                            // getText can fail for certain synthetic nodes, if this happens move on to the next node
-                        }
-                    }
-
-                    TS.forEachChild(node, findNode);
-                }
-
-                // Recursively search for the original node in the original source file
-                TS.forEachChild(transformer.sourceFile!, findNode);
+                const originalNode = FindOriginalNodeOfExpression(propertyAccess, transformer);
 
                 // If the source node was found, use it to determine the constant value
                 if (originalNode) {
@@ -272,6 +244,62 @@ export function ConstantValueOfExpression(expression: TS.Expression, transformer
     }
 
     return undefined;
+}
+
+/**
+ * Find the original node in the original source file that corresponds to the specified expression.
+ * 
+ * This is used in global function transformers to determine the actual node to use in the original source file.
+ * @param expression Expression node in the transformed source file to be matched with the original node.
+ * @param transformer The transformer instance containing details about the project.
+ * @returns 
+ */
+export function FindOriginalNodeOfExpression<T extends TS.Expression>(expression: T, transformer: TransformerBase): T | undefined {
+    // If this has an offset defined or is a global function transformer, determine the
+    // actual node to use in the original source file
+    const hasOffset = transformer.positionOffset && transformer.sourceFile;
+    const isGlobalFunctionTransformer = transformer.isGlobalFunctionTransformer && transformer.sourceFile;
+    if (hasOffset || isGlobalFunctionTransformer) {
+        let originalNode: T | undefined;
+        const offset = transformer.positionOffset ?? 0;
+
+        /**
+         * Verifies if the specified node is the original node in the original source file,
+         * otherwise continues to search for it in the specified node's descendants.
+         * @param node          The node to verify.
+         * @returns             The `node` argument.
+         */
+        const findNode = (node: TS.Node): void => {
+            // If the original node was already found, stop searching
+            if (originalNode) {
+                return;
+            }
+
+            // The original node should have the same syntax kind and position
+            if (node.kind == expression.kind && node.pos == offset! + expression.pos) {
+                // And additionally the same text
+                try {
+                    if (node.getText() == expression.getText()) {
+                        originalNode = node as T;
+                    }
+                }
+                catch (e) {
+                    // getText can fail for certain synthetic nodes, if this happens move on to the next node
+                }
+            }
+
+            TS.forEachChild(node, findNode);
+        }
+
+        // Recursively search for the original node in the original source file
+        TS.forEachChild(transformer.sourceFile!, findNode);
+
+        // If the source node was found, use it to determine the constant value
+        return originalNode;
+    } else {
+        return undefined;
+    }
+        
 }
 
 // #endregion

@@ -26834,3 +26834,3077 @@ declare class UIOutputInterfaceXychart<A> {
 
 /** Displays an XY/scatter chart */
 declare function Xychart<A>(props: UIInputInterfaceXychart<A>): UIOutputInterfaceXychart<A>
+
+/** The properties and events that can be set or bound on the "Ptcschartcombo" widget. */
+declare interface UIInputInterfacePtcschartcombo<A> extends UIBaseInputInterface {
+    
+    /**  */
+    "ZoomInLabel"?: STRING | BindingTarget<STRING>;
+
+
+    /**  */
+    "ZoomOutLabel"?: STRING | BindingTarget<STRING>;
+
+
+    /**  */
+    "ShowLegendLabel"?: STRING | BindingTarget<STRING>;
+
+
+    /**  */
+    "HideLegendLabel"?: STRING | BindingTarget<STRING>;
+
+
+    /** Controls the type of button used to show and hide the legend area at run time */
+    "ShowHideLegendButtonType"?: STRING<"tertiary" | "transparent">;
+
+
+    /** Controls the type of button used to reset the chart at run time */
+    "ResetButtonType"?: STRING<"tertiary" | "transparent">;
+
+
+    /** Shows the zoom in and zoom out buttons on the chart toolbar. */
+    "ShowZoomButtons"?: BOOLEAN | BindingTarget<BOOLEAN>;
+
+
+    /** Disable the widget in the mashup */
+    "Disabled"?: BOOLEAN | BindingTarget<BOOLEAN>;
+
+
+    /** Hides the notes area */
+    "HideNotes"?: BOOLEAN | BindingTarget<BOOLEAN>;
+
+
+    /** Specifies the text label for the X-axis */
+    "XAxisLabel"?: STRING | BindingTarget<STRING>;
+
+
+    /** Hides the X-axis */
+    "HideXAxis"?: BOOLEAN | BindingTarget<BOOLEAN>;
+
+
+    /** Sets the number of labels on the X-axis */
+    "NumberOfXLabels"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Adds a configuration menu to the chart toolbar that enables you to control the visibility of Y-axes at run time. */
+    "AxisDisplayControl"?: BOOLEAN | BindingTarget<BOOLEAN>;
+
+
+    /** Hides the legend area */
+    "HideLegend"?: BOOLEAN | BindingTarget<BOOLEAN>;
+
+
+    /** Disables grouping within the chart legend. By default, the data series are grouped based on their Y-axis. */
+    "DisableLegendGrouping"?: BOOLEAN | BindingTarget<BOOLEAN>;
+
+
+    /** Shows a simplified view of the chart vizualization. Enable this property to hide labels, legends, and rulers. */
+    "SparkView"?: BOOLEAN | BindingTarget<BOOLEAN>;
+
+
+    /** Specify the Y-axis to use as the reference for the ruler lines. You can align ruler lines with the data value markers of the primary or the secondary Y-axis. */
+    "YAxisRulerAlignment"?: STRING<"primary" | "secondary"> | BindingTarget<STRING<"primary" | "secondary">>;
+
+
+    /** Displays the X-Axis values in the reverse order */
+    "ReverseXAxis"?: BOOLEAN;
+
+
+    /** Reverses the order of values on the Y-axis */
+    "ReverseYAxis"?: BOOLEAN;
+
+
+    /** Sets a maximum width for the legend area */
+    "LegendMaxWidth"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Sets a maximum width for the vertical axis */
+    "VerticalAxisMaxWidth"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Sets a maximum width for the Y-axes area. A scroll bar is displayed when the area exceeds the maximum width. */
+    "YAxesMaxWidth"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Aligns the bars of all Y-axes on the chart at zero. */
+    "AlignBarsAtZero"?: BOOLEAN | BindingTarget<BOOLEAN>;
+
+
+    /** Sets a maximum height for the horizontal axis */
+    "HorizontalAxisMaxHeight"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** The infotable data source for the chart */ 
+    "Data"?: BindingTarget<INFOTABLE<A>>;
+
+
+    /** Sets the padding between the series. The padding value is a percentage of the bar width. */
+    "GroupPadding"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Controls how many data points a user can select at the same time. Choose multiple to allow a user to select more than one data point. */
+    "SelectionMode"?: STRING<"none" | "single" | "multiple"> | BindingTarget<STRING<"none" | "single" | "multiple">>;
+
+
+    /** Specifies the appearance of the pointer when hovering on the chart. You can use guide lines to track a data value relative to an axis */
+    "PointerType"?: STRING<"auto" | "horz" | "vert" | "cross"> | BindingTarget<STRING<"auto" | "horz" | "vert" | "cross">>;
+
+
+    /** Specifies the data point to select relative to the pointer position. You can set the property to select the nearest data point on the vertical axis, horizontal axis, or both axes. */
+    "DataPointSelection"?: STRING<"auto" | "horz" | "vert" | "both"> | BindingTarget<STRING<"auto" | "horz" | "vert" | "both">>;
+
+
+    /** Sets the maximum number of data points to display when visualizing large data sets on the chart. To disable sampling, set this property to 0. */
+    "SampleSize"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Highlights the reserved space for bar categories on the chart. When set to true, the area for each category is shaded using a gray color. */
+    "ShowChartBands"?: BOOLEAN;
+
+
+    /** Specifies the text label to display for the Combo chart */
+    "Label"?: STRING | BindingTarget<STRING>;
+
+
+    /** Enter a custom tooltip to display when a data point is selected. You can show a title, text, data values, and create new lines. Use the following syntax: Add #title# before a string to show a title, #newline# to create a new line, ${<token_name>} to display data from available chart tokens, and ${Data:<infotable_column>} or ${DataSourceN:<infotable_column>} to display values from an infotable column. For example: #title#Chart Tooltip Title#newline#${label}, ${total}#newline#${Data:Column3}. */
+    "ValuesTooltip"?: STRING | BindingTarget<STRING>;
+
+
+    /** Sets the label type for the Combo chart */
+    "LabelType"?: STRING<"large-header" | "header" | "sub-header" | "large-title" | "title" | "label" | "body" | "caption"> | BindingTarget<STRING<"large-header" | "header" | "sub-header" | "large-title" | "title" | "label" | "body" | "caption">>;
+
+
+    /** Aligns the text for the widget label */
+    "LabelAlignment"?: STRING;
+
+
+    /** Sets the position of the text label */
+    "LabelPosition"?: STRING<"top" | "bottom">;
+
+
+    /** Sets the position of the chart legends */
+    "LegendPosition"?: STRING<"top" | "right" | "bottom" | "left">;
+
+
+    /** Adds a legend filter that allows the user to filter the chart at runtime */
+    "LegendFilter"?: BOOLEAN;
+
+
+    /** Aligns the legend text. The options that are available to you for this property depend on the setting of the LegendPosition property. */
+    "LegendAlignment"?: STRING;
+
+
+    /** Adds a show/hide button that enables users to show or hide the chart legend at run time. */
+    "ShowHideLegend"?: BOOLEAN;
+
+
+    /** Specifies the text to display within the notes area on the chart. You can enter a string or select a localization token. */
+    "Notes"?: STRING | BindingTarget<STRING>;
+
+
+    /** Sets the position of the notes area */
+    "NotesPosition"?: STRING<"top" | "bottom">;
+
+
+    /** Aligns the text within the notes area */
+    "NotesAlignment"?: STRING;
+
+
+    /** Specifies the icon to display when the chart data is loading. */
+    "LoadingIcon"?: IMAGELINK;
+
+
+    /** Specifies the text to display when the chart is not bound to a data source. */
+    "NoDataSourceLabel"?: string;
+
+
+    /** Specifies the icon to display when the chart is not bound to a data source. */
+    "NoDataSourceIcon"?: IMAGELINK;
+
+
+    /** Specifies the text to display when the bound infotable does not contain any data. */
+    "EmptyChartLabel"?: string;
+
+
+    /** Specifies the icon to display when the chart is empty. */
+    "EmptyChartIcon"?: IMAGELINK;
+
+
+    /** Specifies the text to display when the chart data cannot be loaded. */
+    "ErrorStateLabel"?: string;
+
+
+    /** Specifies the icon to display when the chart data cannot be loaded. */
+    "ErrorStateIcon"?: IMAGELINK;
+
+
+    /** Sets the number of data series to display on the chart. */
+    "NumberOfSeries"?: NUMBER;
+
+
+    /** Sets the number of Y axes in chart */
+    "NumberOfYaxes"?: NUMBER;
+
+
+    /** Sets the number of data series stacks to display on the chart */
+    "NumberOfStacks"?: NUMBER;
+
+
+    /** Select the infotable field that contains the data for the X-axis */
+    "XAxisField"?: FIELDNAME<A>;
+
+
+    /** Sets the marker shape for data points on the chart */
+    "MarkerShape"?: STRING<"circle" | "square" | "diamond" | "none">;
+
+
+    /** Enables you to visualize data from multiple sources on the chart */
+    "MultipleDataSources"?: BOOLEAN;
+
+
+    /**  */
+    "StringSelectAll"?: undefined;
+
+
+    /**  */
+    "StringClearAll"?: undefined;
+
+
+    /** Aligns the X-axis label */
+    "XAxisLabelAlignment"?: STRING<"start" | "center" | "end">;
+
+
+    /** Sets the format type of the X-axis values */
+    "XAxisType"?: STRING<"label" | "number" | "date"> | BindingTarget<STRING<"label" | "number" | "date">>;
+
+
+    /** Sets the format for the X-axis values */
+    "XAxisFormat"?: STRING | BindingTarget<STRING>;
+
+
+    /** Enter a 'DD-MM-YY' string pattern to set the date and time format for the X-axis. Format strings are case sensitive. You can use formats supported by the Moment.js library. For example, use a 'MMMM D YYYY hh:m A' pattern to format the date and time as 'October 12 1987 09:30 PM'. */
+    "XAxisDateFormatToken"?: STRING | BindingTarget<STRING>;
+
+
+    /** Sets the maximum range for the X-axis values. By default the range is automatically calculated based on the widget data. */
+    "XAxisMaximumValues"?: STRING | BindingTarget<STRING>;
+
+
+    /** Sets the minimum range for the X-axis values. By default the range is automatically calculated based on the widget data. */
+    "XAxisMinimumValues"?: STRING | BindingTarget<STRING>;
+
+
+    /** Enter a value from -180 to 180 to set the rotation angle of labels on the horizontal axis. */
+    "HorizontalAxisLabelsRotation"?: NUMBER;
+
+
+    /** Shows the X-axis ruler */
+    "ShowXAxisRuler"?: BOOLEAN | BindingTarget<BOOLEAN>;
+
+
+    /** Shows the Y-axis ruler */
+    "ShowYAxisRuler"?: BOOLEAN | BindingTarget<BOOLEAN>;
+
+
+    /** Shows the rulers in front of the data values. By default, rulers are displayed behind the data. */
+    "RulersInFront"?: BOOLEAN | BindingTarget<BOOLEAN>;
+
+
+    /** Controls the visiblity of the zero value rulers on the chart. You can display a ruler for the primary axis, secondary axis, or both axes */
+    "ZeroValueRuler"?: STRING<"primary" | "secondary" | "none" | "both"> | BindingTarget<STRING<"primary" | "secondary" | "none" | "both">>;
+
+
+    /** Enables you to zoom in or out on the horizontal axis */
+    "HorizontalZoom"?: BOOLEAN | BindingTarget<BOOLEAN>;
+
+
+    /** Adds controls that enable users to specify a value range to zoom to on the horizontal axis */
+    "HorizontalRangeZoom"?: BOOLEAN | BindingTarget<BOOLEAN>;
+
+
+    /** Specifies the text label for start of the range selection */
+    "HorizontalStartZoomLabel"?: STRING | BindingTarget<STRING>;
+
+
+    /** Specifies the text label for end of the range selection */
+    "HorizontalEndZoomLabel"?: STRING | BindingTarget<STRING>;
+
+
+    /** Adds a slider control that enables you to display data between a minimum and a maximum value on the horizontal axis */
+    "HorizontalSliderZoom"?: BOOLEAN | BindingTarget<BOOLEAN>;
+
+
+    /** Specifies the text label for the maximum value of the slider zoom control */
+    "HorizontalSliderZoomMaxLabel"?: STRING | BindingTarget<STRING>;
+
+
+    /** Specifies the text label for the minimum value of the slider zoom control */
+    "HorizontalSliderZoomMinLabel"?: STRING | BindingTarget<STRING>;
+
+
+    /** Enables you to zoom in by directly selecting two data items on the chart */
+    "DirectSelectionZoom"?: STRING<"none" | "xaxis" | "yaxis" | "both"> | BindingTarget<STRING<"none" | "xaxis" | "yaxis" | "both">>;
+
+
+    /** Enables you to zoom in to a specific part of the chart by drawing a selection box around the data range that you want to view */
+    "DragSelectionZoom"?: STRING<"none" | "xaxis" | "yaxis" | "both"> | BindingTarget<STRING<"none" | "xaxis" | "yaxis" | "both">>;
+
+
+    /** Sets the default type of visualization used to display the series data in the chart. You can manually override this selection for each data series using the SeriesNType property. */
+    "ChartType"?: STRING<"line" | "bar" | "area" | "marker" | "stepper">;
+
+
+    /** Enables you to zoom in or out on the vertical axis */
+    "VerticalZoom"?: BOOLEAN | BindingTarget<BOOLEAN>;
+
+
+    /** Adds a slider control that enables you to display data between a minimum and a maximum value on the vertical axis */
+    "VerticalSliderZoom"?: BOOLEAN | BindingTarget<BOOLEAN>;
+
+
+    /** Specifies the text label for the maximum value of the slider zoom control */
+    "VerticalSliderZoomMaxLabel"?: STRING | BindingTarget<STRING>;
+
+
+    /** Specifies the text label for the minimum value of the slider zoom control */
+    "VerticalSliderZoomMinLabel"?: STRING | BindingTarget<STRING>;
+
+
+    /** The sequence number of the widget when you press the TAB key */
+    "TabSequence"?: NUMBER;
+
+
+    /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
+    "CustomClass"?: STRING | BindingTarget<STRING>;
+
+
+    /** The width of the widget */
+    "Width"?: NUMBER;
+
+
+    /** The height of the widget */
+    "Height"?: NUMBER;
+
+
+    /** Specifies the label for the button that resets the charts zooming */
+    "LabelReset"?: STRING | BindingTarget<STRING>;
+
+
+    /** Hides the value labels on the chart */
+    "HideValues"?: BOOLEAN | BindingTarget<BOOLEAN>;
+
+
+    /** Sets the position of the data value labels relative to the data points */
+    "ValuesPosition"?: STRING<"above" | "on" | "below">;
+
+
+    /** Sets the position of the data value labels relative to the chart bars */
+    "ValuesPositionBar"?: STRING<"outside" | "inside">;
+
+
+    /** Sets the alignment of the data value labels relative to the chart bars */
+    "ValuesAlignmentBar"?: STRING<"end" | "base">;
+
+
+    /** Sets the padding from the axes. The padding value is a percentage of the bar width. */
+    "ExternalPadding"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Sets the padding between the series. The padding value is a percentage of the bar width. */
+    "InternalPadding"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Sets the number of reference lines to display on the chart. Reference lines are used to highlight the chart data relative to a specific value. You can add up to 24 lines and configure the label, axis, and value of each line. */
+    "NumberOfReferenceLines"?: NUMBER;
+
+
+    /**  */
+    "DataSeriesStyle"?: undefined;
+
+
+    /** The input field source for the data series 1 */
+    "DataSource1"?: BindingTarget<INFOTABLE>;
+
+
+    /** Select the infotable field that contains the data for the X-axis 1 */
+    "XAxisField1"?: string;
+
+
+    /** Displays the data series 1 */
+    "DataField1"?: string;
+
+
+    /** The label to display in the legends area for data series  1 */
+    "DataLabel1"?: STRING | BindingTarget<STRING>;
+
+
+    /** Sets the type of visualization used to display the series data on the chart 1 */
+    "Series1Type"?: STRING<"default" | "line" | "bar" | "area" | "marker" | "stepper">;
+
+
+    /** Sets the Y axis or stacking group for the data series. 1 */
+    "DisplaySeries1On"?: STRING;
+
+
+    /** Sets the series order on the Z-axis. By default, all groups are set to the same Z-axis value. Stacked groups are arranged based on the series type followed by this property. 1 */
+    "Series1ZAxis"?: NUMBER;
+
+
+    /** Sets the marker shape of the data points on the chart 1 */
+    "Series1MarkerShape"?: STRING<"default" | "circle" | "square" | "diamond" | "none">;
+
+
+    /** Sets the marker size of the series 1 */
+    "Series1MarkerSize"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Enables you to apply state formatting for data series 1 in the chart. You can style the series based on data values to spot trends and patterns more easily. */
+    "DataSeriesStyle1"?: STATEFORMATTING;
+
+
+    /** Specifies the Y-axis position. When set to Auto, the first Y-axis shows as primary and the rest as secondary. 1 */
+    "YAxis1Position"?: STRING<"auto" | "primary" | "secondary">;
+
+
+    /** Hides the Y-axis 1 */
+    "HideYAxis1"?: BOOLEAN | BindingTarget<BOOLEAN>;
+
+
+    /** Sets the maximum value for the Y-axis range. By default, the range is automatically calculated based on the widget data. 1 */
+    "YAxis1MaximumValue"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Sets the minimum value for the Y-axis range. By default, the range is automatically calculated based on the widget data. 1 */
+    "YAxis1MinimumValue"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Sets the number of labels in Y-axis 1 */
+    "YAxis1NumberOfLabels"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Sets the format for the Y-axis values 1 */
+    "YAxis1Format"?: STRING | BindingTarget<STRING>;
+
+
+    /** Specifies the text label for the Y-axis 1 */
+    "YAxis1Label"?: STRING | BindingTarget<STRING>;
+
+
+    /** Aligns the label for the Y-axis 1 */
+    "YAxis1LabelAlignment"?: STRING<"start" | "center" | "end">;
+
+
+    /** Sets the curve for the data stack 1 */
+    "Stack1Curve"?: STRING<"bar" | "linear" | "stream" | "step">;
+
+
+    /** Sets the Y axis for the data stack 1 */
+    "Stack1Yaxis"?: STRING;
+
+
+    /** Sets the label text for reference line 1. */
+    "ReferenceLine1Label"?: STRING | BindingTarget<STRING>;
+
+
+    /** Specifies the axis to use for reference line 1. */
+    "ReferenceLine1Axis"?: STRING;
+
+
+    /** Sets the value to use for the position of reference line 1 on the selected axis. */
+    "ReferenceLine1Value"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** The input field source for the data series 2 */
+    "DataSource2"?: BindingTarget<INFOTABLE>;
+
+
+    /** Select the infotable field that contains the data for the X-axis 2 */
+    "XAxisField2"?: string;
+
+
+    /** Displays the data series 2 */
+    "DataField2"?: string;
+
+
+    /** The label to display in the legends area for data series  2 */
+    "DataLabel2"?: STRING | BindingTarget<STRING>;
+
+
+    /** Sets the type of visualization used to display the series data on the chart 2 */
+    "Series2Type"?: STRING<"default" | "line" | "bar" | "area" | "marker" | "stepper">;
+
+
+    /** Sets the Y axis or stacking group for the data series. 2 */
+    "DisplaySeries2On"?: STRING;
+
+
+    /** Sets the series order on the Z-axis. By default, all groups are set to the same Z-axis value. Stacked groups are arranged based on the series type followed by this property. 2 */
+    "Series2ZAxis"?: NUMBER;
+
+
+    /** Sets the marker shape of the data points on the chart 2 */
+    "Series2MarkerShape"?: STRING<"default" | "circle" | "square" | "diamond" | "none">;
+
+
+    /** Sets the marker size of the series 2 */
+    "Series2MarkerSize"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Enables you to apply state formatting for data series 2 in the chart. You can style the series based on data values to spot trends and patterns more easily. */
+    "DataSeriesStyle2"?: STATEFORMATTING;
+
+
+    /** Specifies the Y-axis position. When set to Auto, the first Y-axis shows as primary and the rest as secondary. 2 */
+    "YAxis2Position"?: STRING<"auto" | "primary" | "secondary">;
+
+
+    /** Hides the Y-axis 2 */
+    "HideYAxis2"?: BOOLEAN | BindingTarget<BOOLEAN>;
+
+
+    /** Sets the maximum value for the Y-axis range. By default, the range is automatically calculated based on the widget data. 2 */
+    "YAxis2MaximumValue"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Sets the minimum value for the Y-axis range. By default, the range is automatically calculated based on the widget data. 2 */
+    "YAxis2MinimumValue"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Sets the number of labels in Y-axis 2 */
+    "YAxis2NumberOfLabels"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Sets the format for the Y-axis values 2 */
+    "YAxis2Format"?: STRING | BindingTarget<STRING>;
+
+
+    /** Specifies the text label for the Y-axis 2 */
+    "YAxis2Label"?: STRING | BindingTarget<STRING>;
+
+
+    /** Aligns the label for the Y-axis 2 */
+    "YAxis2LabelAlignment"?: STRING<"start" | "center" | "end">;
+
+
+    /** Sets the curve for the data stack 2 */
+    "Stack2Curve"?: STRING<"bar" | "linear" | "stream" | "step">;
+
+
+    /** Sets the Y axis for the data stack 2 */
+    "Stack2Yaxis"?: STRING;
+
+
+    /** Sets the label text for reference line 2. */
+    "ReferenceLine2Label"?: STRING | BindingTarget<STRING>;
+
+
+    /** Specifies the axis to use for reference line 2. */
+    "ReferenceLine2Axis"?: STRING;
+
+
+    /** Sets the value to use for the position of reference line 2 on the selected axis. */
+    "ReferenceLine2Value"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** The input field source for the data series 3 */
+    "DataSource3"?: BindingTarget<INFOTABLE>;
+
+
+    /** Select the infotable field that contains the data for the X-axis 3 */
+    "XAxisField3"?: string;
+
+
+    /** Displays the data series 3 */
+    "DataField3"?: string;
+
+
+    /** The label to display in the legends area for data series  3 */
+    "DataLabel3"?: STRING | BindingTarget<STRING>;
+
+
+    /** Sets the type of visualization used to display the series data on the chart 3 */
+    "Series3Type"?: STRING<"default" | "line" | "bar" | "area" | "marker" | "stepper">;
+
+
+    /** Sets the Y axis or stacking group for the data series. 3 */
+    "DisplaySeries3On"?: STRING;
+
+
+    /** Sets the series order on the Z-axis. By default, all groups are set to the same Z-axis value. Stacked groups are arranged based on the series type followed by this property. 3 */
+    "Series3ZAxis"?: NUMBER;
+
+
+    /** Sets the marker shape of the data points on the chart 3 */
+    "Series3MarkerShape"?: STRING<"default" | "circle" | "square" | "diamond" | "none">;
+
+
+    /** Sets the marker size of the series 3 */
+    "Series3MarkerSize"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Enables you to apply state formatting for data series 3 in the chart. You can style the series based on data values to spot trends and patterns more easily. */
+    "DataSeriesStyle3"?: STATEFORMATTING;
+
+
+    /** Specifies the Y-axis position. When set to Auto, the first Y-axis shows as primary and the rest as secondary. 3 */
+    "YAxis3Position"?: STRING<"auto" | "primary" | "secondary">;
+
+
+    /** Hides the Y-axis 3 */
+    "HideYAxis3"?: BOOLEAN | BindingTarget<BOOLEAN>;
+
+
+    /** Sets the maximum value for the Y-axis range. By default, the range is automatically calculated based on the widget data. 3 */
+    "YAxis3MaximumValue"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Sets the minimum value for the Y-axis range. By default, the range is automatically calculated based on the widget data. 3 */
+    "YAxis3MinimumValue"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Sets the number of labels in Y-axis 3 */
+    "YAxis3NumberOfLabels"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Sets the format for the Y-axis values 3 */
+    "YAxis3Format"?: STRING | BindingTarget<STRING>;
+
+
+    /** Specifies the text label for the Y-axis 3 */
+    "YAxis3Label"?: STRING | BindingTarget<STRING>;
+
+
+    /** Aligns the label for the Y-axis 3 */
+    "YAxis3LabelAlignment"?: STRING<"start" | "center" | "end">;
+
+
+    /** Sets the curve for the data stack 3 */
+    "Stack3Curve"?: STRING<"bar" | "linear" | "stream" | "step">;
+
+
+    /** Sets the Y axis for the data stack 3 */
+    "Stack3Yaxis"?: STRING;
+
+
+    /** Sets the label text for reference line 3. */
+    "ReferenceLine3Label"?: STRING | BindingTarget<STRING>;
+
+
+    /** Specifies the axis to use for reference line 3. */
+    "ReferenceLine3Axis"?: STRING;
+
+
+    /** Sets the value to use for the position of reference line 3 on the selected axis. */
+    "ReferenceLine3Value"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** The input field source for the data series 4 */
+    "DataSource4"?: BindingTarget<INFOTABLE>;
+
+
+    /** Select the infotable field that contains the data for the X-axis 4 */
+    "XAxisField4"?: string;
+
+
+    /** Displays the data series 4 */
+    "DataField4"?: string;
+
+
+    /** The label to display in the legends area for data series  4 */
+    "DataLabel4"?: STRING | BindingTarget<STRING>;
+
+
+    /** Sets the type of visualization used to display the series data on the chart 4 */
+    "Series4Type"?: STRING<"default" | "line" | "bar" | "area" | "marker" | "stepper">;
+
+
+    /** Sets the Y axis or stacking group for the data series. 4 */
+    "DisplaySeries4On"?: STRING;
+
+
+    /** Sets the series order on the Z-axis. By default, all groups are set to the same Z-axis value. Stacked groups are arranged based on the series type followed by this property. 4 */
+    "Series4ZAxis"?: NUMBER;
+
+
+    /** Sets the marker shape of the data points on the chart 4 */
+    "Series4MarkerShape"?: STRING<"default" | "circle" | "square" | "diamond" | "none">;
+
+
+    /** Sets the marker size of the series 4 */
+    "Series4MarkerSize"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Enables you to apply state formatting for data series 4 in the chart. You can style the series based on data values to spot trends and patterns more easily. */
+    "DataSeriesStyle4"?: STATEFORMATTING;
+
+
+    /** Specifies the Y-axis position. When set to Auto, the first Y-axis shows as primary and the rest as secondary. 4 */
+    "YAxis4Position"?: STRING<"auto" | "primary" | "secondary">;
+
+
+    /** Hides the Y-axis 4 */
+    "HideYAxis4"?: BOOLEAN | BindingTarget<BOOLEAN>;
+
+
+    /** Sets the maximum value for the Y-axis range. By default, the range is automatically calculated based on the widget data. 4 */
+    "YAxis4MaximumValue"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Sets the minimum value for the Y-axis range. By default, the range is automatically calculated based on the widget data. 4 */
+    "YAxis4MinimumValue"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Sets the number of labels in Y-axis 4 */
+    "YAxis4NumberOfLabels"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Sets the format for the Y-axis values 4 */
+    "YAxis4Format"?: STRING | BindingTarget<STRING>;
+
+
+    /** Specifies the text label for the Y-axis 4 */
+    "YAxis4Label"?: STRING | BindingTarget<STRING>;
+
+
+    /** Aligns the label for the Y-axis 4 */
+    "YAxis4LabelAlignment"?: STRING<"start" | "center" | "end">;
+
+
+    /** Sets the curve for the data stack 4 */
+    "Stack4Curve"?: STRING<"bar" | "linear" | "stream" | "step">;
+
+
+    /** Sets the Y axis for the data stack 4 */
+    "Stack4Yaxis"?: STRING;
+
+
+    /** Sets the label text for reference line 4. */
+    "ReferenceLine4Label"?: STRING | BindingTarget<STRING>;
+
+
+    /** Specifies the axis to use for reference line 4. */
+    "ReferenceLine4Axis"?: STRING;
+
+
+    /** Sets the value to use for the position of reference line 4 on the selected axis. */
+    "ReferenceLine4Value"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** The input field source for the data series 5 */
+    "DataSource5"?: BindingTarget<INFOTABLE>;
+
+
+    /** Select the infotable field that contains the data for the X-axis 5 */
+    "XAxisField5"?: string;
+
+
+    /** Displays the data series 5 */
+    "DataField5"?: string;
+
+
+    /** The label to display in the legends area for data series  5 */
+    "DataLabel5"?: STRING | BindingTarget<STRING>;
+
+
+    /** Sets the type of visualization used to display the series data on the chart 5 */
+    "Series5Type"?: STRING<"default" | "line" | "bar" | "area" | "marker" | "stepper">;
+
+
+    /** Sets the Y axis or stacking group for the data series. 5 */
+    "DisplaySeries5On"?: STRING;
+
+
+    /** Sets the series order on the Z-axis. By default, all groups are set to the same Z-axis value. Stacked groups are arranged based on the series type followed by this property. 5 */
+    "Series5ZAxis"?: NUMBER;
+
+
+    /** Sets the marker shape of the data points on the chart 5 */
+    "Series5MarkerShape"?: STRING<"default" | "circle" | "square" | "diamond" | "none">;
+
+
+    /** Sets the marker size of the series 5 */
+    "Series5MarkerSize"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Enables you to apply state formatting for data series 5 in the chart. You can style the series based on data values to spot trends and patterns more easily. */
+    "DataSeriesStyle5"?: STATEFORMATTING;
+
+
+    /** Specifies the Y-axis position. When set to Auto, the first Y-axis shows as primary and the rest as secondary. 5 */
+    "YAxis5Position"?: STRING<"auto" | "primary" | "secondary">;
+
+
+    /** Hides the Y-axis 5 */
+    "HideYAxis5"?: BOOLEAN | BindingTarget<BOOLEAN>;
+
+
+    /** Sets the maximum value for the Y-axis range. By default, the range is automatically calculated based on the widget data. 5 */
+    "YAxis5MaximumValue"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Sets the minimum value for the Y-axis range. By default, the range is automatically calculated based on the widget data. 5 */
+    "YAxis5MinimumValue"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Sets the number of labels in Y-axis 5 */
+    "YAxis5NumberOfLabels"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Sets the format for the Y-axis values 5 */
+    "YAxis5Format"?: STRING | BindingTarget<STRING>;
+
+
+    /** Specifies the text label for the Y-axis 5 */
+    "YAxis5Label"?: STRING | BindingTarget<STRING>;
+
+
+    /** Aligns the label for the Y-axis 5 */
+    "YAxis5LabelAlignment"?: STRING<"start" | "center" | "end">;
+
+
+    /** Sets the curve for the data stack 5 */
+    "Stack5Curve"?: STRING<"bar" | "linear" | "stream" | "step">;
+
+
+    /** Sets the Y axis for the data stack 5 */
+    "Stack5Yaxis"?: STRING;
+
+
+    /** Sets the label text for reference line 5. */
+    "ReferenceLine5Label"?: STRING | BindingTarget<STRING>;
+
+
+    /** Specifies the axis to use for reference line 5. */
+    "ReferenceLine5Axis"?: STRING;
+
+
+    /** Sets the value to use for the position of reference line 5 on the selected axis. */
+    "ReferenceLine5Value"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** The input field source for the data series 6 */
+    "DataSource6"?: BindingTarget<INFOTABLE>;
+
+
+    /** Select the infotable field that contains the data for the X-axis 6 */
+    "XAxisField6"?: string;
+
+
+    /** Displays the data series 6 */
+    "DataField6"?: string;
+
+
+    /** The label to display in the legends area for data series  6 */
+    "DataLabel6"?: STRING | BindingTarget<STRING>;
+
+
+    /** Sets the type of visualization used to display the series data on the chart 6 */
+    "Series6Type"?: STRING<"default" | "line" | "bar" | "area" | "marker" | "stepper">;
+
+
+    /** Sets the Y axis or stacking group for the data series. 6 */
+    "DisplaySeries6On"?: STRING;
+
+
+    /** Sets the series order on the Z-axis. By default, all groups are set to the same Z-axis value. Stacked groups are arranged based on the series type followed by this property. 6 */
+    "Series6ZAxis"?: NUMBER;
+
+
+    /** Sets the marker shape of the data points on the chart 6 */
+    "Series6MarkerShape"?: STRING<"default" | "circle" | "square" | "diamond" | "none">;
+
+
+    /** Sets the marker size of the series 6 */
+    "Series6MarkerSize"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Enables you to apply state formatting for data series 6 in the chart. You can style the series based on data values to spot trends and patterns more easily. */
+    "DataSeriesStyle6"?: STATEFORMATTING;
+
+
+    /** Specifies the Y-axis position. When set to Auto, the first Y-axis shows as primary and the rest as secondary. 6 */
+    "YAxis6Position"?: STRING<"auto" | "primary" | "secondary">;
+
+
+    /** Hides the Y-axis 6 */
+    "HideYAxis6"?: BOOLEAN | BindingTarget<BOOLEAN>;
+
+
+    /** Sets the maximum value for the Y-axis range. By default, the range is automatically calculated based on the widget data. 6 */
+    "YAxis6MaximumValue"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Sets the minimum value for the Y-axis range. By default, the range is automatically calculated based on the widget data. 6 */
+    "YAxis6MinimumValue"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Sets the number of labels in Y-axis 6 */
+    "YAxis6NumberOfLabels"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Sets the format for the Y-axis values 6 */
+    "YAxis6Format"?: STRING | BindingTarget<STRING>;
+
+
+    /** Specifies the text label for the Y-axis 6 */
+    "YAxis6Label"?: STRING | BindingTarget<STRING>;
+
+
+    /** Aligns the label for the Y-axis 6 */
+    "YAxis6LabelAlignment"?: STRING<"start" | "center" | "end">;
+
+
+    /** Sets the curve for the data stack 6 */
+    "Stack6Curve"?: STRING<"bar" | "linear" | "stream" | "step">;
+
+
+    /** Sets the Y axis for the data stack 6 */
+    "Stack6Yaxis"?: STRING;
+
+
+    /** Sets the label text for reference line 6. */
+    "ReferenceLine6Label"?: STRING | BindingTarget<STRING>;
+
+
+    /** Specifies the axis to use for reference line 6. */
+    "ReferenceLine6Axis"?: STRING;
+
+
+    /** Sets the value to use for the position of reference line 6 on the selected axis. */
+    "ReferenceLine6Value"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** The input field source for the data series 7 */
+    "DataSource7"?: BindingTarget<INFOTABLE>;
+
+
+    /** Select the infotable field that contains the data for the X-axis 7 */
+    "XAxisField7"?: string;
+
+
+    /** Displays the data series 7 */
+    "DataField7"?: string;
+
+
+    /** The label to display in the legends area for data series  7 */
+    "DataLabel7"?: STRING | BindingTarget<STRING>;
+
+
+    /** Sets the type of visualization used to display the series data on the chart 7 */
+    "Series7Type"?: STRING<"default" | "line" | "bar" | "area" | "marker" | "stepper">;
+
+
+    /** Sets the Y axis or stacking group for the data series. 7 */
+    "DisplaySeries7On"?: STRING;
+
+
+    /** Sets the series order on the Z-axis. By default, all groups are set to the same Z-axis value. Stacked groups are arranged based on the series type followed by this property. 7 */
+    "Series7ZAxis"?: NUMBER;
+
+
+    /** Sets the marker shape of the data points on the chart 7 */
+    "Series7MarkerShape"?: STRING<"default" | "circle" | "square" | "diamond" | "none">;
+
+
+    /** Sets the marker size of the series 7 */
+    "Series7MarkerSize"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Enables you to apply state formatting for data series 7 in the chart. You can style the series based on data values to spot trends and patterns more easily. */
+    "DataSeriesStyle7"?: STATEFORMATTING;
+
+
+    /** Specifies the Y-axis position. When set to Auto, the first Y-axis shows as primary and the rest as secondary. 7 */
+    "YAxis7Position"?: STRING<"auto" | "primary" | "secondary">;
+
+
+    /** Hides the Y-axis 7 */
+    "HideYAxis7"?: BOOLEAN | BindingTarget<BOOLEAN>;
+
+
+    /** Sets the maximum value for the Y-axis range. By default, the range is automatically calculated based on the widget data. 7 */
+    "YAxis7MaximumValue"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Sets the minimum value for the Y-axis range. By default, the range is automatically calculated based on the widget data. 7 */
+    "YAxis7MinimumValue"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Sets the number of labels in Y-axis 7 */
+    "YAxis7NumberOfLabels"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Sets the format for the Y-axis values 7 */
+    "YAxis7Format"?: STRING | BindingTarget<STRING>;
+
+
+    /** Specifies the text label for the Y-axis 7 */
+    "YAxis7Label"?: STRING | BindingTarget<STRING>;
+
+
+    /** Aligns the label for the Y-axis 7 */
+    "YAxis7LabelAlignment"?: STRING<"start" | "center" | "end">;
+
+
+    /** Sets the curve for the data stack 7 */
+    "Stack7Curve"?: STRING<"bar" | "linear" | "stream" | "step">;
+
+
+    /** Sets the Y axis for the data stack 7 */
+    "Stack7Yaxis"?: STRING;
+
+
+    /** Sets the label text for reference line 7. */
+    "ReferenceLine7Label"?: STRING | BindingTarget<STRING>;
+
+
+    /** Specifies the axis to use for reference line 7. */
+    "ReferenceLine7Axis"?: STRING;
+
+
+    /** Sets the value to use for the position of reference line 7 on the selected axis. */
+    "ReferenceLine7Value"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** The input field source for the data series 8 */
+    "DataSource8"?: BindingTarget<INFOTABLE>;
+
+
+    /** Select the infotable field that contains the data for the X-axis 8 */
+    "XAxisField8"?: string;
+
+
+    /** Displays the data series 8 */
+    "DataField8"?: string;
+
+
+    /** The label to display in the legends area for data series  8 */
+    "DataLabel8"?: STRING | BindingTarget<STRING>;
+
+
+    /** Sets the type of visualization used to display the series data on the chart 8 */
+    "Series8Type"?: STRING<"default" | "line" | "bar" | "area" | "marker" | "stepper">;
+
+
+    /** Sets the Y axis or stacking group for the data series. 8 */
+    "DisplaySeries8On"?: STRING;
+
+
+    /** Sets the series order on the Z-axis. By default, all groups are set to the same Z-axis value. Stacked groups are arranged based on the series type followed by this property. 8 */
+    "Series8ZAxis"?: NUMBER;
+
+
+    /** Sets the marker shape of the data points on the chart 8 */
+    "Series8MarkerShape"?: STRING<"default" | "circle" | "square" | "diamond" | "none">;
+
+
+    /** Sets the marker size of the series 8 */
+    "Series8MarkerSize"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Enables you to apply state formatting for data series 8 in the chart. You can style the series based on data values to spot trends and patterns more easily. */
+    "DataSeriesStyle8"?: STATEFORMATTING;
+
+
+    /** Specifies the Y-axis position. When set to Auto, the first Y-axis shows as primary and the rest as secondary. 8 */
+    "YAxis8Position"?: STRING<"auto" | "primary" | "secondary">;
+
+
+    /** Hides the Y-axis 8 */
+    "HideYAxis8"?: BOOLEAN | BindingTarget<BOOLEAN>;
+
+
+    /** Sets the maximum value for the Y-axis range. By default, the range is automatically calculated based on the widget data. 8 */
+    "YAxis8MaximumValue"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Sets the minimum value for the Y-axis range. By default, the range is automatically calculated based on the widget data. 8 */
+    "YAxis8MinimumValue"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Sets the number of labels in Y-axis 8 */
+    "YAxis8NumberOfLabels"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Sets the format for the Y-axis values 8 */
+    "YAxis8Format"?: STRING | BindingTarget<STRING>;
+
+
+    /** Specifies the text label for the Y-axis 8 */
+    "YAxis8Label"?: STRING | BindingTarget<STRING>;
+
+
+    /** Aligns the label for the Y-axis 8 */
+    "YAxis8LabelAlignment"?: STRING<"start" | "center" | "end">;
+
+
+    /** Sets the curve for the data stack 8 */
+    "Stack8Curve"?: STRING<"bar" | "linear" | "stream" | "step">;
+
+
+    /** Sets the Y axis for the data stack 8 */
+    "Stack8Yaxis"?: STRING;
+
+
+    /** Sets the label text for reference line 8. */
+    "ReferenceLine8Label"?: STRING | BindingTarget<STRING>;
+
+
+    /** Specifies the axis to use for reference line 8. */
+    "ReferenceLine8Axis"?: STRING;
+
+
+    /** Sets the value to use for the position of reference line 8 on the selected axis. */
+    "ReferenceLine8Value"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** The input field source for the data series 9 */
+    "DataSource9"?: BindingTarget<INFOTABLE>;
+
+
+    /** Select the infotable field that contains the data for the X-axis 9 */
+    "XAxisField9"?: string;
+
+
+    /** Displays the data series 9 */
+    "DataField9"?: string;
+
+
+    /** The label to display in the legends area for data series  9 */
+    "DataLabel9"?: STRING | BindingTarget<STRING>;
+
+
+    /** Sets the type of visualization used to display the series data on the chart 9 */
+    "Series9Type"?: STRING<"default" | "line" | "bar" | "area" | "marker" | "stepper">;
+
+
+    /** Sets the Y axis or stacking group for the data series. 9 */
+    "DisplaySeries9On"?: STRING;
+
+
+    /** Sets the series order on the Z-axis. By default, all groups are set to the same Z-axis value. Stacked groups are arranged based on the series type followed by this property. 9 */
+    "Series9ZAxis"?: NUMBER;
+
+
+    /** Sets the marker shape of the data points on the chart 9 */
+    "Series9MarkerShape"?: STRING<"default" | "circle" | "square" | "diamond" | "none">;
+
+
+    /** Sets the marker size of the series 9 */
+    "Series9MarkerSize"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Enables you to apply state formatting for data series 9 in the chart. You can style the series based on data values to spot trends and patterns more easily. */
+    "DataSeriesStyle9"?: STATEFORMATTING;
+
+
+    /** Specifies the Y-axis position. When set to Auto, the first Y-axis shows as primary and the rest as secondary. 9 */
+    "YAxis9Position"?: STRING<"auto" | "primary" | "secondary">;
+
+
+    /** Hides the Y-axis 9 */
+    "HideYAxis9"?: BOOLEAN | BindingTarget<BOOLEAN>;
+
+
+    /** Sets the maximum value for the Y-axis range. By default, the range is automatically calculated based on the widget data. 9 */
+    "YAxis9MaximumValue"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Sets the minimum value for the Y-axis range. By default, the range is automatically calculated based on the widget data. 9 */
+    "YAxis9MinimumValue"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Sets the number of labels in Y-axis 9 */
+    "YAxis9NumberOfLabels"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Sets the format for the Y-axis values 9 */
+    "YAxis9Format"?: STRING | BindingTarget<STRING>;
+
+
+    /** Specifies the text label for the Y-axis 9 */
+    "YAxis9Label"?: STRING | BindingTarget<STRING>;
+
+
+    /** Aligns the label for the Y-axis 9 */
+    "YAxis9LabelAlignment"?: STRING<"start" | "center" | "end">;
+
+
+    /** Sets the curve for the data stack 9 */
+    "Stack9Curve"?: STRING<"bar" | "linear" | "stream" | "step">;
+
+
+    /** Sets the Y axis for the data stack 9 */
+    "Stack9Yaxis"?: STRING;
+
+
+    /** Sets the label text for reference line 9. */
+    "ReferenceLine9Label"?: STRING | BindingTarget<STRING>;
+
+
+    /** Specifies the axis to use for reference line 9. */
+    "ReferenceLine9Axis"?: STRING;
+
+
+    /** Sets the value to use for the position of reference line 9 on the selected axis. */
+    "ReferenceLine9Value"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** The input field source for the data series 10 */
+    "DataSource10"?: BindingTarget<INFOTABLE>;
+
+
+    /** Select the infotable field that contains the data for the X-axis 10 */
+    "XAxisField10"?: string;
+
+
+    /** Displays the data series 10 */
+    "DataField10"?: string;
+
+
+    /** The label to display in the legends area for data series  10 */
+    "DataLabel10"?: STRING | BindingTarget<STRING>;
+
+
+    /** Sets the type of visualization used to display the series data on the chart 10 */
+    "Series10Type"?: STRING<"default" | "line" | "bar" | "area" | "marker" | "stepper">;
+
+
+    /** Sets the Y axis or stacking group for the data series. 10 */
+    "DisplaySeries10On"?: STRING;
+
+
+    /** Sets the series order on the Z-axis. By default, all groups are set to the same Z-axis value. Stacked groups are arranged based on the series type followed by this property. 10 */
+    "Series10ZAxis"?: NUMBER;
+
+
+    /** Sets the marker shape of the data points on the chart 10 */
+    "Series10MarkerShape"?: STRING<"default" | "circle" | "square" | "diamond" | "none">;
+
+
+    /** Sets the marker size of the series 10 */
+    "Series10MarkerSize"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Enables you to apply state formatting for data series 10 in the chart. You can style the series based on data values to spot trends and patterns more easily. */
+    "DataSeriesStyle10"?: STATEFORMATTING;
+
+
+    /** Specifies the Y-axis position. When set to Auto, the first Y-axis shows as primary and the rest as secondary. 10 */
+    "YAxis10Position"?: STRING<"auto" | "primary" | "secondary">;
+
+
+    /** Hides the Y-axis 10 */
+    "HideYAxis10"?: BOOLEAN | BindingTarget<BOOLEAN>;
+
+
+    /** Sets the maximum value for the Y-axis range. By default, the range is automatically calculated based on the widget data. 10 */
+    "YAxis10MaximumValue"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Sets the minimum value for the Y-axis range. By default, the range is automatically calculated based on the widget data. 10 */
+    "YAxis10MinimumValue"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Sets the number of labels in Y-axis 10 */
+    "YAxis10NumberOfLabels"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Sets the format for the Y-axis values 10 */
+    "YAxis10Format"?: STRING | BindingTarget<STRING>;
+
+
+    /** Specifies the text label for the Y-axis 10 */
+    "YAxis10Label"?: STRING | BindingTarget<STRING>;
+
+
+    /** Aligns the label for the Y-axis 10 */
+    "YAxis10LabelAlignment"?: STRING<"start" | "center" | "end">;
+
+
+    /** Sets the curve for the data stack 10 */
+    "Stack10Curve"?: STRING<"bar" | "linear" | "stream" | "step">;
+
+
+    /** Sets the Y axis for the data stack 10 */
+    "Stack10Yaxis"?: STRING;
+
+
+    /** Sets the label text for reference line 10. */
+    "ReferenceLine10Label"?: STRING | BindingTarget<STRING>;
+
+
+    /** Specifies the axis to use for reference line 10. */
+    "ReferenceLine10Axis"?: STRING;
+
+
+    /** Sets the value to use for the position of reference line 10 on the selected axis. */
+    "ReferenceLine10Value"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** The input field source for the data series 11 */
+    "DataSource11"?: BindingTarget<INFOTABLE>;
+
+
+    /** Select the infotable field that contains the data for the X-axis 11 */
+    "XAxisField11"?: string;
+
+
+    /** Displays the data series 11 */
+    "DataField11"?: string;
+
+
+    /** The label to display in the legends area for data series  11 */
+    "DataLabel11"?: STRING | BindingTarget<STRING>;
+
+
+    /** Sets the type of visualization used to display the series data on the chart 11 */
+    "Series11Type"?: STRING<"default" | "line" | "bar" | "area" | "marker" | "stepper">;
+
+
+    /** Sets the Y axis or stacking group for the data series. 11 */
+    "DisplaySeries11On"?: STRING;
+
+
+    /** Sets the series order on the Z-axis. By default, all groups are set to the same Z-axis value. Stacked groups are arranged based on the series type followed by this property. 11 */
+    "Series11ZAxis"?: NUMBER;
+
+
+    /** Sets the marker shape of the data points on the chart 11 */
+    "Series11MarkerShape"?: STRING<"default" | "circle" | "square" | "diamond" | "none">;
+
+
+    /** Sets the marker size of the series 11 */
+    "Series11MarkerSize"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Enables you to apply state formatting for data series 11 in the chart. You can style the series based on data values to spot trends and patterns more easily. */
+    "DataSeriesStyle11"?: STATEFORMATTING;
+
+
+    /** Specifies the Y-axis position. When set to Auto, the first Y-axis shows as primary and the rest as secondary. 11 */
+    "YAxis11Position"?: STRING<"auto" | "primary" | "secondary">;
+
+
+    /** Hides the Y-axis 11 */
+    "HideYAxis11"?: BOOLEAN | BindingTarget<BOOLEAN>;
+
+
+    /** Sets the maximum value for the Y-axis range. By default, the range is automatically calculated based on the widget data. 11 */
+    "YAxis11MaximumValue"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Sets the minimum value for the Y-axis range. By default, the range is automatically calculated based on the widget data. 11 */
+    "YAxis11MinimumValue"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Sets the number of labels in Y-axis 11 */
+    "YAxis11NumberOfLabels"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Sets the format for the Y-axis values 11 */
+    "YAxis11Format"?: STRING | BindingTarget<STRING>;
+
+
+    /** Specifies the text label for the Y-axis 11 */
+    "YAxis11Label"?: STRING | BindingTarget<STRING>;
+
+
+    /** Aligns the label for the Y-axis 11 */
+    "YAxis11LabelAlignment"?: STRING<"start" | "center" | "end">;
+
+
+    /** Sets the curve for the data stack 11 */
+    "Stack11Curve"?: STRING<"bar" | "linear" | "stream" | "step">;
+
+
+    /** Sets the Y axis for the data stack 11 */
+    "Stack11Yaxis"?: STRING;
+
+
+    /** Sets the label text for reference line 11. */
+    "ReferenceLine11Label"?: STRING | BindingTarget<STRING>;
+
+
+    /** Specifies the axis to use for reference line 11. */
+    "ReferenceLine11Axis"?: STRING;
+
+
+    /** Sets the value to use for the position of reference line 11 on the selected axis. */
+    "ReferenceLine11Value"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** The input field source for the data series 12 */
+    "DataSource12"?: BindingTarget<INFOTABLE>;
+
+
+    /** Select the infotable field that contains the data for the X-axis 12 */
+    "XAxisField12"?: string;
+
+
+    /** Displays the data series 12 */
+    "DataField12"?: string;
+
+
+    /** The label to display in the legends area for data series  12 */
+    "DataLabel12"?: STRING | BindingTarget<STRING>;
+
+
+    /** Sets the type of visualization used to display the series data on the chart 12 */
+    "Series12Type"?: STRING<"default" | "line" | "bar" | "area" | "marker" | "stepper">;
+
+
+    /** Sets the Y axis or stacking group for the data series. 12 */
+    "DisplaySeries12On"?: STRING;
+
+
+    /** Sets the series order on the Z-axis. By default, all groups are set to the same Z-axis value. Stacked groups are arranged based on the series type followed by this property. 12 */
+    "Series12ZAxis"?: NUMBER;
+
+
+    /** Sets the marker shape of the data points on the chart 12 */
+    "Series12MarkerShape"?: STRING<"default" | "circle" | "square" | "diamond" | "none">;
+
+
+    /** Sets the marker size of the series 12 */
+    "Series12MarkerSize"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Enables you to apply state formatting for data series 12 in the chart. You can style the series based on data values to spot trends and patterns more easily. */
+    "DataSeriesStyle12"?: STATEFORMATTING;
+
+
+    /** Specifies the Y-axis position. When set to Auto, the first Y-axis shows as primary and the rest as secondary. 12 */
+    "YAxis12Position"?: STRING<"auto" | "primary" | "secondary">;
+
+
+    /** Hides the Y-axis 12 */
+    "HideYAxis12"?: BOOLEAN | BindingTarget<BOOLEAN>;
+
+
+    /** Sets the maximum value for the Y-axis range. By default, the range is automatically calculated based on the widget data. 12 */
+    "YAxis12MaximumValue"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Sets the minimum value for the Y-axis range. By default, the range is automatically calculated based on the widget data. 12 */
+    "YAxis12MinimumValue"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Sets the number of labels in Y-axis 12 */
+    "YAxis12NumberOfLabels"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Sets the format for the Y-axis values 12 */
+    "YAxis12Format"?: STRING | BindingTarget<STRING>;
+
+
+    /** Specifies the text label for the Y-axis 12 */
+    "YAxis12Label"?: STRING | BindingTarget<STRING>;
+
+
+    /** Aligns the label for the Y-axis 12 */
+    "YAxis12LabelAlignment"?: STRING<"start" | "center" | "end">;
+
+
+    /** Sets the curve for the data stack 12 */
+    "Stack12Curve"?: STRING<"bar" | "linear" | "stream" | "step">;
+
+
+    /** Sets the Y axis for the data stack 12 */
+    "Stack12Yaxis"?: STRING;
+
+
+    /** Sets the label text for reference line 12. */
+    "ReferenceLine12Label"?: STRING | BindingTarget<STRING>;
+
+
+    /** Specifies the axis to use for reference line 12. */
+    "ReferenceLine12Axis"?: STRING;
+
+
+    /** Sets the value to use for the position of reference line 12 on the selected axis. */
+    "ReferenceLine12Value"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** The input field source for the data series 13 */
+    "DataSource13"?: BindingTarget<INFOTABLE>;
+
+
+    /** Select the infotable field that contains the data for the X-axis 13 */
+    "XAxisField13"?: string;
+
+
+    /** Displays the data series 13 */
+    "DataField13"?: string;
+
+
+    /** The label to display in the legends area for data series  13 */
+    "DataLabel13"?: STRING | BindingTarget<STRING>;
+
+
+    /** Sets the type of visualization used to display the series data on the chart 13 */
+    "Series13Type"?: STRING<"default" | "line" | "bar" | "area" | "marker" | "stepper">;
+
+
+    /** Sets the Y axis or stacking group for the data series. 13 */
+    "DisplaySeries13On"?: STRING;
+
+
+    /** Sets the series order on the Z-axis. By default, all groups are set to the same Z-axis value. Stacked groups are arranged based on the series type followed by this property. 13 */
+    "Series13ZAxis"?: NUMBER;
+
+
+    /** Sets the marker shape of the data points on the chart 13 */
+    "Series13MarkerShape"?: STRING<"default" | "circle" | "square" | "diamond" | "none">;
+
+
+    /** Sets the marker size of the series 13 */
+    "Series13MarkerSize"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Enables you to apply state formatting for data series 13 in the chart. You can style the series based on data values to spot trends and patterns more easily. */
+    "DataSeriesStyle13"?: STATEFORMATTING;
+
+
+    /** Specifies the Y-axis position. When set to Auto, the first Y-axis shows as primary and the rest as secondary. 13 */
+    "YAxis13Position"?: STRING<"auto" | "primary" | "secondary">;
+
+
+    /** Hides the Y-axis 13 */
+    "HideYAxis13"?: BOOLEAN | BindingTarget<BOOLEAN>;
+
+
+    /** Sets the maximum value for the Y-axis range. By default, the range is automatically calculated based on the widget data. 13 */
+    "YAxis13MaximumValue"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Sets the minimum value for the Y-axis range. By default, the range is automatically calculated based on the widget data. 13 */
+    "YAxis13MinimumValue"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Sets the number of labels in Y-axis 13 */
+    "YAxis13NumberOfLabels"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Sets the format for the Y-axis values 13 */
+    "YAxis13Format"?: STRING | BindingTarget<STRING>;
+
+
+    /** Specifies the text label for the Y-axis 13 */
+    "YAxis13Label"?: STRING | BindingTarget<STRING>;
+
+
+    /** Aligns the label for the Y-axis 13 */
+    "YAxis13LabelAlignment"?: STRING<"start" | "center" | "end">;
+
+
+    /** Sets the curve for the data stack 13 */
+    "Stack13Curve"?: STRING<"bar" | "linear" | "stream" | "step">;
+
+
+    /** Sets the Y axis for the data stack 13 */
+    "Stack13Yaxis"?: STRING;
+
+
+    /** Sets the label text for reference line 13. */
+    "ReferenceLine13Label"?: STRING | BindingTarget<STRING>;
+
+
+    /** Specifies the axis to use for reference line 13. */
+    "ReferenceLine13Axis"?: STRING;
+
+
+    /** Sets the value to use for the position of reference line 13 on the selected axis. */
+    "ReferenceLine13Value"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** The input field source for the data series 14 */
+    "DataSource14"?: BindingTarget<INFOTABLE>;
+
+
+    /** Select the infotable field that contains the data for the X-axis 14 */
+    "XAxisField14"?: string;
+
+
+    /** Displays the data series 14 */
+    "DataField14"?: string;
+
+
+    /** The label to display in the legends area for data series  14 */
+    "DataLabel14"?: STRING | BindingTarget<STRING>;
+
+
+    /** Sets the type of visualization used to display the series data on the chart 14 */
+    "Series14Type"?: STRING<"default" | "line" | "bar" | "area" | "marker" | "stepper">;
+
+
+    /** Sets the Y axis or stacking group for the data series. 14 */
+    "DisplaySeries14On"?: STRING;
+
+
+    /** Sets the series order on the Z-axis. By default, all groups are set to the same Z-axis value. Stacked groups are arranged based on the series type followed by this property. 14 */
+    "Series14ZAxis"?: NUMBER;
+
+
+    /** Sets the marker shape of the data points on the chart 14 */
+    "Series14MarkerShape"?: STRING<"default" | "circle" | "square" | "diamond" | "none">;
+
+
+    /** Sets the marker size of the series 14 */
+    "Series14MarkerSize"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Enables you to apply state formatting for data series 14 in the chart. You can style the series based on data values to spot trends and patterns more easily. */
+    "DataSeriesStyle14"?: STATEFORMATTING;
+
+
+    /** Specifies the Y-axis position. When set to Auto, the first Y-axis shows as primary and the rest as secondary. 14 */
+    "YAxis14Position"?: STRING<"auto" | "primary" | "secondary">;
+
+
+    /** Hides the Y-axis 14 */
+    "HideYAxis14"?: BOOLEAN | BindingTarget<BOOLEAN>;
+
+
+    /** Sets the maximum value for the Y-axis range. By default, the range is automatically calculated based on the widget data. 14 */
+    "YAxis14MaximumValue"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Sets the minimum value for the Y-axis range. By default, the range is automatically calculated based on the widget data. 14 */
+    "YAxis14MinimumValue"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Sets the number of labels in Y-axis 14 */
+    "YAxis14NumberOfLabels"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Sets the format for the Y-axis values 14 */
+    "YAxis14Format"?: STRING | BindingTarget<STRING>;
+
+
+    /** Specifies the text label for the Y-axis 14 */
+    "YAxis14Label"?: STRING | BindingTarget<STRING>;
+
+
+    /** Aligns the label for the Y-axis 14 */
+    "YAxis14LabelAlignment"?: STRING<"start" | "center" | "end">;
+
+
+    /** Sets the curve for the data stack 14 */
+    "Stack14Curve"?: STRING<"bar" | "linear" | "stream" | "step">;
+
+
+    /** Sets the Y axis for the data stack 14 */
+    "Stack14Yaxis"?: STRING;
+
+
+    /** Sets the label text for reference line 14. */
+    "ReferenceLine14Label"?: STRING | BindingTarget<STRING>;
+
+
+    /** Specifies the axis to use for reference line 14. */
+    "ReferenceLine14Axis"?: STRING;
+
+
+    /** Sets the value to use for the position of reference line 14 on the selected axis. */
+    "ReferenceLine14Value"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** The input field source for the data series 15 */
+    "DataSource15"?: BindingTarget<INFOTABLE>;
+
+
+    /** Select the infotable field that contains the data for the X-axis 15 */
+    "XAxisField15"?: string;
+
+
+    /** Displays the data series 15 */
+    "DataField15"?: string;
+
+
+    /** The label to display in the legends area for data series  15 */
+    "DataLabel15"?: STRING | BindingTarget<STRING>;
+
+
+    /** Sets the type of visualization used to display the series data on the chart 15 */
+    "Series15Type"?: STRING<"default" | "line" | "bar" | "area" | "marker" | "stepper">;
+
+
+    /** Sets the Y axis or stacking group for the data series. 15 */
+    "DisplaySeries15On"?: STRING;
+
+
+    /** Sets the series order on the Z-axis. By default, all groups are set to the same Z-axis value. Stacked groups are arranged based on the series type followed by this property. 15 */
+    "Series15ZAxis"?: NUMBER;
+
+
+    /** Sets the marker shape of the data points on the chart 15 */
+    "Series15MarkerShape"?: STRING<"default" | "circle" | "square" | "diamond" | "none">;
+
+
+    /** Sets the marker size of the series 15 */
+    "Series15MarkerSize"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Enables you to apply state formatting for data series 15 in the chart. You can style the series based on data values to spot trends and patterns more easily. */
+    "DataSeriesStyle15"?: STATEFORMATTING;
+
+
+    /** Specifies the Y-axis position. When set to Auto, the first Y-axis shows as primary and the rest as secondary. 15 */
+    "YAxis15Position"?: STRING<"auto" | "primary" | "secondary">;
+
+
+    /** Hides the Y-axis 15 */
+    "HideYAxis15"?: BOOLEAN | BindingTarget<BOOLEAN>;
+
+
+    /** Sets the maximum value for the Y-axis range. By default, the range is automatically calculated based on the widget data. 15 */
+    "YAxis15MaximumValue"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Sets the minimum value for the Y-axis range. By default, the range is automatically calculated based on the widget data. 15 */
+    "YAxis15MinimumValue"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Sets the number of labels in Y-axis 15 */
+    "YAxis15NumberOfLabels"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Sets the format for the Y-axis values 15 */
+    "YAxis15Format"?: STRING | BindingTarget<STRING>;
+
+
+    /** Specifies the text label for the Y-axis 15 */
+    "YAxis15Label"?: STRING | BindingTarget<STRING>;
+
+
+    /** Aligns the label for the Y-axis 15 */
+    "YAxis15LabelAlignment"?: STRING<"start" | "center" | "end">;
+
+
+    /** Sets the curve for the data stack 15 */
+    "Stack15Curve"?: STRING<"bar" | "linear" | "stream" | "step">;
+
+
+    /** Sets the Y axis for the data stack 15 */
+    "Stack15Yaxis"?: STRING;
+
+
+    /** Sets the label text for reference line 15. */
+    "ReferenceLine15Label"?: STRING | BindingTarget<STRING>;
+
+
+    /** Specifies the axis to use for reference line 15. */
+    "ReferenceLine15Axis"?: STRING;
+
+
+    /** Sets the value to use for the position of reference line 15 on the selected axis. */
+    "ReferenceLine15Value"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** The input field source for the data series 16 */
+    "DataSource16"?: BindingTarget<INFOTABLE>;
+
+
+    /** Select the infotable field that contains the data for the X-axis 16 */
+    "XAxisField16"?: string;
+
+
+    /** Displays the data series 16 */
+    "DataField16"?: string;
+
+
+    /** The label to display in the legends area for data series  16 */
+    "DataLabel16"?: STRING | BindingTarget<STRING>;
+
+
+    /** Sets the type of visualization used to display the series data on the chart 16 */
+    "Series16Type"?: STRING<"default" | "line" | "bar" | "area" | "marker" | "stepper">;
+
+
+    /** Sets the Y axis or stacking group for the data series. 16 */
+    "DisplaySeries16On"?: STRING;
+
+
+    /** Sets the series order on the Z-axis. By default, all groups are set to the same Z-axis value. Stacked groups are arranged based on the series type followed by this property. 16 */
+    "Series16ZAxis"?: NUMBER;
+
+
+    /** Sets the marker shape of the data points on the chart 16 */
+    "Series16MarkerShape"?: STRING<"default" | "circle" | "square" | "diamond" | "none">;
+
+
+    /** Sets the marker size of the series 16 */
+    "Series16MarkerSize"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Enables you to apply state formatting for data series 16 in the chart. You can style the series based on data values to spot trends and patterns more easily. */
+    "DataSeriesStyle16"?: STATEFORMATTING;
+
+
+    /** Specifies the Y-axis position. When set to Auto, the first Y-axis shows as primary and the rest as secondary. 16 */
+    "YAxis16Position"?: STRING<"auto" | "primary" | "secondary">;
+
+
+    /** Hides the Y-axis 16 */
+    "HideYAxis16"?: BOOLEAN | BindingTarget<BOOLEAN>;
+
+
+    /** Sets the maximum value for the Y-axis range. By default, the range is automatically calculated based on the widget data. 16 */
+    "YAxis16MaximumValue"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Sets the minimum value for the Y-axis range. By default, the range is automatically calculated based on the widget data. 16 */
+    "YAxis16MinimumValue"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Sets the number of labels in Y-axis 16 */
+    "YAxis16NumberOfLabels"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Sets the format for the Y-axis values 16 */
+    "YAxis16Format"?: STRING | BindingTarget<STRING>;
+
+
+    /** Specifies the text label for the Y-axis 16 */
+    "YAxis16Label"?: STRING | BindingTarget<STRING>;
+
+
+    /** Aligns the label for the Y-axis 16 */
+    "YAxis16LabelAlignment"?: STRING<"start" | "center" | "end">;
+
+
+    /** Sets the curve for the data stack 16 */
+    "Stack16Curve"?: STRING<"bar" | "linear" | "stream" | "step">;
+
+
+    /** Sets the Y axis for the data stack 16 */
+    "Stack16Yaxis"?: STRING;
+
+
+    /** Sets the label text for reference line 16. */
+    "ReferenceLine16Label"?: STRING | BindingTarget<STRING>;
+
+
+    /** Specifies the axis to use for reference line 16. */
+    "ReferenceLine16Axis"?: STRING;
+
+
+    /** Sets the value to use for the position of reference line 16 on the selected axis. */
+    "ReferenceLine16Value"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** The input field source for the data series 17 */
+    "DataSource17"?: BindingTarget<INFOTABLE>;
+
+
+    /** Select the infotable field that contains the data for the X-axis 17 */
+    "XAxisField17"?: string;
+
+
+    /** Displays the data series 17 */
+    "DataField17"?: string;
+
+
+    /** The label to display in the legends area for data series  17 */
+    "DataLabel17"?: STRING | BindingTarget<STRING>;
+
+
+    /** Sets the type of visualization used to display the series data on the chart 17 */
+    "Series17Type"?: STRING<"default" | "line" | "bar" | "area" | "marker" | "stepper">;
+
+
+    /** Sets the Y axis or stacking group for the data series. 17 */
+    "DisplaySeries17On"?: STRING;
+
+
+    /** Sets the series order on the Z-axis. By default, all groups are set to the same Z-axis value. Stacked groups are arranged based on the series type followed by this property. 17 */
+    "Series17ZAxis"?: NUMBER;
+
+
+    /** Sets the marker shape of the data points on the chart 17 */
+    "Series17MarkerShape"?: STRING<"default" | "circle" | "square" | "diamond" | "none">;
+
+
+    /** Sets the marker size of the series 17 */
+    "Series17MarkerSize"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Enables you to apply state formatting for data series 17 in the chart. You can style the series based on data values to spot trends and patterns more easily. */
+    "DataSeriesStyle17"?: STATEFORMATTING;
+
+
+    /** Specifies the Y-axis position. When set to Auto, the first Y-axis shows as primary and the rest as secondary. 17 */
+    "YAxis17Position"?: STRING<"auto" | "primary" | "secondary">;
+
+
+    /** Hides the Y-axis 17 */
+    "HideYAxis17"?: BOOLEAN | BindingTarget<BOOLEAN>;
+
+
+    /** Sets the maximum value for the Y-axis range. By default, the range is automatically calculated based on the widget data. 17 */
+    "YAxis17MaximumValue"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Sets the minimum value for the Y-axis range. By default, the range is automatically calculated based on the widget data. 17 */
+    "YAxis17MinimumValue"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Sets the number of labels in Y-axis 17 */
+    "YAxis17NumberOfLabels"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Sets the format for the Y-axis values 17 */
+    "YAxis17Format"?: STRING | BindingTarget<STRING>;
+
+
+    /** Specifies the text label for the Y-axis 17 */
+    "YAxis17Label"?: STRING | BindingTarget<STRING>;
+
+
+    /** Aligns the label for the Y-axis 17 */
+    "YAxis17LabelAlignment"?: STRING<"start" | "center" | "end">;
+
+
+    /** Sets the curve for the data stack 17 */
+    "Stack17Curve"?: STRING<"bar" | "linear" | "stream" | "step">;
+
+
+    /** Sets the Y axis for the data stack 17 */
+    "Stack17Yaxis"?: STRING;
+
+
+    /** Sets the label text for reference line 17. */
+    "ReferenceLine17Label"?: STRING | BindingTarget<STRING>;
+
+
+    /** Specifies the axis to use for reference line 17. */
+    "ReferenceLine17Axis"?: STRING;
+
+
+    /** Sets the value to use for the position of reference line 17 on the selected axis. */
+    "ReferenceLine17Value"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** The input field source for the data series 18 */
+    "DataSource18"?: BindingTarget<INFOTABLE>;
+
+
+    /** Select the infotable field that contains the data for the X-axis 18 */
+    "XAxisField18"?: string;
+
+
+    /** Displays the data series 18 */
+    "DataField18"?: string;
+
+
+    /** The label to display in the legends area for data series  18 */
+    "DataLabel18"?: STRING | BindingTarget<STRING>;
+
+
+    /** Sets the type of visualization used to display the series data on the chart 18 */
+    "Series18Type"?: STRING<"default" | "line" | "bar" | "area" | "marker" | "stepper">;
+
+
+    /** Sets the Y axis or stacking group for the data series. 18 */
+    "DisplaySeries18On"?: STRING;
+
+
+    /** Sets the series order on the Z-axis. By default, all groups are set to the same Z-axis value. Stacked groups are arranged based on the series type followed by this property. 18 */
+    "Series18ZAxis"?: NUMBER;
+
+
+    /** Sets the marker shape of the data points on the chart 18 */
+    "Series18MarkerShape"?: STRING<"default" | "circle" | "square" | "diamond" | "none">;
+
+
+    /** Sets the marker size of the series 18 */
+    "Series18MarkerSize"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Enables you to apply state formatting for data series 18 in the chart. You can style the series based on data values to spot trends and patterns more easily. */
+    "DataSeriesStyle18"?: STATEFORMATTING;
+
+
+    /** Specifies the Y-axis position. When set to Auto, the first Y-axis shows as primary and the rest as secondary. 18 */
+    "YAxis18Position"?: STRING<"auto" | "primary" | "secondary">;
+
+
+    /** Hides the Y-axis 18 */
+    "HideYAxis18"?: BOOLEAN | BindingTarget<BOOLEAN>;
+
+
+    /** Sets the maximum value for the Y-axis range. By default, the range is automatically calculated based on the widget data. 18 */
+    "YAxis18MaximumValue"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Sets the minimum value for the Y-axis range. By default, the range is automatically calculated based on the widget data. 18 */
+    "YAxis18MinimumValue"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Sets the number of labels in Y-axis 18 */
+    "YAxis18NumberOfLabels"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Sets the format for the Y-axis values 18 */
+    "YAxis18Format"?: STRING | BindingTarget<STRING>;
+
+
+    /** Specifies the text label for the Y-axis 18 */
+    "YAxis18Label"?: STRING | BindingTarget<STRING>;
+
+
+    /** Aligns the label for the Y-axis 18 */
+    "YAxis18LabelAlignment"?: STRING<"start" | "center" | "end">;
+
+
+    /** Sets the curve for the data stack 18 */
+    "Stack18Curve"?: STRING<"bar" | "linear" | "stream" | "step">;
+
+
+    /** Sets the Y axis for the data stack 18 */
+    "Stack18Yaxis"?: STRING;
+
+
+    /** Sets the label text for reference line 18. */
+    "ReferenceLine18Label"?: STRING | BindingTarget<STRING>;
+
+
+    /** Specifies the axis to use for reference line 18. */
+    "ReferenceLine18Axis"?: STRING;
+
+
+    /** Sets the value to use for the position of reference line 18 on the selected axis. */
+    "ReferenceLine18Value"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** The input field source for the data series 19 */
+    "DataSource19"?: BindingTarget<INFOTABLE>;
+
+
+    /** Select the infotable field that contains the data for the X-axis 19 */
+    "XAxisField19"?: string;
+
+
+    /** Displays the data series 19 */
+    "DataField19"?: string;
+
+
+    /** The label to display in the legends area for data series  19 */
+    "DataLabel19"?: STRING | BindingTarget<STRING>;
+
+
+    /** Sets the type of visualization used to display the series data on the chart 19 */
+    "Series19Type"?: STRING<"default" | "line" | "bar" | "area" | "marker" | "stepper">;
+
+
+    /** Sets the Y axis or stacking group for the data series. 19 */
+    "DisplaySeries19On"?: STRING;
+
+
+    /** Sets the series order on the Z-axis. By default, all groups are set to the same Z-axis value. Stacked groups are arranged based on the series type followed by this property. 19 */
+    "Series19ZAxis"?: NUMBER;
+
+
+    /** Sets the marker shape of the data points on the chart 19 */
+    "Series19MarkerShape"?: STRING<"default" | "circle" | "square" | "diamond" | "none">;
+
+
+    /** Sets the marker size of the series 19 */
+    "Series19MarkerSize"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Enables you to apply state formatting for data series 19 in the chart. You can style the series based on data values to spot trends and patterns more easily. */
+    "DataSeriesStyle19"?: STATEFORMATTING;
+
+
+    /** Specifies the Y-axis position. When set to Auto, the first Y-axis shows as primary and the rest as secondary. 19 */
+    "YAxis19Position"?: STRING<"auto" | "primary" | "secondary">;
+
+
+    /** Hides the Y-axis 19 */
+    "HideYAxis19"?: BOOLEAN | BindingTarget<BOOLEAN>;
+
+
+    /** Sets the maximum value for the Y-axis range. By default, the range is automatically calculated based on the widget data. 19 */
+    "YAxis19MaximumValue"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Sets the minimum value for the Y-axis range. By default, the range is automatically calculated based on the widget data. 19 */
+    "YAxis19MinimumValue"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Sets the number of labels in Y-axis 19 */
+    "YAxis19NumberOfLabels"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Sets the format for the Y-axis values 19 */
+    "YAxis19Format"?: STRING | BindingTarget<STRING>;
+
+
+    /** Specifies the text label for the Y-axis 19 */
+    "YAxis19Label"?: STRING | BindingTarget<STRING>;
+
+
+    /** Aligns the label for the Y-axis 19 */
+    "YAxis19LabelAlignment"?: STRING<"start" | "center" | "end">;
+
+
+    /** Sets the curve for the data stack 19 */
+    "Stack19Curve"?: STRING<"bar" | "linear" | "stream" | "step">;
+
+
+    /** Sets the Y axis for the data stack 19 */
+    "Stack19Yaxis"?: STRING;
+
+
+    /** Sets the label text for reference line 19. */
+    "ReferenceLine19Label"?: STRING | BindingTarget<STRING>;
+
+
+    /** Specifies the axis to use for reference line 19. */
+    "ReferenceLine19Axis"?: STRING;
+
+
+    /** Sets the value to use for the position of reference line 19 on the selected axis. */
+    "ReferenceLine19Value"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** The input field source for the data series 20 */
+    "DataSource20"?: BindingTarget<INFOTABLE>;
+
+
+    /** Select the infotable field that contains the data for the X-axis 20 */
+    "XAxisField20"?: string;
+
+
+    /** Displays the data series 20 */
+    "DataField20"?: string;
+
+
+    /** The label to display in the legends area for data series  20 */
+    "DataLabel20"?: STRING | BindingTarget<STRING>;
+
+
+    /** Sets the type of visualization used to display the series data on the chart 20 */
+    "Series20Type"?: STRING<"default" | "line" | "bar" | "area" | "marker" | "stepper">;
+
+
+    /** Sets the Y axis or stacking group for the data series. 20 */
+    "DisplaySeries20On"?: STRING;
+
+
+    /** Sets the series order on the Z-axis. By default, all groups are set to the same Z-axis value. Stacked groups are arranged based on the series type followed by this property. 20 */
+    "Series20ZAxis"?: NUMBER;
+
+
+    /** Sets the marker shape of the data points on the chart 20 */
+    "Series20MarkerShape"?: STRING<"default" | "circle" | "square" | "diamond" | "none">;
+
+
+    /** Sets the marker size of the series 20 */
+    "Series20MarkerSize"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Enables you to apply state formatting for data series 20 in the chart. You can style the series based on data values to spot trends and patterns more easily. */
+    "DataSeriesStyle20"?: STATEFORMATTING;
+
+
+    /** Specifies the Y-axis position. When set to Auto, the first Y-axis shows as primary and the rest as secondary. 20 */
+    "YAxis20Position"?: STRING<"auto" | "primary" | "secondary">;
+
+
+    /** Hides the Y-axis 20 */
+    "HideYAxis20"?: BOOLEAN | BindingTarget<BOOLEAN>;
+
+
+    /** Sets the maximum value for the Y-axis range. By default, the range is automatically calculated based on the widget data. 20 */
+    "YAxis20MaximumValue"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Sets the minimum value for the Y-axis range. By default, the range is automatically calculated based on the widget data. 20 */
+    "YAxis20MinimumValue"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Sets the number of labels in Y-axis 20 */
+    "YAxis20NumberOfLabels"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Sets the format for the Y-axis values 20 */
+    "YAxis20Format"?: STRING | BindingTarget<STRING>;
+
+
+    /** Specifies the text label for the Y-axis 20 */
+    "YAxis20Label"?: STRING | BindingTarget<STRING>;
+
+
+    /** Aligns the label for the Y-axis 20 */
+    "YAxis20LabelAlignment"?: STRING<"start" | "center" | "end">;
+
+
+    /** Sets the curve for the data stack 20 */
+    "Stack20Curve"?: STRING<"bar" | "linear" | "stream" | "step">;
+
+
+    /** Sets the Y axis for the data stack 20 */
+    "Stack20Yaxis"?: STRING;
+
+
+    /** Sets the label text for reference line 20. */
+    "ReferenceLine20Label"?: STRING | BindingTarget<STRING>;
+
+
+    /** Specifies the axis to use for reference line 20. */
+    "ReferenceLine20Axis"?: STRING;
+
+
+    /** Sets the value to use for the position of reference line 20 on the selected axis. */
+    "ReferenceLine20Value"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** The input field source for the data series 21 */
+    "DataSource21"?: BindingTarget<INFOTABLE>;
+
+
+    /** Select the infotable field that contains the data for the X-axis 21 */
+    "XAxisField21"?: string;
+
+
+    /** Displays the data series 21 */
+    "DataField21"?: string;
+
+
+    /** The label to display in the legends area for data series  21 */
+    "DataLabel21"?: STRING | BindingTarget<STRING>;
+
+
+    /** Sets the type of visualization used to display the series data on the chart 21 */
+    "Series21Type"?: STRING<"default" | "line" | "bar" | "area" | "marker" | "stepper">;
+
+
+    /** Sets the Y axis or stacking group for the data series. 21 */
+    "DisplaySeries21On"?: STRING;
+
+
+    /** Sets the series order on the Z-axis. By default, all groups are set to the same Z-axis value. Stacked groups are arranged based on the series type followed by this property. 21 */
+    "Series21ZAxis"?: NUMBER;
+
+
+    /** Sets the marker shape of the data points on the chart 21 */
+    "Series21MarkerShape"?: STRING<"default" | "circle" | "square" | "diamond" | "none">;
+
+
+    /** Sets the marker size of the series 21 */
+    "Series21MarkerSize"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Enables you to apply state formatting for data series 21 in the chart. You can style the series based on data values to spot trends and patterns more easily. */
+    "DataSeriesStyle21"?: STATEFORMATTING;
+
+
+    /** Specifies the Y-axis position. When set to Auto, the first Y-axis shows as primary and the rest as secondary. 21 */
+    "YAxis21Position"?: STRING<"auto" | "primary" | "secondary">;
+
+
+    /** Hides the Y-axis 21 */
+    "HideYAxis21"?: BOOLEAN | BindingTarget<BOOLEAN>;
+
+
+    /** Sets the maximum value for the Y-axis range. By default, the range is automatically calculated based on the widget data. 21 */
+    "YAxis21MaximumValue"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Sets the minimum value for the Y-axis range. By default, the range is automatically calculated based on the widget data. 21 */
+    "YAxis21MinimumValue"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Sets the number of labels in Y-axis 21 */
+    "YAxis21NumberOfLabels"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Sets the format for the Y-axis values 21 */
+    "YAxis21Format"?: STRING | BindingTarget<STRING>;
+
+
+    /** Specifies the text label for the Y-axis 21 */
+    "YAxis21Label"?: STRING | BindingTarget<STRING>;
+
+
+    /** Aligns the label for the Y-axis 21 */
+    "YAxis21LabelAlignment"?: STRING<"start" | "center" | "end">;
+
+
+    /** Sets the curve for the data stack 21 */
+    "Stack21Curve"?: STRING<"bar" | "linear" | "stream" | "step">;
+
+
+    /** Sets the Y axis for the data stack 21 */
+    "Stack21Yaxis"?: STRING;
+
+
+    /** Sets the label text for reference line 21. */
+    "ReferenceLine21Label"?: STRING | BindingTarget<STRING>;
+
+
+    /** Specifies the axis to use for reference line 21. */
+    "ReferenceLine21Axis"?: STRING;
+
+
+    /** Sets the value to use for the position of reference line 21 on the selected axis. */
+    "ReferenceLine21Value"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** The input field source for the data series 22 */
+    "DataSource22"?: BindingTarget<INFOTABLE>;
+
+
+    /** Select the infotable field that contains the data for the X-axis 22 */
+    "XAxisField22"?: string;
+
+
+    /** Displays the data series 22 */
+    "DataField22"?: string;
+
+
+    /** The label to display in the legends area for data series  22 */
+    "DataLabel22"?: STRING | BindingTarget<STRING>;
+
+
+    /** Sets the type of visualization used to display the series data on the chart 22 */
+    "Series22Type"?: STRING<"default" | "line" | "bar" | "area" | "marker" | "stepper">;
+
+
+    /** Sets the Y axis or stacking group for the data series. 22 */
+    "DisplaySeries22On"?: STRING;
+
+
+    /** Sets the series order on the Z-axis. By default, all groups are set to the same Z-axis value. Stacked groups are arranged based on the series type followed by this property. 22 */
+    "Series22ZAxis"?: NUMBER;
+
+
+    /** Sets the marker shape of the data points on the chart 22 */
+    "Series22MarkerShape"?: STRING<"default" | "circle" | "square" | "diamond" | "none">;
+
+
+    /** Sets the marker size of the series 22 */
+    "Series22MarkerSize"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Enables you to apply state formatting for data series 22 in the chart. You can style the series based on data values to spot trends and patterns more easily. */
+    "DataSeriesStyle22"?: STATEFORMATTING;
+
+
+    /** Specifies the Y-axis position. When set to Auto, the first Y-axis shows as primary and the rest as secondary. 22 */
+    "YAxis22Position"?: STRING<"auto" | "primary" | "secondary">;
+
+
+    /** Hides the Y-axis 22 */
+    "HideYAxis22"?: BOOLEAN | BindingTarget<BOOLEAN>;
+
+
+    /** Sets the maximum value for the Y-axis range. By default, the range is automatically calculated based on the widget data. 22 */
+    "YAxis22MaximumValue"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Sets the minimum value for the Y-axis range. By default, the range is automatically calculated based on the widget data. 22 */
+    "YAxis22MinimumValue"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Sets the number of labels in Y-axis 22 */
+    "YAxis22NumberOfLabels"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Sets the format for the Y-axis values 22 */
+    "YAxis22Format"?: STRING | BindingTarget<STRING>;
+
+
+    /** Specifies the text label for the Y-axis 22 */
+    "YAxis22Label"?: STRING | BindingTarget<STRING>;
+
+
+    /** Aligns the label for the Y-axis 22 */
+    "YAxis22LabelAlignment"?: STRING<"start" | "center" | "end">;
+
+
+    /** Sets the curve for the data stack 22 */
+    "Stack22Curve"?: STRING<"bar" | "linear" | "stream" | "step">;
+
+
+    /** Sets the Y axis for the data stack 22 */
+    "Stack22Yaxis"?: STRING;
+
+
+    /** Sets the label text for reference line 22. */
+    "ReferenceLine22Label"?: STRING | BindingTarget<STRING>;
+
+
+    /** Specifies the axis to use for reference line 22. */
+    "ReferenceLine22Axis"?: STRING;
+
+
+    /** Sets the value to use for the position of reference line 22 on the selected axis. */
+    "ReferenceLine22Value"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** The input field source for the data series 23 */
+    "DataSource23"?: BindingTarget<INFOTABLE>;
+
+
+    /** Select the infotable field that contains the data for the X-axis 23 */
+    "XAxisField23"?: string;
+
+
+    /** Displays the data series 23 */
+    "DataField23"?: string;
+
+
+    /** The label to display in the legends area for data series  23 */
+    "DataLabel23"?: STRING | BindingTarget<STRING>;
+
+
+    /** Sets the type of visualization used to display the series data on the chart 23 */
+    "Series23Type"?: STRING<"default" | "line" | "bar" | "area" | "marker" | "stepper">;
+
+
+    /** Sets the Y axis or stacking group for the data series. 23 */
+    "DisplaySeries23On"?: STRING;
+
+
+    /** Sets the series order on the Z-axis. By default, all groups are set to the same Z-axis value. Stacked groups are arranged based on the series type followed by this property. 23 */
+    "Series23ZAxis"?: NUMBER;
+
+
+    /** Sets the marker shape of the data points on the chart 23 */
+    "Series23MarkerShape"?: STRING<"default" | "circle" | "square" | "diamond" | "none">;
+
+
+    /** Sets the marker size of the series 23 */
+    "Series23MarkerSize"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Enables you to apply state formatting for data series 23 in the chart. You can style the series based on data values to spot trends and patterns more easily. */
+    "DataSeriesStyle23"?: STATEFORMATTING;
+
+
+    /** Specifies the Y-axis position. When set to Auto, the first Y-axis shows as primary and the rest as secondary. 23 */
+    "YAxis23Position"?: STRING<"auto" | "primary" | "secondary">;
+
+
+    /** Hides the Y-axis 23 */
+    "HideYAxis23"?: BOOLEAN | BindingTarget<BOOLEAN>;
+
+
+    /** Sets the maximum value for the Y-axis range. By default, the range is automatically calculated based on the widget data. 23 */
+    "YAxis23MaximumValue"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Sets the minimum value for the Y-axis range. By default, the range is automatically calculated based on the widget data. 23 */
+    "YAxis23MinimumValue"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Sets the number of labels in Y-axis 23 */
+    "YAxis23NumberOfLabels"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Sets the format for the Y-axis values 23 */
+    "YAxis23Format"?: STRING | BindingTarget<STRING>;
+
+
+    /** Specifies the text label for the Y-axis 23 */
+    "YAxis23Label"?: STRING | BindingTarget<STRING>;
+
+
+    /** Aligns the label for the Y-axis 23 */
+    "YAxis23LabelAlignment"?: STRING<"start" | "center" | "end">;
+
+
+    /** Sets the curve for the data stack 23 */
+    "Stack23Curve"?: STRING<"bar" | "linear" | "stream" | "step">;
+
+
+    /** Sets the Y axis for the data stack 23 */
+    "Stack23Yaxis"?: STRING;
+
+
+    /** Sets the label text for reference line 23. */
+    "ReferenceLine23Label"?: STRING | BindingTarget<STRING>;
+
+
+    /** Specifies the axis to use for reference line 23. */
+    "ReferenceLine23Axis"?: STRING;
+
+
+    /** Sets the value to use for the position of reference line 23 on the selected axis. */
+    "ReferenceLine23Value"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** The input field source for the data series 24 */
+    "DataSource24"?: BindingTarget<INFOTABLE>;
+
+
+    /** Select the infotable field that contains the data for the X-axis 24 */
+    "XAxisField24"?: string;
+
+
+    /** Displays the data series 24 */
+    "DataField24"?: string;
+
+
+    /** The label to display in the legends area for data series  24 */
+    "DataLabel24"?: STRING | BindingTarget<STRING>;
+
+
+    /** Sets the type of visualization used to display the series data on the chart 24 */
+    "Series24Type"?: STRING<"default" | "line" | "bar" | "area" | "marker" | "stepper">;
+
+
+    /** Sets the Y axis or stacking group for the data series. 24 */
+    "DisplaySeries24On"?: STRING;
+
+
+    /** Sets the series order on the Z-axis. By default, all groups are set to the same Z-axis value. Stacked groups are arranged based on the series type followed by this property. 24 */
+    "Series24ZAxis"?: NUMBER;
+
+
+    /** Sets the marker shape of the data points on the chart 24 */
+    "Series24MarkerShape"?: STRING<"default" | "circle" | "square" | "diamond" | "none">;
+
+
+    /** Sets the marker size of the series 24 */
+    "Series24MarkerSize"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Enables you to apply state formatting for data series 24 in the chart. You can style the series based on data values to spot trends and patterns more easily. */
+    "DataSeriesStyle24"?: STATEFORMATTING;
+
+
+    /** Specifies the Y-axis position. When set to Auto, the first Y-axis shows as primary and the rest as secondary. 24 */
+    "YAxis24Position"?: STRING<"auto" | "primary" | "secondary">;
+
+
+    /** Hides the Y-axis 24 */
+    "HideYAxis24"?: BOOLEAN | BindingTarget<BOOLEAN>;
+
+
+    /** Sets the maximum value for the Y-axis range. By default, the range is automatically calculated based on the widget data. 24 */
+    "YAxis24MaximumValue"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Sets the minimum value for the Y-axis range. By default, the range is automatically calculated based on the widget data. 24 */
+    "YAxis24MinimumValue"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Sets the number of labels in Y-axis 24 */
+    "YAxis24NumberOfLabels"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Sets the format for the Y-axis values 24 */
+    "YAxis24Format"?: STRING | BindingTarget<STRING>;
+
+
+    /** Specifies the text label for the Y-axis 24 */
+    "YAxis24Label"?: STRING | BindingTarget<STRING>;
+
+
+    /** Aligns the label for the Y-axis 24 */
+    "YAxis24LabelAlignment"?: STRING<"start" | "center" | "end">;
+
+
+    /** Sets the curve for the data stack 24 */
+    "Stack24Curve"?: STRING<"bar" | "linear" | "stream" | "step">;
+
+
+    /** Sets the Y axis for the data stack 24 */
+    "Stack24Yaxis"?: STRING;
+
+
+    /** Sets the label text for reference line 24. */
+    "ReferenceLine24Label"?: STRING | BindingTarget<STRING>;
+
+
+    /** Specifies the axis to use for reference line 24. */
+    "ReferenceLine24Axis"?: STRING;
+
+
+    /** Sets the value to use for the position of reference line 24 on the selected axis. */
+    "ReferenceLine24Value"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /**  */
+    "UseTheme"?: BOOLEAN;
+
+
+    /** Fill the container */
+    "FillContainer"?: BOOLEAN;
+
+
+    /** The display name of the widget */
+    "DisplayName"?: STRING;
+
+
+    /** The description of the widget */
+    "Description"?: STRING;
+
+
+    /**  */
+    "StyleProperties"?: JSON | BindingTarget<JSON>;
+
+
+    /** Show a spinner icon when data is being loaded */
+    "ShowDataLoading"?: BOOLEAN;
+
+
+    /** When enabled makes the widget visible in the mashup */
+    "Visible"?: BOOLEAN | BindingTarget<BOOLEAN>;
+
+
+    /** Position of the widget in pixels from the top of the mashup */
+    "Top"?: NUMBER;
+
+
+    /** Position of the widget in pixels from the left of the mashup */
+    "Left"?: NUMBER;
+
+
+    /**  */
+    "MinWidth"?: NUMBER;
+
+
+    /** The z-index of the widget which allows you to put the widget on top or on the bottom of the view stack */
+    "Z-index"?: NUMBER;
+
+
+    /**  */
+    "Margin"?: STYLECSSRECTSIZE;
+
+
+    /** Triggers an event when a data point on the chart is clicked */
+    "SeriesClicked"?: ServiceBindingTarget[];
+
+
+    /**  */
+    "SelectedDataChanged"?: ServiceBindingTarget[];
+
+
+    /** An event that triggers when the selected series is changed */
+    "SelectedSeriesChanged"?: ServiceBindingTarget[];
+
+
+    ref?: UIOutputInterfacePtcschartcombo<A>
+}
+
+/** The binding source properties and services that can be bound on the "Ptcschartcombo" widget. */
+declare class UIOutputInterfacePtcschartcombo<A> {
+    
+    /** Hides the legend area */
+    HideLegend: BindingTarget<BOOLEAN>;
+
+
+    /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
+    CustomClass: BindingTarget<STRING>;
+
+
+    /** An infotable that contains the selected data on the chart. */
+    SelectedData: BindingTarget<INFOTABLE>;
+
+
+    /** Resets the inputs for this widget to their default values */
+    ResetToDefaultValue: ServiceBindingTarget
+}
+
+/** The Combo Chart widget is a visualization that combines a line chart and a bar chart, which helps you compare and analyze different sets of data. */
+declare function Ptcschartcombo<A>(props: UIInputInterfacePtcschartcombo<A>): UIOutputInterfacePtcschartcombo<A>
+
+            
+/** The properties and events that can be set or bound on the "Ptcschartpie" widget. */
+declare interface UIInputInterfacePtcschartpie<A> extends UIBaseInputInterface {
+    
+    /**  */
+    "ShowLegendLabel"?: STRING | BindingTarget<STRING>;
+
+
+    /**  */
+    "HideLegendLabel"?: STRING | BindingTarget<STRING>;
+
+
+    /** Controls the type of button used to show and hide the legend area at run time */
+    "ShowHideLegendButtonType"?: STRING<"tertiary" | "transparent">;
+
+
+    /** Hides the notes area */
+    "HideNotes"?: BOOLEAN | BindingTarget<BOOLEAN>;
+
+
+    /** Disable the widget in the mashup */
+    "Disabled"?: BOOLEAN | BindingTarget<BOOLEAN>;
+
+
+    /** Hides the legend */
+    "HideLegend"?: BOOLEAN | BindingTarget<BOOLEAN>;
+
+
+    /** Shows a simplified view of the chart vizualization. Enable this property to hide labels, legends, and rulers */
+    "SparkView"?: BOOLEAN | BindingTarget<BOOLEAN>;
+
+
+    /** Sets a maximum width for the legend area */
+    "LegendMaxWidth"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Controls how many data points a user can select at the same time. Choose multiple to allow a user to select more than one data point. */
+    "SelectionMode"?: STRING<"none" | "single" | "multiple"> | BindingTarget<STRING<"none" | "single" | "multiple">>;
+
+
+    /** Sets the start angle for the chart. */
+    "StartAngle"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Sets the end angle for the chart. */
+    "EndAngle"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** When enabled, the selected slices are pushed out and offset from the main chart. */
+    "HighlightSelection"?: BOOLEAN;
+
+
+    /** Shows the values labels on the chart */
+    "ShowValues"?: BOOLEAN | BindingTarget<BOOLEAN>;
+
+
+    /** The infotable data source for the chart */ 
+    "Data"?: BindingTarget<INFOTABLE<A>>;
+
+
+    /** Specifies the text label to display for the Pie chart */
+    "Label"?: STRING | BindingTarget<STRING>;
+
+
+    /** Sets the label type for the Pie chart */
+    "LabelType"?: STRING<"large-header" | "header" | "sub-header" | "large-title" | "title" | "label" | "body" | "caption"> | BindingTarget<STRING<"large-header" | "header" | "sub-header" | "large-title" | "title" | "label" | "body" | "caption">>;
+
+
+    /** Sets the position of the text label */
+    "LabelPosition"?: STRING<"top" | "bottom">;
+
+
+    /** Aligns the text for the widget label */
+    "LabelAlignment"?: STRING<"left" | "center" | "right">;
+
+
+    /** Sets the formatting type for the slice labels. */
+    "DataFieldType"?: STRING<"string" | "date" | "number">;
+
+
+    /** Sets the format of the slice label when it is set to a number type. */
+    "DataFieldFormat"?: STRING | BindingTarget<STRING>;
+
+
+    /** Enter a 'DD-MM-YY' string pattern to set the date and time format for the slice labels. Format strings are case sensitive. You can use formats supported by the Moment.js library. For example, use a 'MMMM D YYYY hh:m A' pattern to format the date and time as 'October 12 1987 09:30 PM' */
+    "DataFieldDateFormat"?: STRING | BindingTarget<STRING>;
+
+
+    /** Sets the format for the data values. */
+    "ValueFormat"?: STRING | BindingTarget<STRING>;
+
+
+    /** Select the Infotable column that contains the data labels to display on the chart. */
+    "DataField"?: FIELDNAME<A>;
+
+
+    /** Select the Infotable column that contains the data values for the labels. */
+    "ValueField"?: FIELDNAME<A>;
+
+
+    /** Adds a show/hide button that enables users to show or hide the chart legend at run time */
+    "ShowHideLegend"?: BOOLEAN;
+
+
+    /** Aligns the legend text. The options that are available to you for this property depend on the setting of the LegendPosition property. */
+    "LegendAlignment"?: STRING;
+
+
+    /** Sets the position of the chart legends */
+    "LegendPosition"?: STRING<"top" | "right" | "bottom" | "left">;
+
+
+    /** Sets the marker shape of the data series legends */
+    "LegendMarkerShapes"?: STRING<"none" | "square" | "circle">;
+
+
+    /** Adds a legend filter that allows the user to filter the chart at runtime */
+    "LegendFilter"?: BOOLEAN;
+
+
+    /** Specifies the text to display within the notes area on the chart. You can enter a string or select a localization token */
+    "Notes"?: STRING | BindingTarget<STRING>;
+
+
+    /** Sets the position of the notes area */
+    "NotesPosition"?: STRING<"top" | "bottom">;
+
+
+    /** Aligns the text within the notes area */
+    "NotesAlignment"?: STRING<"left" | "center" | "right">;
+
+
+    /** Specifies the icon to display when the chart data is loading. */
+    "LoadingIcon"?: IMAGELINK;
+
+
+    /** Specifies the text to display when the chart is not bound to a data source. */
+    "NoDataSourceLabel"?: string;
+
+
+    /** Specifies the icon to display when the chart is not bound to a data source. */
+    "NoDataSourceIcon"?: IMAGELINK;
+
+
+    /** Specifies the text to display when the bound infotable does not contain any data. */
+    "EmptyChartLabel"?: string;
+
+
+    /** Specifies the icon to display when the chart is empty. */
+    "EmptyChartIcon"?: IMAGELINK;
+
+
+    /** Specifies the text to display when the chart data cannot be loaded. */
+    "ErrorStateLabel"?: string;
+
+
+    /** Specifies the icon to display when the chart data cannot be loaded. */
+    "ErrorStateIcon"?: IMAGELINK;
+
+
+    /** Sets the size of the hole in the center of the pie chart. Use this property to display a Donut chart. Supported values are between 0 and 99. */
+    "DonutHoleSize"?: NUMBER | BindingTarget<NUMBER>;
+
+
+    /** Sets the size of the padding between the Pie chart slices. */
+    "PieSlicePadding"?: NUMBER;
+
+
+    /** Specifies the corner radius for the chart slices. */
+    "PieSliceRadius"?: NUMBER;
+
+
+    /** Uses the radius to visualize the difference between values. Each category is displayed at an equal angle. */
+    "PolarView"?: BOOLEAN;
+
+
+    /** Converts and displays the data values as percentages. */
+    "PercentileValues"?: BOOLEAN;
+
+
+    /** Sets the position of the data labels relative to the slices. */
+    "ValuesPosition"?: STRING<"in" | "marker" | "out" | "out with line">;
+
+
+    /** The type of label used to display the value of the selected slice in a donut chart. */
+    "DonutSelectionLabelType"?: STRING<"large-header" | "header" | "sub-header" | "large-title" | "title" | "label" | "body" | "caption">;
+
+
+    /** Shows a data label next to a donut chart slice when it is in a selected, hover, or focus state. */
+    "ShowDonutSliceLabel"?: BOOLEAN;
+
+
+    /** The sequence number of the widget when you press the TAB key */
+    "TabSequence"?: NUMBER;
+
+
+    /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
+    "CustomClass"?: STRING | BindingTarget<STRING>;
+
+
+    /** The width of the widget */
+    "Width"?: NUMBER;
+
+
+    /** The height of the widget */
+    "Height"?: NUMBER;
+
+
+    /** Enables you to apply state formatting to the chart slices. You can style the slices based on data values to spot trends and patterns more easily. */
+    "DataStyle"?: STATEFORMATTING;
+
+
+    /** Enter a custom tooltip to display when a slice is selected. You can show a title, text, data values, and create new lines. Use the following syntax: Add #title# before a string to show a title, #newline# to create a new line, ${<token_name>} to display data from available chart tokens, and ${Data:<infotable_column>} to display values from an infotable column. For example: #title#Chart Tooltip Title#newline#${label}, ${value}#newline#${Data:Column3}. */
+    "ValuesTooltip"?: STRING | BindingTarget<STRING>;
+
+
+    /**  */
+    "UseTheme"?: BOOLEAN;
+
+
+    /** Fill the container */
+    "FillContainer"?: BOOLEAN;
+
+
+    /** The display name of the widget */
+    "DisplayName"?: STRING;
+
+
+    /** The description of the widget */
+    "Description"?: STRING;
+
+
+    /**  */
+    "StyleProperties"?: JSON | BindingTarget<JSON>;
+
+
+    /** Show a spinner icon when data is being loaded */
+    "ShowDataLoading"?: BOOLEAN;
+
+
+    /** When enabled makes the widget visible in the mashup */
+    "Visible"?: BOOLEAN | BindingTarget<BOOLEAN>;
+
+
+    /** Position of the widget in pixels from the top of the mashup */
+    "Top"?: NUMBER;
+
+
+    /** Position of the widget in pixels from the left of the mashup */
+    "Left"?: NUMBER;
+
+
+    /**  */
+    "MinWidth"?: NUMBER;
+
+
+    /** The z-index of the widget which allows you to put the widget on top or on the bottom of the view stack */
+    "Z-index"?: NUMBER;
+
+
+    /**  */
+    "Margin"?: STYLECSSRECTSIZE;
+
+
+    /** Triggers an event when a data point on the chart is clicked */
+    "SeriesClicked"?: ServiceBindingTarget[];
+
+
+    /**  */
+    "SelectedDataChanged"?: ServiceBindingTarget[];
+
+
+    /** An event that triggers when the selected series is changed */
+    "SelectedSeriesChanged"?: ServiceBindingTarget[];
+
+
+    ref?: UIOutputInterfacePtcschartpie<A>
+}
+
+/** The binding source properties and services that can be bound on the "Ptcschartpie" widget. */
+declare class UIOutputInterfacePtcschartpie<A> {
+    
+    /** User defined CSS class to apply to the top div of the widget. Multiple classes can be entered, separated by space. */
+    CustomClass: BindingTarget<STRING>;
+
+
+    /** An infotable that contains the selected data on the chart. */
+    SelectedData: BindingTarget<INFOTABLE>;
+
+
+    /** Resets the inputs for this widget to their default values */
+    ResetToDefaultValue: ServiceBindingTarget
+}
+
+/** Enables you to visualize the relative size of multiple data categories by dividing a circle into proportional segments. */
+declare function Ptcschartpie<A>(props: UIInputInterfacePtcschartpie<A>): UIOutputInterfacePtcschartpie<A>
+
+            
+/** The properties and events that can be set or bound on the "Dataexportfunction" widget. */
+declare interface UIInputInterfaceDataexportfunction extends UIBaseInputInterface {
+    
+    /**  */
+    "Data"?: BindingTarget<INFOTABLE>;
+
+
+    /**  */
+    "ExportFileName"?: STRING | BindingTarget<STRING>;
+
+
+    /**  */
+    "ExportOption"?: STRING | BindingTarget<STRING>;
+
+
+    /**  */
+    "IncludeBOM"?: BOOLEAN;
+
+
+    /**  */
+    "MissingDataMessage"?: STRING | BindingTarget<STRING>;
+
+
+    /** The display name of the widget */
+    "DisplayName"?: STRING;
+
+
+    /** The description of the widget */
+    "Description"?: STRING;
+
+
+    /** Show a spinner icon when data is being loaded */
+    "ShowDataLoading"?: BOOLEAN;
+
+
+    /** When enabled makes the widget visible in the mashup */
+    "Visible"?: BOOLEAN | BindingTarget<BOOLEAN>;
+
+
+    /** Position of the widget in pixels from the top of the mashup */
+    "Top"?: NUMBER;
+
+
+    /** Position of the widget in pixels from the left of the mashup */
+    "Left"?: NUMBER;
+
+
+    /** The width of the widget */
+    "Width"?: NUMBER;
+
+
+    /**  */
+    "MinWidth"?: NUMBER;
+
+
+    /** The height of the widget */
+    "Height"?: NUMBER;
+
+
+    /** The z-index of the widget which allows you to put the widget on top or on the bottom of the view stack */
+    "Z-index"?: NUMBER;
+
+
+    /**  */
+    "Margin"?: STYLECSSRECTSIZE;
+
+
+    ref?: UIOutputInterfaceDataexportfunction
+}
+
+/** The binding source properties and services that can be bound on the "Dataexportfunction" widget. */
+declare class UIOutputInterfaceDataexportfunction {
+    
+    /**  */
+    Data: BindingTarget<INFOTABLE>;
+
+
+    /**  */
+    ExportFileName: BindingTarget<STRING>;
+
+
+    /**  */
+    ExportOption: BindingTarget<STRING>;
+
+
+    /**  */
+    MissingDataMessage: BindingTarget<STRING>;
+
+
+    /** Triggers the dataExport */
+    Export: ServiceBindingTarget
+}
+
+/** tw.dataexportfunction-ide.widget.description */
+declare function Dataexportfunction(props: UIInputInterfaceDataexportfunction): UIOutputInterfaceDataexportfunction

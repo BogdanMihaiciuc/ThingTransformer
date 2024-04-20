@@ -145,6 +145,12 @@ declare class InfoTable<T = any> {
     AddField(field: FieldDefinitionCore & Partial<FieldDefinition>): void;
 
     /**
+     * Remove a field (column) from this infotable given its name. Does nothing if the field does not exist.
+     * @param fieldName     The name of the field to remove.
+     */
+    RemoveField(fieldName: string): void;
+
+    /**
      * Returns a FieldDefinition from this InfoTables DataShapeDefinition, given the name of the
      * field as a String.
      * @param field         String containing the name of the field.
