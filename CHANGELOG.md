@@ -10,6 +10,8 @@ Resolves an issue where type assertions could not be used for widget fields.
 
 Resolves an issue where union binding types such as `MASHUPNAME`, `THINGNAME` would cause an invalid type error when used in widget properties.
 
+Adds typings and defaults for the widgets added in Thingworx 9.4.
+
 # 2.0.2
 
 Fixes a bug where enum members were not properly inlined when referenced by global functions defined on the first line of a file.
