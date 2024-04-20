@@ -1,3 +1,15 @@
+# 2.1
+
+Upgrades to tyescript 5. ([stefan-lacatus](https://github.com/stefan-lacatus))
+
+Resolves a regression where recursive global functions would cause build to fail with a stack overflow error. ([stefan-lacatus](https://github.com/stefan-lacatus))
+
+Adds a missing definition for the `RemoveField` infotable method. ([stefan-lacatus](https://github.com/stefan-lacatus))
+
+Resolves an issue where type assertions could not be used for widget fields.
+
+Resolves an issue where union binding types such as `MASHUPNAME`, `THINGNAME` would cause an invalid type error when used in widget properties.
+
 # 2.0.2
 
 Fixes a bug where enum members were not properly inlined when referenced by global functions defined on the first line of a file.
