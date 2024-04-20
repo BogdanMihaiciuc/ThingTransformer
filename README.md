@@ -107,7 +107,7 @@ To build the project, run `npm run build` in the root of the project. This will 
 
  - [BogdanMihaiciuc](https://github.com/BogdanMihaiciuc): main developer.
  - [dwil618](https://github.com/dwil618): support for min/max aspects and date initializers.
- - [stefan-lacatus](https://github.com/stefan-lacatus): support for inferred types in property declarations, method helpers, bug fixes, support for the `@exported` decorator and API generation, data shape inheritance, `declare` modifier on members.
+ - [stefan-lacatus](https://github.com/stefan-lacatus): support for inferred types in property declarations, method helpers, bug fixes, support for the `@exported` decorator and API generation, data shape inheritance, `declare` modifier on members, upgrade from typescript 4 to typescript 5.
  - [elena-bi](https://github.com/elena-bi): bug fixes
  - [s-amory](https://github.com/s-amory): `SQLThing` type definition.
  - [CozminM](https://github.com/CozminM): compatiblity with thingworx 8.5
