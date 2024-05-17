@@ -1,7 +1,7 @@
 import * as TS from 'typescript';
 import { ConstantValueUndefined, type TWConfigurationTable, type TWExtractedPermissionLists, type TWInfoTable, type TWThingTransformer, type TWVisibility, type TransformerStore } from './ThingTransformer';
 import { UIControllerReference, UIJSXAttribute, UIMashupBinding, UIMashupEventBinding, UIReference, UIReferenceInitializerFunction, UIReferenceKind, UIServiceReference, UIWidgetReference, UIBaseTypes, UIWidget, UIMashupContent, UIMashupDataItem } from './UICoreTypes';
-import { ArgumentsOfDecoratorNamed, ConfigurationTablesDefinitionWithClassExpression, ConfigurationWithObjectLiteralExpression, ConstantOrLiteralValueOfExpression, DecoratorNamed, HasDecoratorNamed, JSONWithObjectLiteralExpression, ThrowErrorForNode, XMLRepresentationOfInfotable } from './SharedFunctions';
+import { ArgumentsOfDecoratorNamed, ConfigurationTablesDefinitionWithClassExpression, ConfigurationWithObjectLiteralExpression, ConstantOrLiteralValueOfExpression, CreatePrinter, DecoratorNamed, HasDecoratorNamed, JSONWithObjectLiteralExpression, ThrowErrorForNode, XMLRepresentationOfInfotable } from './SharedFunctions';
 import { Builder } from 'xml2js';
 import { UIBMCollectionViewPlugin, UIBMPresentationControllerPlugin, UINavigationPlugin } from './UIBuiltinPlugins';
 import type { UIPlugin } from './UIPlugin';
@@ -381,7 +381,7 @@ export class UITransformer {
                 if (this.isBMCoreUIMashup && this.controllerWidget) {
                     // There is no processing to be done for UI files in the after phase, but for core ui mashups, the 
                     // compiled code must be saved to the typescript class widget
-                    const compiledCode = TS.createPrinter().printNode(TS.EmitHint.Unspecified, node, node);
+                    const compiledCode = CreatePrinter(this.context).printNode(TS.EmitHint.Unspecified, node, node);
                     this.controllerWidget.Properties.TranspiledCode = compiledCode;
                 }  
             }
@@ -413,7 +413,7 @@ export class UITransformer {
 
             // If this is a Core UI mashup, store the updated code in the controller widget
             if (this.isBMCoreUIMashup && this.controllerWidget) {
-                const updatedCode = TS.createPrinter().printNode(TS.EmitHint.Unspecified, result, result as TS.SourceFile);
+                const updatedCode = CreatePrinter(this.context).printNode(TS.EmitHint.Unspecified, result, result as TS.SourceFile);
                 this.controllerWidget.Properties.Code = updatedCode;
             }
 

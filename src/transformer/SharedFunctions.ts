@@ -601,3 +601,12 @@ export function XMLRepresentationOfInfotable(infotable: TWInfoTable, withOrdinal
         ]
     };
 }
+
+export function CreatePrinter(context: TS.TransformationContext): TS.Printer {
+    return TS.createPrinter({},
+        {
+          onEmitNode: context.onEmitNode,
+          isEmitNotificationEnabled: context.isEmitNotificationEnabled,
+          substituteNode: context.onSubstituteNode,
+        });
+}
