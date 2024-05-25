@@ -437,8 +437,9 @@ export class UITransformer {
         // so it cannot be done through the regular replacement map
         if (node == this.replacementClass) {
             cast<TS.ClassDeclaration>(result);
+            const nonDecoratorModifiers = result.modifiers?.filter(m => !TS.isDecorator(m));
             return TS.factory.createClassDeclaration(
-                [TS.factory.createDecorator(TS.factory.createIdentifier('TWWidgetDefinition')), ...result.modifiers ?? []],
+                [TS.factory.createDecorator(TS.factory.createIdentifier('TWWidgetDefinition')), ...nonDecoratorModifiers ?? []],
                 result.name,
                 result.typeParameters,
                 result.heritageClauses,
