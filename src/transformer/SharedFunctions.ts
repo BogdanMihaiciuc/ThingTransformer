@@ -664,3 +664,14 @@ export function VisibilityPermissionsOfKindForNode(kind: string, node: TS.HasDec
 
     return result;
 }
+
+
+export function CreatePrinter(context: TS.TransformationContext): TS.Printer {
+    return TS.createPrinter({},
+        {
+          onEmitNode: context.onEmitNode,
+          isEmitNotificationEnabled: context.isEmitNotificationEnabled,
+          substituteNode: context.onSubstituteNode,
+        }
+    );
+}
