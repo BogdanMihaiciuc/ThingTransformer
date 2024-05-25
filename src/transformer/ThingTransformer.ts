@@ -4,7 +4,7 @@ import { TWEntityKind, TWPropertyDefinition, TWServiceDefinition, TWEventDefinit
 import { Breakpoint } from './DebugTypes';
 import { Builder } from 'xml2js';
 import { UITransformer } from './UITransformer';
-import { ConfigurationTablesDefinitionWithClassExpression, ConfigurationWithObjectLiteralExpression, ConstantOrLiteralValueOfExpression, ConstantValueOfExpression, FindOriginalNodeOfExpression, HasDecoratorNamed, JSONWithObjectLiteralExpression, ThrowErrorForNode, XMLRepresentationOfInfotable } from './SharedFunctions';
+import { ConfigurationTablesDefinitionWithClassExpression, ConfigurationWithObjectLiteralExpression, ConstantOrLiteralValueOfExpression, ConstantValueOfExpression, FindOriginalNodeOfExpression, HasDecoratorNamed, JSONWithObjectLiteralExpression, ThrowErrorForNode, VisibilityPermissionsOfKindForNode, XMLRepresentationOfInfotable, CreatePrinter } from './SharedFunctions';
 import * as fs from 'fs';
 import * as crypto from 'crypto';
 import * as path from 'path';
@@ -1070,7 +1070,7 @@ export class TWThingTransformer implements TWCodeTransformer {
      * @param node      The source file node.
      */
     compileGlobalCode(node: ts.SourceFile) {
-        const compiledCode = ts.createPrinter().printNode(ts.EmitHint.Unspecified, node, node);
+        const compiledCode = CreatePrinter(this).printNode(ts.EmitHint.Unspecified, node, node);
 
         // Note that the exported symbol names are javascript identifiers, so it is safe to use them with dot notation
         this.compiledGlobalCode = compiledCode + '\n\n' + this.globalSymbols.map(symbol => `Object.getPrototypeOf(this).${symbol} = ${symbol};`).join('\n');
@@ -1302,69 +1302,6 @@ export class TWThingTransformer implements TWCodeTransformer {
             EventInvoke: [],
             EventSubscribe: []
         } as TWRuntimePermissionDeclaration;
-    }
-
-    /**
-     * Extracts and returns the visibility permissions of the given kind for the given node.
-     * @param kind      The name of the decorator containing the visibility permissions.
-     * @param node      The node to which the decorator may be applied.
-     * @returns         An array of visibility permissions if any were found, or an empty array otherwise.
-     */
-    visibilityPermissionsOfKindForNode(kind: string, node: ts.Node): TWVisibility[] {
-        const result: TWVisibility[] = [];
-        if (this.hasDecoratorNamed(kind, node)) {
-            const organizations = this.argumentsOfDecoratorNamed(kind, node);
-            if (!organizations || !organizations.length) {
-                this.throwErrorForNode(node, `The @${kind} decorator must specify at least one organization.`);
-            }
-
-            for (const arg of organizations) {
-                if (arg.kind == ts.SyntaxKind.PropertyAccessExpression) {
-                    const expression = arg as ts.PropertyAccessExpression;
-                    const organization = expression.name.text;
-                    if (expression.expression.getText() != 'Organizations') {
-                        this.throwErrorForNode(arg, `Organizations specified in the @${kind} decorator must be accessed from the Organizations collection or via the "Unit" function.`);
-                    }
-
-                    result.push({isPermitted: true, name: organization, type: 'Organization'});
-                }
-                else if (arg.kind == ts.SyntaxKind.CallExpression) {
-                    const callExpression = arg as ts.CallExpression;
-
-                    if (callExpression.expression.getText() != 'Unit') {
-                        this.throwErrorForNode(arg, `Organization units in the @${kind} decorator  must be specified via the "Unit" function.`);
-                    }
-
-                    const unitArguments = callExpression.arguments;
-                    if (unitArguments.length != 2) {
-                        this.throwErrorForNode(arg, `The "Unit" function must take exactly two parameters.`);
-                    }
-
-                    const organizationArg = unitArguments[0];
-                    const unitArg = unitArguments[1] as ts.StringLiteral;
-
-                    if (unitArg.kind != ts.SyntaxKind.StringLiteral) {
-                        this.throwErrorForNode(arg, `The organization unit must be specified as a string literal.`);
-                    }
-
-                    const organizationExpression = organizationArg as ts.PropertyAccessExpression;
-
-                    if (organizationArg.kind != ts.SyntaxKind.PropertyAccessExpression || organizationExpression.expression.getText() != 'Organizations') {
-                        this.throwErrorForNode(arg, `Organizations specified in the "Unit" function must be accessed from the Organizations collection.`);
-                    }
-
-                    const organizationName = organizationExpression.name.text;
-
-                    result.push({isPermitted: true, name: `${organizationName}:${unitArg.text}`, type: 'OrganizationalUnit'})
-                }
-                else {
-                    this.throwErrorForNode(arg, `Organizations specified in the @${kind} decorator must be accessed from the Organizations collection or via the "Unit" function.`);
-                }
-
-            }
-        }
-
-        return result;
     }
 
     /**
@@ -1881,8 +1818,8 @@ export class TWThingTransformer implements TWCodeTransformer {
 
                 this.runtimePermissions = this.mergePermissionListsForNode([this.runtimePermissions].concat(this.permissionsOfNode(classNode)), node);
 
-                this.visibilityPermissions = this.visibilityPermissionsOfKindForNode('visible', classNode);
-                this.instanceVisibilityPermissions = this.visibilityPermissionsOfKindForNode('visibleInstance', classNode);
+                this.visibilityPermissions = VisibilityPermissionsOfKindForNode('visible', classNode);
+                this.instanceVisibilityPermissions = VisibilityPermissionsOfKindForNode('visibleInstance', classNode);
 
                 // Instance visibility permissions may only be provided on templates and shapes
                 if (this.instanceVisibilityPermissions.length && this.entityKind != TWEntityKind.ThingShape && this.entityKind != TWEntityKind.ThingTemplate) {
@@ -4032,7 +3969,7 @@ export class TWThingTransformer implements TWCodeTransformer {
                                         const declaration = node as ts.FunctionDeclaration;
                                         if (declaration.name?.text == name) {
                                             // Print and save the compiled function
-                                            compiledCode = ts.createPrinter().printNode(ts.EmitHint.Unspecified, node, compiledSourceFile) + '\n';
+                                            compiledCode = CreatePrinter(this).printNode(ts.EmitHint.Unspecified, node, compiledSourceFile) + '\n';
                                             transformedNode = node;
                                         }
                                     }
@@ -5528,7 +5465,7 @@ export class TWThingTransformer implements TWCodeTransformer {
             else {
                 // Otherwise create an AST from the function's code, then emit it
                 // Emit the function and add its code to the service
-                const codeToTranspile = ts.createPrinter().printNode(ts.EmitHint.Unspecified, globalFunction.node, globalFunction.sourceFile);
+                const codeToTranspile = CreatePrinter(this).printNode(ts.EmitHint.Unspecified, globalFunction.node, globalFunction.sourceFile);
                 const transpileResult = ts.transpileModule(codeToTranspile, {
                     compilerOptions: {
                         ...this.program.getCompilerOptions(),
@@ -5559,7 +5496,7 @@ export class TWThingTransformer implements TWCodeTransformer {
      * @return      The emit result.
      */
     transpiledBodyOfFunctionDeclaration(node: ts.FunctionDeclaration): string {
-        const result = ts.createPrinter().printNode(ts.EmitHint.Unspecified, node.body!, (this as any).source);
+        const result = CreatePrinter(this).printNode(ts.EmitHint.Unspecified, node.body!, (this as any).source);
         return result.substring(1, result.length - 1);
     }
 
@@ -5850,7 +5787,7 @@ finally {
 }`
                 }
                 else {
-                    //const body = ts.createPrinter().printNode(ts.EmitHint.Unspecified, node.body, (this as any).source);
+                    //const body = CreatePrinter(this.context).printNode(ts.EmitHint.Unspecified, node.body, (this as any).source);
                     subscription.code = `(function () {${transpiledBody}}).apply(me)`;
                 }
             }

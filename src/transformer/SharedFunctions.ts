@@ -1,5 +1,5 @@
 import * as TS from 'typescript';
-import { DiagnosticMessageKind, TWBaseTypes, type TWConfigurationTable, type TWInfoTable } from './TWCoreTypes';
+import { DiagnosticMessageKind, TWBaseTypes, TWVisibility, type TWConfigurationTable, type TWInfoTable } from './TWCoreTypes';
 import { ConstantValueUndefined, type TransformerStore } from './ThingTransformer';
 
 /**
@@ -247,6 +247,78 @@ export function ConstantValueOfExpression(expression: TS.Expression, transformer
 }
 
 /**
+ * Recursively converts the specified object literal expression to an object literal that can be stringified.
+ * @param literal           The literal to convert.
+ * @param errorHandler      A handler that is invoked when an error occurs. This function must not return.
+ * @param transformer       The transformer for which this conversion is performed.
+ * @returns                 An object.
+ */
+export function JSONWithObjectLiteralExpression(node: TS.ObjectLiteralExpression | TS.ArrayLiteralExpression, errorHandler: (node: TS.Node, message: string) => never, transformer: TransformerBase): Record<string, unknown> | unknown[] {
+    if (TS.isObjectLiteralExpression(node)) {
+        const result: Record<string, unknown> = {};
+        for (const member of node.properties) {
+            if (!TS.isPropertyAssignment(member) || !member.name || !(TS.isIdentifier(member.name) || TS.isStringLiteralLike(member.name))) {
+                errorHandler(member, `Literal property names must be identifiers or string literals`);
+            }
+
+            const name = member.name.text;
+
+            // Skip undefined properties, these are supported by JSON.stringify but don't produce any output
+            if (member.initializer.kind == TS.SyntaxKind.UndefinedKeyword) {
+                continue;
+            }
+
+            if (member.initializer.kind == TS.SyntaxKind.NullKeyword) {
+                result[name] = null;
+                continue;
+            }
+
+            if (TS.isObjectLiteralExpression(member.initializer) || TS.isArrayLiteralExpression(member.initializer)) {
+                result[name] = JSONWithObjectLiteralExpression(member.initializer, errorHandler, transformer);
+                continue;
+            }
+
+            const constant = ConstantOrLiteralValueOfExpression(member.initializer, transformer);
+            if (typeof constant === 'undefined') {
+                errorHandler(member, `Literal property values must be literals.`);
+            }
+
+            result[name] = constant;
+        }
+
+        return result;
+    }
+    else {
+        const result: unknown[] = [];
+
+        for (const item of node.elements) {
+            if (item.kind == TS.SyntaxKind.UndefinedKeyword) {
+                continue;
+            }
+
+            if (item.kind == TS.SyntaxKind.NullKeyword) {
+                result.push(null);
+                continue;
+            }
+
+            if (TS.isObjectLiteralExpression(item) || TS.isArrayLiteralExpression(item)) {
+                result.push(JSONWithObjectLiteralExpression(item, errorHandler, transformer));
+                continue;
+            }
+
+            const constant = ConstantOrLiteralValueOfExpression(item, transformer);
+            if (typeof constant === 'undefined') {
+                errorHandler(item, `Literal property values must be literals.`);
+            }
+
+            result.push(constant);
+        }
+
+        return result;
+    }
+}
+
+/**
  * Find the original node in the original source file that corresponds to the specified expression.
  * 
  * This is used in global function transformers to determine the actual node to use in the original source file.
@@ -487,79 +559,7 @@ export function ConfigurationWithObjectLiteralExpression(node: TS.ObjectLiteralE
 }
 
 // #endregion
-
-
-/**
- * Recursively converts the specified object literal expression to an object literal that can be stringified.
- * @param literal           The literal to convert.
- * @param errorHandler      A handler that is invoked when an error occurs. This function must not return.
- * @param transformer       The transformer for which this conversion is performed.
- * @returns                 An object.
- */
-export function JSONWithObjectLiteralExpression(node: TS.ObjectLiteralExpression | TS.ArrayLiteralExpression, errorHandler: (node: TS.Node, message: string) => never, transformer: TransformerBase): Record<string, unknown> | unknown[] {
-    if (TS.isObjectLiteralExpression(node)) {
-        const result: Record<string, unknown> = {};
-        for (const member of node.properties) {
-            if (!TS.isPropertyAssignment(member) || !member.name || !(TS.isIdentifier(member.name) || TS.isStringLiteralLike(member.name))) {
-                errorHandler(member, `Literal property names must be identifiers or string literals`);
-            }
-
-            const name = member.name.text;
-
-            // Skip undefined properties, these are supported by JSON.stringify but don't produce any output
-            if (member.initializer.kind == TS.SyntaxKind.UndefinedKeyword) {
-                continue;
-            }
-
-            if (member.initializer.kind == TS.SyntaxKind.NullKeyword) {
-                result[name] = null;
-                continue;
-            }
-
-            if (TS.isObjectLiteralExpression(member.initializer) || TS.isArrayLiteralExpression(member.initializer)) {
-                result[name] = JSONWithObjectLiteralExpression(member.initializer, errorHandler, transformer);
-                continue;
-            }
-
-            const constant = ConstantOrLiteralValueOfExpression(member.initializer, transformer);
-            if (typeof constant === 'undefined') {
-                errorHandler(member, `Literal property values must be literals.`);
-            }
-
-            result[name] = constant;
-        }
-
-        return result;
-    }
-    else {
-        const result: unknown[] = [];
-
-        for (const item of node.elements) {
-            if (item.kind == TS.SyntaxKind.UndefinedKeyword) {
-                continue;
-            }
-
-            if (item.kind == TS.SyntaxKind.NullKeyword) {
-                result.push(null);
-                continue;
-            }
-
-            if (TS.isObjectLiteralExpression(item) || TS.isArrayLiteralExpression(item)) {
-                result.push(JSONWithObjectLiteralExpression(item, errorHandler, transformer));
-                continue;
-            }
-
-            const constant = ConstantOrLiteralValueOfExpression(item, transformer);
-            if (typeof constant === 'undefined') {
-                errorHandler(item, `Literal property values must be literals.`);
-            }
-
-            result.push(constant);
-        }
-
-        return result;
-    }
-}
+// #region XML Export
 
 /**
  * Returns an object representing the given infotable, that can be converted to an XML tag
@@ -601,3 +601,89 @@ export function XMLRepresentationOfInfotable(infotable: TWInfoTable, withOrdinal
         ]
     };
 }
+
+/**
+ * Creates and returns a typescript printer that can be used to emit a `Node` and
+ * obtain its compiled string representation.
+ * @param transformer           The transformer providing context for the transformation.
+ * @returns                     A typescript printer.
+ */
+export function CreatePrinter(transformer: TransformerBase): TS.Printer {
+    const context = transformer.context;
+
+    return TS.createPrinter({},
+        {
+          onEmitNode: context.onEmitNode,
+          isEmitNotificationEnabled: context.isEmitNotificationEnabled,
+          substituteNode: context.onSubstituteNode,
+        }
+    );
+}
+
+// #endregion
+// #region Visibility and Permissions
+
+/**
+ * Extracts and returns the visibility permissions of the given kind for the given node.
+ * @param kind      The name of the decorator containing the visibility permissions.
+ * @param node      The node to which the decorator may be applied.
+ * @returns         An array of visibility permissions if any were found, or an empty array otherwise.
+ */
+export function VisibilityPermissionsOfKindForNode(kind: string, node: TS.HasDecorators): TWVisibility[] {
+    const result: TWVisibility[] = [];
+    if (HasDecoratorNamed(kind, node)) {
+        const organizations = ArgumentsOfDecoratorNamed(kind, node);
+        if (!organizations || !organizations.length) {
+            ThrowErrorForNode(node, `The @${kind} decorator must specify at least one organization.`);
+        }
+
+        for (const arg of organizations) {
+            if (arg.kind == TS.SyntaxKind.PropertyAccessExpression) {
+                const expression = arg as TS.PropertyAccessExpression;
+                const organization = expression.name.text;
+                if (expression.expression.getText() != 'Organizations') {
+                    ThrowErrorForNode(arg, `Organizations specified in the @${kind} decorator must be accessed from the Organizations collection or via the "Unit" function.`);
+                }
+
+                result.push({isPermitted: true, name: organization, type: 'Organization'});
+            }
+            else if (arg.kind == TS.SyntaxKind.CallExpression) {
+                const callExpression = arg as TS.CallExpression;
+
+                if (callExpression.expression.getText() != 'Unit') {
+                    ThrowErrorForNode(arg, `Organization units in the @${kind} decorator  must be specified via the "Unit" function.`);
+                }
+
+                const unitArguments = callExpression.arguments;
+                if (unitArguments.length != 2) {
+                    ThrowErrorForNode(arg, `The "Unit" function must take exactly two parameters.`);
+                }
+
+                const organizationArg = unitArguments[0];
+                const unitArg = unitArguments[1] as TS.StringLiteral;
+
+                if (unitArg.kind != TS.SyntaxKind.StringLiteral) {
+                    ThrowErrorForNode(arg, `The organization unit must be specified as a string literal.`);
+                }
+
+                const organizationExpression = organizationArg as TS.PropertyAccessExpression;
+
+                if (organizationArg.kind != TS.SyntaxKind.PropertyAccessExpression || organizationExpression.expression.getText() != 'Organizations') {
+                    ThrowErrorForNode(arg, `Organizations specified in the "Unit" function must be accessed from the Organizations collection.`);
+                }
+
+                const organizationName = organizationExpression.name.text;
+
+                result.push({isPermitted: true, name: `${organizationName}:${unitArg.text}`, type: 'OrganizationalUnit'})
+            }
+            else {
+                ThrowErrorForNode(arg, `Organizations specified in the @${kind} decorator must be accessed from the Organizations collection or via the "Unit" function.`);
+            }
+
+        }
+    }
+
+    return result;
+}
+
+// #endregion

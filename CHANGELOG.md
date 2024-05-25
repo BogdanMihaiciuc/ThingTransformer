@@ -1,3 +1,9 @@
+# 2.1.5
+
+Adds support for using the `@visible` decorator to assign visibility permissions to mashups. ([kklorenzotesta](https://github.com/kklorenzotesta))
+
+Resolves an issue where certain typescript transforms weren't properly applied. This fixes issues where using `this` in an arrow function produced incorrect code. ([kklorenzotesta](https://github.com/kklorenzotesta))
+
 # 2.1
 
 Upgrades to tyescript 5. ([stefan-lacatus](https://github.com/stefan-lacatus))
