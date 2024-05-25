@@ -1070,7 +1070,7 @@ export class TWThingTransformer implements TWCodeTransformer {
      * @param node      The source file node.
      */
     compileGlobalCode(node: ts.SourceFile) {
-        const compiledCode = CreatePrinter(this.context).printNode(ts.EmitHint.Unspecified, node, node);
+        const compiledCode = CreatePrinter(this).printNode(ts.EmitHint.Unspecified, node, node);
 
         // Note that the exported symbol names are javascript identifiers, so it is safe to use them with dot notation
         this.compiledGlobalCode = compiledCode + '\n\n' + this.globalSymbols.map(symbol => `Object.getPrototypeOf(this).${symbol} = ${symbol};`).join('\n');
@@ -3969,7 +3969,7 @@ export class TWThingTransformer implements TWCodeTransformer {
                                         const declaration = node as ts.FunctionDeclaration;
                                         if (declaration.name?.text == name) {
                                             // Print and save the compiled function
-                                            compiledCode = CreatePrinter(this.context).printNode(ts.EmitHint.Unspecified, node, compiledSourceFile) + '\n';
+                                            compiledCode = CreatePrinter(this).printNode(ts.EmitHint.Unspecified, node, compiledSourceFile) + '\n';
                                             transformedNode = node;
                                         }
                                     }
@@ -5465,7 +5465,7 @@ export class TWThingTransformer implements TWCodeTransformer {
             else {
                 // Otherwise create an AST from the function's code, then emit it
                 // Emit the function and add its code to the service
-                const codeToTranspile = CreatePrinter(this.context).printNode(ts.EmitHint.Unspecified, globalFunction.node, globalFunction.sourceFile);
+                const codeToTranspile = CreatePrinter(this).printNode(ts.EmitHint.Unspecified, globalFunction.node, globalFunction.sourceFile);
                 const transpileResult = ts.transpileModule(codeToTranspile, {
                     compilerOptions: {
                         ...this.program.getCompilerOptions(),
@@ -5496,7 +5496,7 @@ export class TWThingTransformer implements TWCodeTransformer {
      * @return      The emit result.
      */
     transpiledBodyOfFunctionDeclaration(node: ts.FunctionDeclaration): string {
-        const result = CreatePrinter(this.context).printNode(ts.EmitHint.Unspecified, node.body!, (this as any).source);
+        const result = CreatePrinter(this).printNode(ts.EmitHint.Unspecified, node.body!, (this as any).source);
         return result.substring(1, result.length - 1);
     }
 
