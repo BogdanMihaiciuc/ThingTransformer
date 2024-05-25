@@ -1,5 +1,5 @@
 import * as TS from 'typescript';
-import { DiagnosticMessageKind, TWBaseTypes, type TWConfigurationTable, type TWInfoTable } from './TWCoreTypes';
+import { DiagnosticMessageKind, TWBaseTypes, TWVisibility, type TWConfigurationTable, type TWInfoTable } from './TWCoreTypes';
 import { ConstantValueUndefined, type TransformerStore } from './ThingTransformer';
 
 /**
@@ -600,4 +600,67 @@ export function XMLRepresentationOfInfotable(infotable: TWInfoTable, withOrdinal
             }
         ]
     };
+}
+
+/**
+ * Extracts and returns the visibility permissions of the given kind for the given node.
+ * @param kind      The name of the decorator containing the visibility permissions.
+ * @param node      The node to which the decorator may be applied.
+ * @returns         An array of visibility permissions if any were found, or an empty array otherwise.
+ */
+export function VisibilityPermissionsOfKindForNode(kind: string, node: TS.HasDecorators): TWVisibility[] {
+    const result: TWVisibility[] = [];
+    if (HasDecoratorNamed(kind, node)) {
+        const organizations = ArgumentsOfDecoratorNamed(kind, node);
+        if (!organizations || !organizations.length) {
+            ThrowErrorForNode(node, `The @${kind} decorator must specify at least one organization.`);
+        }
+
+        for (const arg of organizations) {
+            if (arg.kind == TS.SyntaxKind.PropertyAccessExpression) {
+                const expression = arg as TS.PropertyAccessExpression;
+                const organization = expression.name.text;
+                if (expression.expression.getText() != 'Organizations') {
+                    ThrowErrorForNode(arg, `Organizations specified in the @${kind} decorator must be accessed from the Organizations collection or via the "Unit" function.`);
+                }
+
+                result.push({isPermitted: true, name: organization, type: 'Organization'});
+            }
+            else if (arg.kind == TS.SyntaxKind.CallExpression) {
+                const callExpression = arg as TS.CallExpression;
+
+                if (callExpression.expression.getText() != 'Unit') {
+                    ThrowErrorForNode(arg, `Organization units in the @${kind} decorator  must be specified via the "Unit" function.`);
+                }
+
+                const unitArguments = callExpression.arguments;
+                if (unitArguments.length != 2) {
+                    ThrowErrorForNode(arg, `The "Unit" function must take exactly two parameters.`);
+                }
+
+                const organizationArg = unitArguments[0];
+                const unitArg = unitArguments[1] as TS.StringLiteral;
+
+                if (unitArg.kind != TS.SyntaxKind.StringLiteral) {
+                    ThrowErrorForNode(arg, `The organization unit must be specified as a string literal.`);
+                }
+
+                const organizationExpression = organizationArg as TS.PropertyAccessExpression;
+
+                if (organizationArg.kind != TS.SyntaxKind.PropertyAccessExpression || organizationExpression.expression.getText() != 'Organizations') {
+                    ThrowErrorForNode(arg, `Organizations specified in the "Unit" function must be accessed from the Organizations collection.`);
+                }
+
+                const organizationName = organizationExpression.name.text;
+
+                result.push({isPermitted: true, name: `${organizationName}:${unitArg.text}`, type: 'OrganizationalUnit'})
+            }
+            else {
+                ThrowErrorForNode(arg, `Organizations specified in the @${kind} decorator must be accessed from the Organizations collection or via the "Unit" function.`);
+            }
+
+        }
+    }
+
+    return result;
 }

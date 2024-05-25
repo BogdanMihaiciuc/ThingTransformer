@@ -1,7 +1,7 @@
 import * as TS from 'typescript';
 import { ConstantValueUndefined, type TWConfigurationTable, type TWExtractedPermissionLists, type TWInfoTable, type TWThingTransformer, type TWVisibility, type TransformerStore } from './ThingTransformer';
 import { UIControllerReference, UIJSXAttribute, UIMashupBinding, UIMashupEventBinding, UIReference, UIReferenceInitializerFunction, UIReferenceKind, UIServiceReference, UIWidgetReference, UIBaseTypes, UIWidget, UIMashupContent, UIMashupDataItem } from './UICoreTypes';
-import { ArgumentsOfDecoratorNamed, ConfigurationTablesDefinitionWithClassExpression, ConfigurationWithObjectLiteralExpression, ConstantOrLiteralValueOfExpression, DecoratorNamed, HasDecoratorNamed, JSONWithObjectLiteralExpression, ThrowErrorForNode, XMLRepresentationOfInfotable } from './SharedFunctions';
+import { ArgumentsOfDecoratorNamed, ConfigurationTablesDefinitionWithClassExpression, ConfigurationWithObjectLiteralExpression, ConstantOrLiteralValueOfExpression, DecoratorNamed, HasDecoratorNamed, JSONWithObjectLiteralExpression, ThrowErrorForNode, VisibilityPermissionsOfKindForNode, XMLRepresentationOfInfotable } from './SharedFunctions';
 import { Builder } from 'xml2js';
 import { UIBMCollectionViewPlugin, UIBMPresentationControllerPlugin, UINavigationPlugin } from './UIBuiltinPlugins';
 import type { UIPlugin } from './UIPlugin';
@@ -1038,7 +1038,7 @@ export class UITransformer {
 
             //this.runtimePermissions = this.mergePermissionListsForNode([this.runtimePermissions].concat(this.permissionsOfNode(node)), node);
 
-            //this.visibilityPermissions = this.visibilityPermissionsOfKindForNode('visible', node);
+            this.visibilityPermissions = VisibilityPermissionsOfKindForNode('visible', node);
         }
 
         // Defining a mashup class without the renderMashup method is an error

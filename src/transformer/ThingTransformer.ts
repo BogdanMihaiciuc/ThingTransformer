@@ -4,7 +4,7 @@ import { TWEntityKind, TWPropertyDefinition, TWServiceDefinition, TWEventDefinit
 import { Breakpoint } from './DebugTypes';
 import { Builder } from 'xml2js';
 import { UITransformer } from './UITransformer';
-import { ConfigurationTablesDefinitionWithClassExpression, ConfigurationWithObjectLiteralExpression, ConstantOrLiteralValueOfExpression, ConstantValueOfExpression, FindOriginalNodeOfExpression, HasDecoratorNamed, JSONWithObjectLiteralExpression, ThrowErrorForNode, XMLRepresentationOfInfotable } from './SharedFunctions';
+import { ConfigurationTablesDefinitionWithClassExpression, ConfigurationWithObjectLiteralExpression, ConstantOrLiteralValueOfExpression, ConstantValueOfExpression, FindOriginalNodeOfExpression, HasDecoratorNamed, JSONWithObjectLiteralExpression, ThrowErrorForNode, VisibilityPermissionsOfKindForNode, XMLRepresentationOfInfotable } from './SharedFunctions';
 import * as fs from 'fs';
 import * as crypto from 'crypto';
 import * as path from 'path';
@@ -1305,69 +1305,6 @@ export class TWThingTransformer implements TWCodeTransformer {
     }
 
     /**
-     * Extracts and returns the visibility permissions of the given kind for the given node.
-     * @param kind      The name of the decorator containing the visibility permissions.
-     * @param node      The node to which the decorator may be applied.
-     * @returns         An array of visibility permissions if any were found, or an empty array otherwise.
-     */
-    visibilityPermissionsOfKindForNode(kind: string, node: ts.Node): TWVisibility[] {
-        const result: TWVisibility[] = [];
-        if (this.hasDecoratorNamed(kind, node)) {
-            const organizations = this.argumentsOfDecoratorNamed(kind, node);
-            if (!organizations || !organizations.length) {
-                this.throwErrorForNode(node, `The @${kind} decorator must specify at least one organization.`);
-            }
-
-            for (const arg of organizations) {
-                if (arg.kind == ts.SyntaxKind.PropertyAccessExpression) {
-                    const expression = arg as ts.PropertyAccessExpression;
-                    const organization = expression.name.text;
-                    if (expression.expression.getText() != 'Organizations') {
-                        this.throwErrorForNode(arg, `Organizations specified in the @${kind} decorator must be accessed from the Organizations collection or via the "Unit" function.`);
-                    }
-
-                    result.push({isPermitted: true, name: organization, type: 'Organization'});
-                }
-                else if (arg.kind == ts.SyntaxKind.CallExpression) {
-                    const callExpression = arg as ts.CallExpression;
-
-                    if (callExpression.expression.getText() != 'Unit') {
-                        this.throwErrorForNode(arg, `Organization units in the @${kind} decorator  must be specified via the "Unit" function.`);
-                    }
-
-                    const unitArguments = callExpression.arguments;
-                    if (unitArguments.length != 2) {
-                        this.throwErrorForNode(arg, `The "Unit" function must take exactly two parameters.`);
-                    }
-
-                    const organizationArg = unitArguments[0];
-                    const unitArg = unitArguments[1] as ts.StringLiteral;
-
-                    if (unitArg.kind != ts.SyntaxKind.StringLiteral) {
-                        this.throwErrorForNode(arg, `The organization unit must be specified as a string literal.`);
-                    }
-
-                    const organizationExpression = organizationArg as ts.PropertyAccessExpression;
-
-                    if (organizationArg.kind != ts.SyntaxKind.PropertyAccessExpression || organizationExpression.expression.getText() != 'Organizations') {
-                        this.throwErrorForNode(arg, `Organizations specified in the "Unit" function must be accessed from the Organizations collection.`);
-                    }
-
-                    const organizationName = organizationExpression.name.text;
-
-                    result.push({isPermitted: true, name: `${organizationName}:${unitArg.text}`, type: 'OrganizationalUnit'})
-                }
-                else {
-                    this.throwErrorForNode(arg, `Organizations specified in the @${kind} decorator must be accessed from the Organizations collection or via the "Unit" function.`);
-                }
-
-            }
-        }
-
-        return result;
-    }
-
-    /**
      * Returns a list of permissions for the given node.
      * @param node          The node whose permissions should be retrieved.
      * @param resource      The resource to which the permissions should refer. If specified and any decorator
@@ -1881,8 +1818,8 @@ export class TWThingTransformer implements TWCodeTransformer {
 
                 this.runtimePermissions = this.mergePermissionListsForNode([this.runtimePermissions].concat(this.permissionsOfNode(classNode)), node);
 
-                this.visibilityPermissions = this.visibilityPermissionsOfKindForNode('visible', classNode);
-                this.instanceVisibilityPermissions = this.visibilityPermissionsOfKindForNode('visibleInstance', classNode);
+                this.visibilityPermissions = VisibilityPermissionsOfKindForNode('visible', classNode);
+                this.instanceVisibilityPermissions = VisibilityPermissionsOfKindForNode('visibleInstance', classNode);
 
                 // Instance visibility permissions may only be provided on templates and shapes
                 if (this.instanceVisibilityPermissions.length && this.entityKind != TWEntityKind.ThingShape && this.entityKind != TWEntityKind.ThingTemplate) {
