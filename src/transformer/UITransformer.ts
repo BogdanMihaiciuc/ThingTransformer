@@ -381,7 +381,7 @@ export class UITransformer {
                 if (this.isBMCoreUIMashup && this.controllerWidget) {
                     // There is no processing to be done for UI files in the after phase, but for core ui mashups, the 
                     // compiled code must be saved to the typescript class widget
-                    const compiledCode = CreatePrinter(this.context).printNode(TS.EmitHint.Unspecified, node, node);
+                    const compiledCode = CreatePrinter(this).printNode(TS.EmitHint.Unspecified, node, node);
                     this.controllerWidget.Properties.TranspiledCode = compiledCode;
                 }  
             }
@@ -413,7 +413,7 @@ export class UITransformer {
 
             // If this is a Core UI mashup, store the updated code in the controller widget
             if (this.isBMCoreUIMashup && this.controllerWidget) {
-                const updatedCode = CreatePrinter(this.context).printNode(TS.EmitHint.Unspecified, result, result as TS.SourceFile);
+                const updatedCode = CreatePrinter(this).printNode(TS.EmitHint.Unspecified, result, result as TS.SourceFile);
                 this.controllerWidget.Properties.Code = updatedCode;
             }
 
@@ -437,9 +437,8 @@ export class UITransformer {
         // so it cannot be done through the regular replacement map
         if (node == this.replacementClass) {
             cast<TS.ClassDeclaration>(result);
-            const nonDecoratorModifiers = result.modifiers?.filter(m => !TS.isDecorator(m));
             return TS.factory.createClassDeclaration(
-                [TS.factory.createDecorator(TS.factory.createIdentifier('TWWidgetDefinition')), ...nonDecoratorModifiers ?? []],
+                [TS.factory.createDecorator(TS.factory.createIdentifier('TWWidgetDefinition')), ...result.modifiers ?? []],
                 result.name,
                 result.typeParameters,
                 result.heritageClauses,
@@ -1039,7 +1038,16 @@ export class UITransformer {
 
             //this.runtimePermissions = this.mergePermissionListsForNode([this.runtimePermissions].concat(this.permissionsOfNode(node)), node);
 
+            // Extract any defined visibility permissions then mark all visibility decorators for deletion
             this.visibilityPermissions = VisibilityPermissionsOfKindForNode('visible', node);
+            const visibilityDecorators = TS.getDecorators(node)?.filter(d => {
+                return TS.isCallExpression(d.expression) && 
+                    TS.isIdentifier(d.expression.expression) && 
+                    d.expression.expression.text == 'visible';
+            }) ?? [];
+            for (const decorator of visibilityDecorators) {
+                this.nodeReplacementMap.set(decorator, undefined);
+            }
         }
 
         // Defining a mashup class without the renderMashup method is an error
