@@ -651,8 +651,8 @@ export class UITransformer {
 
                 this.visitMashupParametersDeclaration(argument);
 
-                // Store the reference and mark this node for deletion
-                this.references[ID] = {kind: UIReferenceKind.Widget, ID, className: 'Mashup'} as UIWidgetReference;
+                // Store the reference and mark this node for deletion; the ID for the mashup element MUST be mashup-root
+                this.references[ID] = {kind: UIReferenceKind.Widget, ID: 'mashup-root', className: 'Mashup'} as UIWidgetReference;
                 this.nodeReplacementMap.set(node, undefined);
                 return true;
             }
@@ -2238,8 +2238,8 @@ export class UITransformer {
                 let finalFlags = types[0]?.flags || 0;
                 for (const type of types) {
                     // Exclude optional flags
-                    if (type.flags && TS.TypeFlags.Undefined) continue;
-                    if (type.flags && TS.TypeFlags.Null) continue;
+                    if (type.flags & TS.TypeFlags.Undefined) continue;
+                    if (type.flags & TS.TypeFlags.Null) continue;
 
                     finalFlags &= type.flags;
                 }
