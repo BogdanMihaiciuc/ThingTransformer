@@ -1,3 +1,9 @@
+# 2.1.6
+
+Resolves an issue where bindings to/from mashup parameters did not work at runtime.
+
+Resolves an issue where passing or retrieving mashup parameter values did not work for the `Navigationfunction` widget.
+
 # 2.1.5
 
 Adds support for using the `@visible` decorator to assign visibility permissions to mashups. ([kklorenzotesta](https://github.com/kklorenzotesta))
