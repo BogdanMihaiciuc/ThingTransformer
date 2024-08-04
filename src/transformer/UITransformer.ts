@@ -55,7 +55,7 @@ export class UITransformer {
      */
     static plugins: Record<string, UIPlugin> = {
         Navigation: new UINavigationPlugin('MashupName', 'MashupParameters'),
-        Navigationfunction: new UINavigationPlugin('TargetMashup', 'MashupParameters'),
+        Navigationfunction: new UINavigationPlugin('TargetMashup', '_currentParameterDefs'),
         Mashupcontainer: new UINavigationPlugin('Name', 'MashupParameters'),
 
         BMCollectionView: new UIBMCollectionViewPlugin,

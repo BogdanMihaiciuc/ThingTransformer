@@ -29,13 +29,23 @@ export class UINavigationPlugin implements UIPlugin {
     }
 
     transformerDidProcessWidget(transformer: UITransformer, className: string, element: TS.JsxElement | TS.JsxSelfClosingElement, widget: UIWidget) {
-        // Get the mashup parameters and then 
+        // Get the mashup parameters and then build the array of parameters that the widget uses
+        // to separate out generic properties from parameter proeprties
         const mashupName = widget.Properties[this.sourcePropertyName];
         if (mashupName && typeof mashupName == 'string') {
             const parameters = transformer.parametersOfMashupNamed(mashupName);
             if (parameters) {
                 widget.Properties[this.targetPropertyName] = parameters.map(p => {
-                    return {ParameterName: p.name, Description: '', BaseType: p.baseType};
+                    return {
+                        ParameterName: p.name,
+                        Description: '',
+                        BaseType: p.baseType,
+                        bindingDirection: 'both',
+                        bindingType: 'Property',
+                        isBindingSource: true,
+                        isBindingTarget: true,
+                        shown: true
+                    };
                 });
             }
         }
