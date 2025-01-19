@@ -1,3 +1,9 @@
+# 2.1.7
+
+Resolves an issue where widget bindings sometimes required explicit type assertions.
+
+Resolves an issue where infotable properties defined in a core ui controller could not be used in widget bindings.
+
 # 2.1.6
 
 Resolves an issue where bindings to/from mashup parameters did not work at runtime.
