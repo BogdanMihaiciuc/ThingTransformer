@@ -154,11 +154,18 @@ declare type MashupControllerExtendedKeys<T> = {[K in keyof T]: K extends keyof 
  */
 declare type ToMashupController<T> = {
     // Map all keys to binding targets, except for the base widget properties
-    [K in MashupControllerExtendedKeys<T>]: T[K] extends Function ? ServiceBindingTarget : BindingTarget<T[K]>;
+    [K in MashupControllerExtendedKeys<T>]:
+        T[K] extends Function ? 
+        ServiceBindingTarget : 
+        (
+            T[K] extends JSONInfoTable<infer R> ? 
+            BindingTarget<INFOTABLE<R>> : 
+            BindingTarget<T[K]>
+        );
 }
 
 /**
- * A class that all widget contructor property types should extend to provide support for dynamic properties.
+ * A class that all widget constructor property types should extend to provide support for dynamic properties.
  */
 declare class UIBaseInputInterface {
     [key: `Dynamic:${string}`]: any;
