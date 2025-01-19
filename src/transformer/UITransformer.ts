@@ -2146,6 +2146,17 @@ export class UITransformer {
             }
         }
 
+        // If this is a union between a type and a binding target to that same type, that type
+        // will represent the thingworx base type
+        if (type.isUnion() && type.types.length == 2) {
+            const firstType = this.baseTypeOfType(type.types[0]);
+            const secondType = this.baseTypeOfType(type.types[1]);
+
+            if (firstType == secondType) {
+                return firstType;
+            }
+        }
+
         // If the type is a binding target type, extract the generic argument and resolve it
         if (type.symbol?.escapedName == 'BindingTarget') {
             if ('typeArguments' in type) {
