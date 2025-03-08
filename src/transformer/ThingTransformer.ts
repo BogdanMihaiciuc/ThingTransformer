@@ -5497,7 +5497,7 @@ export class TWThingTransformer implements TWCodeTransformer {
      */
     transpiledBodyOfFunctionDeclaration(node: ts.FunctionDeclaration): string {
         const result = CreatePrinter(this).printNode(ts.EmitHint.Unspecified, node.body!, (this as any).source);
-        return result.substring(1, result.length - 1);
+        return result;
     }
 
     /**
@@ -5713,7 +5713,7 @@ __r.retain();
 __r.beginImplicit(${JSON.stringify(service.name)}, ${JSON.stringify(entity.sourceFile?.fileName)}, undefined, "project");
 ` : ''}
 try { 
-    var result = (function (logger${argumentList}) {${service.code}}).apply(me, [__dLogger${argumentList}]);
+    var result = (function (logger${argumentList}) {\n${service.code}\n}).apply(me, [__dLogger${argumentList}]);
     ${this.trace ? `__r.finishImplicit(); ` : ''}
 } 
 finally {
@@ -5731,7 +5731,7 @@ var __ret;
 __r.retain();
 __r.beginImplicit(${JSON.stringify(service.name)}, ${JSON.stringify(entity.sourceFile?.fileName)}, undefined, "project");
 try { 
-    var result = (function (${argumentList}) {${service.code}}).apply(me, [${argumentList}]);
+    var result = (function (${argumentList}) {\n${service.code}\n}).apply(me, [${argumentList}]);
     __r.finishImplicit(); 
 } 
 finally {
@@ -5740,7 +5740,7 @@ finally {
 }`;
                 }
                 else {
-                    service.code = `var result = (function (${argumentList}) {${service.code}}).apply(me, [${argumentList}])`;
+                    service.code = `var result = (function (${argumentList}) {\n${service.code}\n}).apply(me, [${argumentList}])`;
                 }
             }
             else {
@@ -5760,7 +5760,7 @@ __r.retain();
 __r.beginImplicit(${JSON.stringify(subscription.name)}, ${JSON.stringify(entity.sourceFile?.fileName)}, undefined, "project");
 ` : ''}
 try { 
-    (function (logger) {${subscription.code}}).apply(me, [__dLogger]);
+    (function (logger) {\n${subscription.code}\n}).apply(me, [__dLogger]);
     ${this.trace ? `__r.finishImplicit();` : ''}
 } 
 finally {
@@ -5778,7 +5778,7 @@ var __ret;
 __r.retain();
 __r.beginImplicit(${JSON.stringify(subscription.name)}, ${JSON.stringify(entity.sourceFile?.fileName)}, undefined, "project");
 try { 
-    (function () {${transpiledBody}}).apply(me);
+    (function () {\n${transpiledBody}\n}).apply(me);
     __r.finishImplicit(); 
 } 
 finally {
@@ -5788,7 +5788,7 @@ finally {
                 }
                 else {
                     //const body = CreatePrinter(this.context).printNode(ts.EmitHint.Unspecified, node.body, (this as any).source);
-                    subscription.code = `(function () {${transpiledBody}}).apply(me)`;
+                    subscription.code = `(function () {\n${transpiledBody}\n}).apply(me)`;
                 }
             }
         }
