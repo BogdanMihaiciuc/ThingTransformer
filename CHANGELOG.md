@@ -1,3 +1,7 @@
+# 2.1.8
+
+Resolves an issue where invalid code would be emitted for services and subscriptions if they contained a comment immediately following the method's closing brace.
+
 # 2.1.7
 
 Resolves an issue where widget bindings sometimes required explicit type assertions.
