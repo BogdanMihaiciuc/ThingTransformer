@@ -619,6 +619,13 @@ declare class UserList {
 }
 
 /**
+ * A base class that can be extended to specify a list of media entities.
+ */
+declare class MediaList {
+    [key: string]: string;
+}
+
+/**
  * Describes a style definition.
  */
 interface StyleDefinition {
