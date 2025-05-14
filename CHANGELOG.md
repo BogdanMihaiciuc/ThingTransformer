@@ -1,3 +1,19 @@
+# 2.2.0
+
+Adds support for media entities via a new `MediaList` class.
+
+Adds support for specifying the default value of infotable properties using a new `__initInfotable` global function, passing in the JSON representation of that infotable. This function must only be used when initializing a property on a thing, thing template or thing shape class.
+
+Adds support for binding expressions in core ui mashups. These allow developers to specify inline functions for derived property values instead of the typical binding sources, and blocks of code to execute for events instead of the typical service bindings.
+ - Binding expressions for property values are specified as a function expression. This function contains the code to derive the property value. Other binding sources can be referenced via a new `getBindingValue` (or `$v`) function that takes in the binding source as its argument. When a binding expression has at least one call to `getBindingValue` it will be automatically invoked whenever any such binding source is updated. Binding expressions with no calls to `getBindingValue` never execute.
+ - Binding expressions for events are specified as an array literal containing a single function expression. This function contains the code to execute when the event triggers. Services can still be triggered via a new `triggerBindingServices` (or `$s`) function that takes in an array of service binding targets to trigger.
+ - Both `getBindingValue` and `triggerBindingServices` can be used in either property or event binding expressions, but not elsewhere in the controller.
+ - `$v` can be used as a short alias to `getBindingValue` and `$s` can be used as a short alias to `triggerBindingServices`.
+
+Resolves an issue where bindings to services could not work if the name of the reference variable did not match the name of the service.
+
+Added typing for the generic `ResponsiveLayout` widget property which can be specified on widgets so they take up the entire flex container they are placed in.
+
 # 2.1.8
 
 Resolves an issue where invalid code would be emitted for services and subscriptions if they contained a comment immediately following the method's closing brace.
