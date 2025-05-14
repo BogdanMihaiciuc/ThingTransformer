@@ -437,6 +437,13 @@ declare function allowInstance(name: string, ...args: (UserEntity | GroupEntity 
 declare function visibleInstance(...args: (OrganizationEntity)[]): <T extends abstract new (...args) => unknown>(target: T) => void;
 
 /**
+ * A function that can be used to specify the default value of an infotable property.
+ * Must not be used in any other context.
+ * @param value         The JSON value with which to initialize the property value.
+ */
+declare function __initInfotable<T>(value: JSONInfoTable<T>): INFOTABLE<T>;
+
+/**
  * **EXPERIMENTAL**
  * 
  * Causes the given entity to be exposed and used in the API type generation

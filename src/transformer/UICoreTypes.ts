@@ -1,3 +1,4 @@
+import type { ConciseBody, Node } from "typescript";
 import { TWBaseTypes } from "./TWCoreTypes";
 
 /**
@@ -455,6 +456,61 @@ export interface UIJSXAttribute {
         service?: string;
     }[];
 }
+
+/**
+ * Describes a binding expression that must be converted into a series of input properties
+ * and an output property as well as a service on the controller.
+ */
+export interface UIBindingExpression {
+
+    /**
+     * Set to `true` for binding expressions.
+     */
+    _isBindingExpression: true;
+
+    /**
+     * The body of the binding expression.
+     */
+    body: ConciseBody;
+
+    /**
+     * A dictionary that contains replacement nodes to replace binding expression with actual properties.
+     */
+    replacementMap: Map<Node, Node>;
+
+    /**
+     * The property binding sources participating in this expression. The key names uniquely identify
+     * binding sources.
+     */
+    bindingSources: Record<string, UIJSXAttribute>;
+
+    /**
+     * The service binding targets participating in this expression. The key names uniquely identify
+     * binding targets.
+     */
+    bindingTargets: Record<string, UIJSXAttribute>;
+
+    /**
+     * If specified, an array of source property names participating in the binding expression.
+     */
+    properties: Record<string, true>;
+
+    /**
+     * The kind of binding.
+     */
+    kind: 'property' | 'service';
+
+    /**
+     * Only set when `kind` is `"property"`.
+     */
+    baseType?: string;
+
+}
+
+/**
+ * A prefix added to property names for their binding expression method names.
+ */
+export const UIBindingExpressionPrefix = 'expression_';
 
 /**
  * Contains all supported UI base types.

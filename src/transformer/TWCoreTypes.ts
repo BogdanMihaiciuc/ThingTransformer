@@ -394,9 +394,10 @@ export const enum TWEntityKind {
     ThingTemplate = "ThingTemplate", 
     ThingShape = "ThingShape", 
     DataShape = "DataShape", 
-    UserList = "UserList", 
+    UserList = "UserList",
     Organization = "Organization",
-    StyleLibrary = "StyleLibrary", 
+    StyleLibrary = "StyleLibrary",
+    MediaList = "MediaList",
 }
 
 export interface TWEntityDefinition {
@@ -477,6 +478,12 @@ export interface TWUser extends TWPrincipalBase {
 
 export interface TWUserGroup extends TWPrincipalBase {
     members: TWPrincipal[];
+}
+
+export interface TWMediaEntity {
+    name: string;
+    description?: string;
+    path: string;
 }
 
 

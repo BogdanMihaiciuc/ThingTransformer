@@ -1,6 +1,6 @@
 {
     "name": "bm-thing-transformer",
-    "version": "2.1.8",
+    "version": "2.2.0",
     "description": "Develop in ThingWorx with a proper IDE.",
     "author": "Bogdan Mihaiciuc",
     "minimumThingWorxVersion": "6.0.0",
@@ -25,10 +25,11 @@
     ],
     "devDependencies": {
         "@microsoft/tsdoc": "^0.14.2",
-        "@types/node": "^20.10.6"
+        "@types/node": "^22.14.1"
     },
     "dependencies": {
         "typescript": "5.4.5",
+        "ts-clone-node": "^4.0.0",
         "typescriptwebpacksupport": "^2.4.0",
         "xml2js": "^0.6.2"
     }

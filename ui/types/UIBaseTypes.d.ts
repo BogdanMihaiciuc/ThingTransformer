@@ -93,9 +93,11 @@ declare class BindingSource<T> {
 /**
  * Represents an object that can participate in bindings.
  */
-declare class BindingTarget<T> {
+declare class BindingTargetBase<T> {
     [_isBindingTarget]: T;
 }
+
+declare type BindingTarget<T> = BindingTargetBase<T> | (() => T);
 
 /**
  * Only used for service binding targets.
@@ -119,8 +121,10 @@ declare abstract class MashupBase {
 /**
  * An object that represents a service reference that can be triggered by a mashup event.
  */
-declare class ServiceBindingTarget extends BindingTarget<ServiceType> {
+declare class ServiceBindingTargetBase extends BindingTargetBase<ServiceType> {
 }
+
+declare type ServiceBindingTarget = ServiceBindingTargetBase | (() => void);
 
 /**
  * An object whose properties are all binding sources or targets.
@@ -168,6 +172,12 @@ declare type ToMashupController<T> = {
  * A class that all widget constructor property types should extend to provide support for dynamic properties.
  */
 declare class UIBaseInputInterface {
+
+    /**
+     * Controls whether this widget will take up the entire space provided by its container.
+     */
+    ResponsiveLayout?: boolean;
+
     [key: `Dynamic:${string}`]: any;
 }
 
@@ -190,7 +200,7 @@ declare type InvocableInput<I> = {
 /**
  * Represents the result binding source of a service with the specified input and output types.
  */
-declare class Invocable<I, O> extends ServiceBindingTarget {
+declare class Invocable<I, O> extends ServiceBindingTargetBase {
 
     /**
      * When used as a binding source for an infotable, this represents the complete infotable result of the service.

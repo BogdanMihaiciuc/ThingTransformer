@@ -1,6 +1,6 @@
 import * as ts from 'typescript';
 import { InlineSQL, SuperCallOptions, MethodHelpers, TWConfig } from '../configuration/TWConfig';
-import { TWEntityKind, TWPropertyDefinition, TWServiceDefinition, TWEventDefinition, TWSubscriptionDefinition, TWBaseTypes, TWPropertyDataChangeKind, TWFieldBase, TWPropertyRemoteBinding, TWPropertyRemoteFoldKind, TWPropertyRemotePushKind, TWPropertyRemoteStartKind, TWPropertyBinding, TWSubscriptionSourceKind, TWServiceParameter, TWDataShapeField, TWConfigurationTable, TWRuntimePermissionsList, TWVisibility, TWExtractedPermissionLists, TWRuntimePermissionDeclaration, TWPrincipal, TWPermission, TWUser, TWUserGroup, TWPrincipalBase, TWOrganizationalUnit, TWConnection, TWDataThings, TWInfoTable, GlobalFunction, GlobalFunctionReference, DiagnosticMessage, DiagnosticMessageKind, TWThing, TraceKind, TraceNodeInformation, DeploymentEndpoint, TWStyleDefinition, TWStateDefinition } from './TWCoreTypes';
+import { TWEntityKind, TWPropertyDefinition, TWServiceDefinition, TWEventDefinition, TWSubscriptionDefinition, TWBaseTypes, TWPropertyDataChangeKind, TWFieldBase, TWPropertyRemoteBinding, TWPropertyRemoteFoldKind, TWPropertyRemotePushKind, TWPropertyRemoteStartKind, TWPropertyBinding, TWSubscriptionSourceKind, TWServiceParameter, TWDataShapeField, TWConfigurationTable, TWRuntimePermissionsList, TWVisibility, TWExtractedPermissionLists, TWRuntimePermissionDeclaration, TWPrincipal, TWPermission, TWUser, TWUserGroup, TWPrincipalBase, TWOrganizationalUnit, TWConnection, TWDataThings, TWInfoTable, GlobalFunction, GlobalFunctionReference, DiagnosticMessage, DiagnosticMessageKind, TWThing, TraceKind, TraceNodeInformation, DeploymentEndpoint, TWStyleDefinition, TWStateDefinition, TWMediaEntity } from './TWCoreTypes';
 import { Breakpoint } from './DebugTypes';
 import { Builder } from 'xml2js';
 import { UITransformer } from './UITransformer';
@@ -430,32 +430,32 @@ interface TWCodeTransformer {
      * @param sourceNode        If specified, a node that contains the original position information for the expression.
      * @returns                 A trace expression.
      */
-     traceExpression(this: TWCodeTransformer, expression: ts.CallExpression, sourceNode?: ts.Node): ts.Expression;
+    traceExpression(this: TWCodeTransformer, expression: ts.CallExpression, sourceNode?: ts.Node): ts.Expression;
 
-     /**
-      * Returns a string literal that represents the name by which the specified
-      * expression should be represented in the profile report.
-      * @param expression    The node whose name should be determined.
-      * @returns             A string literal containing the expression's name.
-      */
-     traceNameOfNode(this: TWCodeTransformer, expression: ts.Node): ts.StringLiteral;
+    /**
+     * Returns a string literal that represents the name by which the specified
+     * expression should be represented in the profile report.
+     * @param expression    The node whose name should be determined.
+     * @returns             A string literal containing the expression's name.
+     */
+    traceNameOfNode(this: TWCodeTransformer, expression: ts.Node): ts.StringLiteral;
 
-     /**
-      * Returns an expression that is used as an argument for the trace position of the specified node.
-      * @param node              The node whose position should be determined.
-      * @param sourceNode        When `node` is a synthetic node, this represents the original node
-      *                          that actually contains the positioning information.
-      * @returns                 An expression that contains the line number, or the undefined keyword
-      *                          if the position could not be determined.
-      */
-     tracePositionOfNode(this: TWCodeTransformer, node: ts.Node, sourceNode?: ts.Node): ts.Expression;
+    /**
+     * Returns an expression that is used as an argument for the trace position of the specified node.
+     * @param node              The node whose position should be determined.
+     * @param sourceNode        When `node` is a synthetic node, this represents the original node
+     *                          that actually contains the positioning information.
+     * @returns                 An expression that contains the line number, or the undefined keyword
+     *                          if the position could not be determined.
+     */
+    tracePositionOfNode(this: TWCodeTransformer, node: ts.Node, sourceNode?: ts.Node): ts.Expression;
 
-     /**
-      * Adds a measurement block around the specified try/catch statement.
-      * @param tryStatement      The try/catch statement.
-      * @returns                 A replacement try/catch statement.
-      */
-     traceMeasurementTryBlock(tryStatement: ts.TryStatement): ts.TryStatement;
+    /**
+     * Adds a measurement block around the specified try/catch statement.
+     * @param tryStatement      The try/catch statement.
+     * @returns                 A replacement try/catch statement.
+     */
+    traceMeasurementTryBlock(tryStatement: ts.TryStatement): ts.TryStatement;
 
     /**
      * Tests whether the specified call expression represents a call to a method on the caller's
@@ -681,6 +681,11 @@ export class TWThingTransformer implements TWCodeTransformer {
      * A dictionary of user groups declared in this entity.
      */
     userGroups: { [key: string]: TWUserGroup } = {};
+
+    /**
+     * A dictionary of media entities declared in this entity.
+     */
+    mediaEntities: { [key: string]: TWMediaEntity } = {};
 
     /**
      * An array of discovered organizational units in this entity.
@@ -1651,6 +1656,9 @@ export class TWThingTransformer implements TWCodeTransformer {
                 else if (baseClass.escapedText == 'UserList') {
                     this.entityKind = TWEntityKind.UserList;
                 }
+                else if (baseClass.escapedText == 'MediaList') {
+                    this.entityKind = TWEntityKind.MediaList;
+                }
                 else if (baseClass.escapedText == 'OrganizationBase') {
                     this.entityKind = TWEntityKind.Organization;
                 }
@@ -1830,7 +1838,7 @@ export class TWThingTransformer implements TWCodeTransformer {
             // In watch mode, it is not needed to visit class members since they are not needed for the declaration files,
             // except for user lists whose members each correspond to an entity, organizations whose units must be specified
             // as type arguments and style libraries that work similar to user lists
-            if (!this.watch || this.entityKind == TWEntityKind.UserList || this.entityKind == TWEntityKind.Organization || this.entityKind == TWEntityKind.StyleLibrary) {
+            if (!this.watch || this.entityKind == TWEntityKind.UserList || this.entityKind == TWEntityKind.MediaList || this.entityKind == TWEntityKind.Organization || this.entityKind == TWEntityKind.StyleLibrary) {
                 for (const member of classNode.members) {
                     this.visitClassMember(member);
                 }
@@ -1927,6 +1935,9 @@ export class TWThingTransformer implements TWCodeTransformer {
             else if (this.entityKind == TWEntityKind.UserList) {
                 this.visitUserListField(propertyDeclarationNode);
             }
+            else if (this.entityKind == TWEntityKind.MediaList) {
+                this.visitMediaListField(propertyDeclarationNode);
+            }
             else if (this.entityKind == TWEntityKind.StyleLibrary) {
                 this.visitStyleLibraryField(propertyDeclarationNode);
             }
@@ -1952,6 +1963,9 @@ export class TWThingTransformer implements TWCodeTransformer {
             }
             if (this.entityKind == TWEntityKind.UserList) {
                 this.throwErrorForNode(node, `User lists cannot contain methods.`);
+            }
+            if (this.entityKind == TWEntityKind.MediaList) {
+                this.throwErrorForNode(node, `Media lists cannot contain methods.`);
             }
             if (this.entityKind == TWEntityKind.Organization) {
                 this.throwErrorForNode(node, `Organizations cannot contain methods.`);
@@ -2147,6 +2161,38 @@ export class TWThingTransformer implements TWCodeTransformer {
             user.extensions = {};
             this.users[user.name] = user;
         }
+
+        // Extract the permissions to be applied per user
+        this.runtimePermissions = this.mergePermissionListsForNode([this.runtimePermissions].concat(this.permissionsOfNode(node, node.name.text)), node);
+    }
+
+    /**
+     * Visits a media list property declaration.
+     * @param node      The node to visit.
+     */
+    visitMediaListField(node: ts.PropertyDeclaration) {
+        const mediaEntity = {} as TWMediaEntity;
+        if (node.name.kind != ts.SyntaxKind.Identifier) {
+            this.throwErrorForNode(node, `Computed property names are not supported in ThingWorx classes.`);
+        }
+
+        if (!node.initializer || !ts.isStringLiteral(node.initializer)) {
+            this.throwErrorForNode(node, `Media list properties must be initialized to a path to the file whose contents will be imported.`);
+        }
+
+        // First obtain the name of the property
+        mediaEntity.name = node.name.text;
+        mediaEntity.description = this.documentationOfNode(node);
+
+        // Ensure that the file pointed to exists
+        const relativePath = node.initializer.text;
+        const absolutePath = path.resolve(this.filename!, '../', relativePath);
+        if (!fs.existsSync(absolutePath)) {
+            this.throwErrorForNode(node, `The file for media entity "${mediaEntity.name}" at path "${absolutePath}" could not be found.`);
+        }
+        mediaEntity.path = relativePath;
+
+        this.mediaEntities[mediaEntity.name] = mediaEntity;
 
         // Extract the permissions to be applied per user
         this.runtimePermissions = this.mergePermissionListsForNode([this.runtimePermissions].concat(this.permissionsOfNode(node, node.name.text)), node);
@@ -2461,6 +2507,20 @@ export class TWThingTransformer implements TWCodeTransformer {
                 else {
                     this.throwErrorForNode(node, 'Exactly one string literal argument is required when setting Date as default value.');
                 }
+            }
+            else if (ts.isCallExpression(node.initializer) && ts.isIdentifier(node.initializer.expression) && node.initializer.expression.text == '__initInfotable') {
+                const initializer = node.initializer;
+                if (initializer.arguments.length != 1) {
+                    this.throwErrorForNode(initializer, '__initInfotable requires a single argument representing the infotable value.');
+                }
+
+                const argument = initializer.arguments[0];
+                if (!ts.isObjectLiteralExpression(argument)) {
+                    this.throwErrorForNode(argument, 'The argument for __initInfotable must be an object literal.');
+                }
+
+                const value = JSONWithObjectLiteralExpression(argument, (node, error) => this.throwErrorForNode(node, error), this);
+                property.aspects.defaultValue = JSON.stringify(value);
             }
             else {
                 property.aspects.defaultValue = (node.initializer as ts.LiteralExpression).text || node.initializer.getText();
@@ -6490,6 +6550,8 @@ finally {
 
         if (this.entityKind == TWEntityKind.UserList) return this.toUserListXML();
 
+        if (this.entityKind == TWEntityKind.MediaList) return this.toMediaListXML();
+
         if (this.entityKind == TWEntityKind.Organization) return this.toOrganizationXML();
 
         if (this.entityKind == TWEntityKind.StyleLibrary) return this.toStyleListXML();
@@ -7263,6 +7325,70 @@ finally {
     }
 
     /**
+     * Returns an array of XML entities containing the media entities in the file processed by this transformer.
+     */
+    private toMediaListXML(): string {
+        const XML = {} as any;
+        XML.Entities = {};
+        XML.Entities.MediaEntities = [{}];
+        XML.Entities.MediaEntities[0].MediaEntity = [];
+
+        for (const mediaEntity in this.mediaEntities) {
+            const collectionKind = 'MediaEntities';
+            const entityKind = 'MediaEntity';
+
+            const entity: any = {$: {}};
+    
+            entity.$.name = mediaEntity;
+
+            if (this.projectName) entity.$.projectName = this.projectName;
+            if (this.editable) entity.$['aspect.isEditableExtensionObject'] = this.editable;
+    
+            // Tags are yet unsupported
+            entity.$.tags = '';
+    
+            if (this.mediaEntities[mediaEntity].description) {
+                entity.$.description = this.mediaEntities[mediaEntity].description;
+            }
+
+            // Get the user extensions, if specified and convert
+            // them into infotable rows
+            const relativePath = this.mediaEntities[mediaEntity].path;
+            const absolutePath = path.resolve(this.sourceFile!.fileName, '../', relativePath);
+            const content = fs.readFileSync(absolutePath, {encoding: 'base64'});
+            entity.content = [content];
+
+            if (this.runtimePermissions.runtime) {
+                entity.RunTimePermissions = [{Permissions: []}];
+    
+                for (const resource in this.runtimePermissions.runtime) {
+                    // For user lists, the resource name represents the entity to which the permissions apply
+                    if (resource != mediaEntity) continue;
+
+                    const permissionDefinition = {$: {resourceName: '*'}};
+    
+                    for (const permission in this.runtimePermissions.runtime[resource]) {
+                        const principals = this.runtimePermissions.runtime[resource][permission].map(p => ({$: {name: p.principal, type: p.type, isPermitted: p.isPermitted}}));
+                        permissionDefinition[permission] = [{Principal: principals}];
+                    }
+    
+                    entity.RunTimePermissions[0].Permissions.push(permissionDefinition);
+                }
+            }
+
+            if (this.visibilityPermissions.length) {
+                entity.VisibilityPermissions = [{Visibility: []}];
+                entity.VisibilityPermissions[0].Visibility[0] = {Principal: this.visibilityPermissions.map(p => ({$: p}))};
+            }
+
+            XML.Entities[collectionKind][0][entityKind].push(entity);
+
+        }
+
+        return (new Builder).buildObject(XML);
+    }
+
+    /**
      * Returns the XML organization entity representation of the file processed by this transformer.
      * @return      An XML.
      */
@@ -7457,6 +7583,9 @@ finally {
                 const users = `declare interface Users { ${Object.values(this.users).map(u => `${u.name}: UserEntity;`).join(' ')} }\n\n`;
                 const groups = `declare interface Groups { ${Object.values(this.userGroups).map(u => `${u.name}: GroupEntity;`).join(' ')} }\n\n`;
                 return users + groups;
+            }
+            else if (this.entityKind == TWEntityKind.MediaList) {
+                return `declare interface MediaEntities { ${Object.values(this.mediaEntities).map(m => `${m.name}: MediaEntity;`).join(' ')} }\n\n`;
             }
             else if (this.entityKind == TWEntityKind.Organization) {
                 return `declare interface ${this.entityKind}s { ${JSON.stringify(this.exportedName)}: ${this.entityKind}Entity<${this.orgUnits.map(u => JSON.stringify(u.name)).join(' | ') || 'string'}>}`;
