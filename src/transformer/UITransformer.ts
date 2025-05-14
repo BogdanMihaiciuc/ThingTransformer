@@ -1,6 +1,7 @@
 import * as TS from 'typescript';
+import { cloneNode as CloneNode } from 'ts-clone-node';
 import { ConstantValueUndefined, type TWConfigurationTable, type TWExtractedPermissionLists, type TWInfoTable, type TWThingTransformer, type TWVisibility, type TransformerStore } from './ThingTransformer';
-import { UIControllerReference, UIJSXAttribute, UIMashupBinding, UIMashupEventBinding, UIReference, UIReferenceInitializerFunction, UIReferenceKind, UIServiceReference, UIWidgetReference, UIBaseTypes, UIWidget, UIMashupContent, UIMashupDataItem } from './UICoreTypes';
+import { UIControllerReference, UIJSXAttribute, UIMashupBinding, UIMashupEventBinding, UIReference, UIReferenceInitializerFunction, UIReferenceKind, UIServiceReference, UIWidgetReference, UIBaseTypes, UIWidget, UIMashupContent, UIMashupDataItem, UIBindingExpression, UIBindingExpressionPrefix } from './UICoreTypes';
 import { ArgumentsOfDecoratorNamed, ConfigurationTablesDefinitionWithClassExpression, ConfigurationWithObjectLiteralExpression, ConstantOrLiteralValueOfExpression, DecoratorNamed, HasDecoratorNamed, JSONWithObjectLiteralExpression, ThrowErrorForNode, VisibilityPermissionsOfKindForNode, XMLRepresentationOfInfotable, CreatePrinter } from './SharedFunctions';
 import { Builder } from 'xml2js';
 import { UIBMCollectionViewPlugin, UIBMPresentationControllerPlugin, UINavigationPlugin } from './UIBuiltinPlugins';
@@ -35,7 +36,37 @@ enum UIKnownFunctionNames {
     /**
      * A function used to specify both a property value and a binding for a property initializer.
      */
-    BindProperty = 'bindProperty'
+    BindProperty = 'bindProperty',
+
+    /**
+     * A function used to specify a function expression to be used instead of a single binding.
+     */
+    BindExpression = 'bindExpression',
+
+    /**
+     * A function used to specify a function expression to be used instead of an array of service bindings.
+     */
+    EventExpression = 'eventExpression',
+
+    /**
+     * A function used to establish a binding and obtain its value in a binding expression.
+     */
+    GetBindingValue = 'getBindingValue',
+
+    /**
+     * A function used to establish a binding and obtain its value in a binding expression.
+     */
+    GetBindingValueShort = '$v',
+
+    /**
+     * A function used to establish a binding and trigger services in a binding expression.
+     */
+    TriggerBindingService = 'triggerBindingServices',
+
+    /**
+     * A function used to establish a binding and trigger services in a binding expression.
+     */
+    TriggerBindingServiceShort = '$s',
 }
 
 export class UITransformer {
@@ -182,6 +213,45 @@ export class UITransformer {
      * when these are used in bindings.
      */
     controllerMethods: Record<string, TS.MethodDeclaration> = {};
+
+    /**
+     * A mapping between property names and their associated binding sources and didChange handlers.
+     */
+    virtualControllerProperties: Record<string, {
+        /**
+         * For source properties, the binding source.
+         * `undefined` for target properties.
+         */
+        bindingSource?: UIJSXAttribute,
+
+        /**
+         * For source properties, the expressions they invoke when they change.
+         * An empty array for target properties.
+         */
+        didBindExpressions: UIBindingExpression[],
+
+        /**
+         * The type of the property.
+         */
+        baseType: string,
+    }> = {};
+
+    /**
+     * A mapping between event names and their associated binding targets.
+     */
+    virtualControllerEvents: Record<string, {
+        bindingTarget: {ID: string, service?: string},
+    }> = {};
+
+    /**
+     * All virtual services in the mashup. Its keys represent the key names generated for them.
+     */
+    virtualControllerServices: Record<string, UIBindingExpression> = {};
+
+    /**
+     * All binding expressions in the mashup. Its keys represent the key names generated for them.
+     */
+    bindingExpressions: Record<string, UIBindingExpression> = {};
 
     /**
      * The class node used for the mashup.
@@ -442,7 +512,12 @@ export class UITransformer {
                 result.name,
                 result.typeParameters,
                 result.heritageClauses,
-                result.members,
+                [
+                    ...result.members,
+                    ...this.virtualProperties(),
+                    ...this.virtualEvents(),
+                    ...this.virtualMethods(),
+                ],
             );
         }
 
@@ -832,6 +907,8 @@ export class UITransformer {
                             }
 
                             this.rootWidget = rootWidget;
+
+                            this.addVirtualBindings();
                         }
 
                         hasRenderMashup = true;
@@ -966,7 +1043,7 @@ export class UITransformer {
                                     EventTriggerEvent: member.name.text,
                                     EventTriggerId: this.controllerID,
                                     EventTriggerSection: '',
-                                    EventHandlerService: ref.kind == UIReferenceKind.Service ? ref.serviceName : target.service!,
+                                    EventHandlerService: ref.kind == UIReferenceKind.Service ? ref.ID : target.service!,
                                     EventHandlerArea: targetArea,
                                     EventHandlerId: ref.kind == UIReferenceKind.Service ? ref.entityID : ref.ID,
                                     Id: (Crypto as any).randomUUID(),
@@ -1145,13 +1222,13 @@ export class UITransformer {
                         // Text is only supported if it contains only whitespaces
                         const text = child.text.trim();
                         if (text) {
-                            ThrowErrorForNode(child, `Unsupported JSX child. Mashup elemnts must be JSX elements.`);
+                            ThrowErrorForNode(child, `Unsupported JSX child. Mashup elements must be JSX elements.`);
                         }
                         break;
                     }
                     default: {
                         // All other JSX children are invalid for mashups
-                        ThrowErrorForNode(child, `Unsupported JSX child. Mashup elemnts must be JSX elements.`);
+                        ThrowErrorForNode(child, `Unsupported JSX child. Mashup elements must be JSX elements.`);
                     }
                 }
             }
@@ -1298,7 +1375,7 @@ export class UITransformer {
                     switch(targetRef.kind) {
                         case UIReferenceKind.Service:
                             targetArea = 'Data';
-                            targetService = targetRef.serviceName;
+                            targetService = targetRef.ID;
                             targetID = targetRef.entityID;
                             break;
                         case UIReferenceKind.Script:
@@ -1375,6 +1452,64 @@ export class UITransformer {
                 });
 
             }
+
+            if ('_isBindingExpression' in bindingValue) {
+                // If the value is a binding expression, create the appropriate binding on the controller
+                if (bindingValue.kind == 'property') {
+                    // For property bindings, create a virtual property on the controller, a binding to it
+                    const sourceName = `${ref.ID}_${ref.collection}_${ref.entityName}_${ref.serviceName}_${name}`;
+                    this.bindingExpressions[sourceName] = bindingValue;
+
+                    this.virtualControllerProperties[sourceName] = {
+                        baseType: bindingValue.baseType!,
+                        didBindExpressions: [],
+                    }
+
+                    // Add the property binding
+                    this.propertyBindings.push({
+                        Id: (Crypto as any).randomUUID(),
+                        TargetArea: 'Data',
+                        TargetId: name == 'EntityName' ? 'EntityName' : ref.ID,
+                        TargetSection: ref.entityID,
+                        SourceArea: 'UI',
+                        SourceDetails: '',
+                        SourceId: this.controllerID,
+                        SourceSection: '',
+                        PropertyMaps: [{
+                            TargetProperty: name,
+                            TargetPropertyType: name == 'EntityName' ? 'Entity' : 'Field',
+                            TargetPropertyBaseType: this.baseTypeOfNode(attribute.name),
+                            SourceProperty: sourceName,
+                            SourcePropertyBaseType: bindingValue.baseType!,
+                            SourcePropertyType: 'property',
+                        }]
+                    });
+
+                    // Add this binding expression to the didSet array on the computed property
+                    for (const property in bindingValue.properties) {
+                        this.virtualControllerProperties[property].didBindExpressions.push(bindingValue);
+                    }
+                }
+                else {
+                    // For service bindings, create a service and a binding to it
+                    // If an array of targets is specified, this is an event binding
+                    const sourceName = `${ref.ID}_${ref.collection}_${ref.entityName}_${ref.serviceName}_${name}`;
+                    this.bindingExpressions[sourceName] = bindingValue;
+
+                    this.eventBindings.push({
+                        Id: (Crypto as any).randomUUID(),
+                        EventTriggerArea: 'Data',
+                        EventTriggerEvent: name,
+                        EventTriggerId: ref.ID,
+                        EventTriggerSection: ref.entityID,
+                        EventHandlerService: sourceName,
+                        EventHandlerArea: 'UI',
+                        EventHandlerId: this.controllerID
+                    } as UIMashupEventBinding);
+
+                    this.virtualControllerServices[sourceName] = bindingValue;
+                }
+            }
         }
     }
 
@@ -1450,7 +1585,7 @@ export class UITransformer {
             if (name == 'CustomCSS' && className == 'Mashup') {
                 // In this case, the value must be a string literal path to the CSS file
                 if (!attribute.initializer || !TS.isStringLiteralLike(attribute.initializer)) {
-                    ThrowErrorForNode(attribute, 'The "CustomCSS" attrbiute must be specified as a string literal.');
+                    ThrowErrorForNode(attribute, 'The "CustomCSS" attribute must be specified as a string literal.');
                 }
 
                 // Load the CSS file
@@ -1511,7 +1646,7 @@ export class UITransformer {
                     switch(targetRef.kind) {
                         case UIReferenceKind.Service:
                             serviceArea = 'Data';
-                            targetService = targetRef.serviceName;
+                            targetService = targetRef.ID;
                             targetID = targetRef.entityID;
                             break;
                         case UIReferenceKind.Script:
@@ -1592,7 +1727,69 @@ export class UITransformer {
                 });
             }
 
-            // If the intializer is not an event binding, try to determine and cache its type
+            if ('_isBindingExpression' in bindingValue) {
+                // If the value is a binding expression, create the appropriate binding on the controller
+                if (bindingValue.kind == 'property') {
+                    // For property bindings, create a virtual property on the controller, a binding to it
+                    const sourceName = `${ID}_${name}`;
+                    this.bindingExpressions[sourceName] = bindingValue;
+
+                    this.virtualControllerProperties[sourceName] = {
+                        baseType: bindingValue.baseType!,
+                        didBindExpressions: [],
+                    }
+
+                    // Add the property binding
+                    this.propertyBindings.push({
+                        Id: (Crypto as any).randomUUID(),
+                        TargetArea: targetArea,
+                        TargetId: ID,
+                        TargetSection: '',
+                        SourceArea: 'UI',
+                        SourceDetails: '',
+                        SourceId: this.controllerID,
+                        SourceSection: '',
+                        PropertyMaps: [{
+                            TargetProperty: name,
+                            TargetPropertyType: 'Field',
+                            // The attribute name base type should be provided by the widget or service class or ref
+                            TargetPropertyBaseType: this.baseTypeOfNode(attribute.name),
+                            TargetSubProperty: subName,
+                            SourceProperty: sourceName,
+                            SourcePropertyBaseType: bindingValue.baseType!,
+                            SourcePropertyType: 'Field',
+                        }]
+                    });
+
+                    // Add this binding expression to the didSet array on the computed property
+                    for (const property in bindingValue.properties) {
+                        this.virtualControllerProperties[property].didBindExpressions.push(bindingValue);
+                    }
+                }
+                else {
+                    // For service bindings, create a service and a binding to it
+                    // If an array of targets is specified, this is an event binding
+                    const sourceName = `${ID}_${name}`;
+                    this.bindingExpressions[sourceName] = bindingValue;
+
+                    this.eventBindings.push({
+                        Id: (Crypto as any).randomUUID(),
+                        EventTriggerArea: targetArea,
+                        EventTriggerEvent: name,
+                        EventTriggerId: ID,
+                        EventTriggerSection: '',
+                        EventHandlerService: sourceName,
+                        EventHandlerArea: 'UI',
+                        EventHandlerId: this.controllerID
+                    } as UIMashupEventBinding);
+
+                    this.virtualControllerServices[sourceName] = bindingValue;
+
+                    continue;
+                }
+            }
+
+            // If the initializer is not an event binding, try to determine and cache its type
             if ('targets' in value) {
                 continue;
             }
@@ -1641,13 +1838,54 @@ export class UITransformer {
     }
 
     /**
+     * Returns the details of the binding expression represented by the specified expression node, if that expression
+     * can be interpreted as such, `undefined` otherwise.
+     * @param expression        The expression.
+     * @returns                 The binding details, if applicable, `undefined` otherwise.
+     */
+    bindingExpressionDetailsOfExpression(expression: TS.Expression): {kind: 'property' | 'service', expression: TS.FunctionExpression | TS.ArrowFunction} | undefined {
+        let bindingExpression: {kind: 'property' | 'service', expression: TS.FunctionExpression | TS.ArrowFunction} | undefined;
+        if (TS.isFunctionLike(expression)) {
+            // If the expression is a function declaration, treat it as a property binding expression
+            bindingExpression = {kind: 'property', expression};
+        }
+        else if (TS.isArrayLiteralExpression(expression)) {
+            // If the expression contains a function literal, treat it as a service binding expression
+            if (expression.elements.some(e => TS.isFunctionLike(e))) {
+                // If the array contains a function literal, it must contain a single element
+                if (expression.elements.length != 1) {
+                    ThrowErrorForNode(expression, `Event bindings with a binding expression cannot contain other services.`);
+                }
+
+                bindingExpression = {kind: 'service', expression: expression.elements[0] as TS.FunctionExpression | TS.ArrowFunction};
+            }
+        }
+
+        // If a binding expression was found, ensure it takes no arguments
+        if (bindingExpression) {
+            if (bindingExpression.expression.parameters.length) {
+                ThrowErrorForNode(expression, `Binding expressions cannot specify parameters.`);
+            }
+            if (bindingExpression.expression.typeParameters?.length) {
+                ThrowErrorForNode(expression, `Binding expressions cannot specify generic arguments.`);
+            }
+            if (!this.isBMCoreUIMashup) {
+                ThrowErrorForNode(expression, `Binding expressions can only be specified in core UI mashups.`);
+            }
+        }
+
+        // The expression is not a binding expression
+        return bindingExpression;
+    }
+
+    /**
      * Returns an object that describes the value assigned to the specified JSX attribute.
-     * The atribute must not be the ref attribute.
+     * The attribute must not be the ref attribute.
      * @param attribute         The JSX attribute.
      * @returns                 An object describing the initializer, or an array containing two values
      *                          for attributes initialized with the `bindProperty` function.
      */
-    valueOfJSXAttribute(attribute: TS.JsxAttribute): UIJSXAttribute | [UIJSXAttribute, UIJSXAttribute] {
+    valueOfJSXAttribute(attribute: TS.JsxAttribute): UIJSXAttribute | [UIJSXAttribute, UIJSXAttribute] | UIBindingExpression {
         let name = attribute.name.getText();
 
         // The ref attribute should not be handled with this method.
@@ -1683,6 +1921,8 @@ export class UITransformer {
                 expression = expression.expression;
             }
 
+            const bindingDetails = this.bindingExpressionDetailsOfExpression(expression);
+
             if (TS.isCallExpression(expression) && expression.expression.getText() == UIKnownFunctionNames.BindProperty) {
                 // If this expression is a call expression to `bindProperty`, extract the value of both arguments
                 if (expression.arguments.length != 2) {
@@ -1705,10 +1945,203 @@ export class UITransformer {
 
                 return values;
             }
+            else if (bindingDetails) {
+
+                let bindingExpression: UIBindingExpression = {
+                    replacementMap: new Map,
+                    _isBindingExpression: true,
+                    bindingSources: {},
+                    bindingTargets: {},
+                    body: bindingDetails.expression.body,
+                    kind: bindingDetails.kind,
+                    baseType: bindingDetails.kind == 'property' ? this.baseTypeOfNode(expression) : undefined,
+                    properties: {},
+                };
+
+                // Discover binding expression within the body
+                const resolveBindingExpression = (node: TS.Node) => {
+                    // Binding expressions are call expressions to `getBindingValue` and `triggerBindingService`
+                    if (!TS.isCallExpression(node)) return TS.forEachChild(node, resolveBindingExpression);
+
+                    if (!TS.isIdentifier(node.expression)) return TS.forEachChild(node, resolveBindingExpression);
+
+                    if (node.expression.text == UIKnownFunctionNames.GetBindingValue || node.expression.text == UIKnownFunctionNames.GetBindingValueShort) {
+                        if (node.arguments.length != 1) {
+                            ThrowErrorForNode(node, `The "${UIKnownFunctionNames.GetBindingValue}" function must take a single argument.`);
+                        }
+
+                        const argument = node.arguments[0];
+                        if (!TS.isExpression(argument)) {
+                            ThrowErrorForNode(node, `The argument for the "${UIKnownFunctionNames.GetBindingValue}" function must be a binding value.`);
+                        }
+
+                        const binding = this.bindingSourceDetailsForExpression(argument, `@virtual-${name}`, node);
+                        const bindingName = this.virtualPropertyNameOfBindingSource(binding);
+
+                        bindingExpression.bindingSources[bindingName] = binding;
+
+                        // Ensure an appropriate virtual property exists
+                        this.virtualControllerProperties[bindingName] ??= {
+                            bindingSource: binding,
+                            didBindExpressions: [],
+                            baseType: this.baseTypeOfNode(argument),
+                        };
+
+                        bindingExpression.properties[bindingName] = true;
+
+                        // Replace this binding value call with an appropriate property access
+                        bindingExpression.replacementMap.set(
+                            node,
+                            TS.factory.createElementAccessExpression(
+                                TS.factory.createThis(),
+                                TS.factory.createStringLiteral(bindingName),
+                            ),
+                        );
+                    }
+                    else if (node.expression.text == UIKnownFunctionNames.TriggerBindingService || node.expression.text == UIKnownFunctionNames.TriggerBindingServiceShort) {
+                        if (node.arguments.length != 1) {
+                            ThrowErrorForNode(node, `The "${UIKnownFunctionNames.TriggerBindingService}" function must take a single argument.`);
+                        }
+
+                        const argument = node.arguments[0];
+                        if (!TS.isArrayLiteralExpression(argument)) {
+                            ThrowErrorForNode(node, `The argument for the "${UIKnownFunctionNames.TriggerBindingService}" function must be an array of services.`);
+                        }
+
+                        const binding = this.bindingSourceDetailsForExpression(argument, `@virtual-${name}`, node);
+                        if (!binding.targets) {
+                            ThrowErrorForNode(node, `Could not determine the target services.`);
+                        }
+
+                        for (const target of binding.targets) {
+                            const bindingName = `trigger_${target.ID}_${target.service}`;
+                            bindingExpression.bindingTargets[bindingName] = binding;
+
+                            // Ensure an appropriate virtual event exists
+                            this.virtualControllerEvents[bindingName] ??= {
+                                bindingTarget: target
+                            };
+                        }
+
+                        // Replace this services binding with a block invoking each event
+                        bindingExpression.replacementMap.set(
+                            node,
+                            TS.factory.createVoidExpression(TS.factory.createParenthesizedExpression(
+                                TS.factory.createCommaListExpression(binding.targets.map(target => {
+                                    const bindingName = `trigger_${target.ID}_${target.service}`;
+                                    return TS.factory.createCallExpression(
+                                        TS.factory.createElementAccessExpression(
+                                            TS.factory.createThis(),
+                                            TS.factory.createStringLiteral(bindingName),
+                                        ),
+                                        undefined,
+                                        undefined,
+                                    );
+                                })),
+                            )),
+                        );
+                    }
+
+                    TS.forEachChild(node, resolveBindingExpression);
+                };
+                TS.forEachChild(bindingDetails.expression.body, resolveBindingExpression);
+
+                return bindingExpression;
+            }
             else {
                 // Otherwise extract the value of the entire initializer
                 return this.valueOfJSXInitializer(expression, attribute, name);
             }
+        }
+    }
+
+    /**
+     * Returns a unique string for the specified binding source.
+     * @param source        The binding source.
+     */
+    virtualPropertyNameOfBindingSource(source: UIJSXAttribute): string {
+        return `${source.sourceSection}_${source.ref?.ID}_${source.sourcePropertyName}_${source.subProperty}`;
+    }
+
+    /**
+     * Adds bindings for all virtual properties.
+     */
+    addVirtualBindings() {
+        // Create virtual bindings for all property sources and targets
+        for (const name in this.virtualControllerProperties) {
+            const property = this.virtualControllerProperties[name];
+            if (property.bindingSource) {
+                const bindingValue = property.bindingSource;
+                cast<Required<UIJSXAttribute>>(bindingValue);
+                const sourceRef = bindingValue.ref;
+                let sourceArea;
+                let sourceSection = '';
+
+                // Determine the source area based on the source reference
+                switch(sourceRef.kind) {
+                    case UIReferenceKind.Service:
+                        sourceArea = 'Data';
+                        sourceSection = sourceRef.entityID;
+                        break;
+                    case UIReferenceKind.Script:
+                    case UIReferenceKind.Widget:
+                        if (sourceRef.className == 'Mashup') {
+                            sourceArea = 'Mashup';
+                        }
+                        else {
+                            sourceArea = 'UI';
+                        }
+                        break;
+                }
+
+                this.propertyBindings.push({
+                    Id: (Crypto as any).randomUUID(),
+                    TargetArea: 'UI',
+                    TargetId: this.controllerID,
+                    TargetSection: '',
+                    SourceArea: sourceArea,
+                    SourceDetails: bindingValue.sourceSection ?? '',
+                    SourceId: bindingValue.ref.ID,
+                    SourceSection: sourceSection,
+                    PropertyMaps: [{
+                        TargetProperty: name,
+                        TargetPropertyType: 'Field',
+                        // The attribute name base type should be provided by the widget or service class or ref
+                        TargetPropertyBaseType: property.baseType,
+                        SourceProperty: bindingValue.sourcePropertyName,
+                        SourcePropertyBaseType: bindingValue.sourcePropertyBaseType,
+                        SourcePropertyType: bindingValue.sourcePropertyType as any ?? 'property',
+                        SubProperty: bindingValue.subProperty
+                    }]
+                });
+            }
+        }
+
+        // Create virtual bindings for all events
+        for (const name in this.virtualControllerEvents) {
+            const event = this.virtualControllerEvents[name];
+            const ref = this.references[event.bindingTarget.ID];
+
+            if (!ref) {
+                ThrowErrorForNode(this.sourceFile!, `"${event.bindingTarget.ID}" is not a known binding target.`);
+            }
+
+            if (ref.kind != UIReferenceKind.Service && !event.bindingTarget.service) {
+                ThrowErrorForNode(this.sourceFile!,  `"Binding target ${ref.ID}" must specify a service name.`);
+            }
+            const targetArea = ref.kind == UIReferenceKind.Service ? 'Data' : (ref.className == 'Mashup' ? 'Mashup' : 'UI');
+
+            const binding = {
+                EventTriggerArea: 'UI',
+                EventTriggerEvent: name,
+                EventTriggerId: this.controllerID,
+                EventTriggerSection: '',
+                Id: (Crypto as any).randomUUID(),
+                EventHandlerService: ref.kind == UIReferenceKind.Service ? ref.ID : event.bindingTarget.service!,
+                EventHandlerArea: targetArea,
+                EventHandlerId: ref.kind == UIReferenceKind.Service ? ref.entityID : ref.ID,
+            } as const;
+            this.eventBindings.push(binding);
         }
     }
 
@@ -1721,7 +2154,7 @@ export class UITransformer {
      * @param attribute         The JSX attribute.
      * @returns                 An object describing the initializer.
      */
-    valueOfJSXInitializer(initializer: TS.Expression, attribute: TS.JsxAttribute, name: string): UIJSXAttribute {
+    valueOfJSXInitializer(initializer: TS.Expression, attribute: TS.JsxAttribute, name: string): UIJSXAttribute | UIBindingExpression {
         // First try to obtain a static value if a constant primitive value can be obtained from the expression
         let staticValue = ConstantOrLiteralValueOfExpression(initializer, this);
 
@@ -2123,42 +2556,19 @@ export class UITransformer {
 
         // Most UI types are unions between the base type and the associated binding target type
         // and also optional; only one of these types is needed
-        if (type.isUnion() || type.isIntersection()) {
-            // Remove the optional type at the end if specified; it appears that the union order
-            // is reversed from the typing order
-            const types = type.types.slice().reverse();
-            if ((types[types.length - 1].flags & TS.TypeFlags.Undefined) == TS.TypeFlags.Undefined) {
-                types.pop();
-            }
-
-            // If the remaining final type is a binding target, remove it as well, unless it's the only
-            // remaining type
-            // let lastType = types[types.length - 1];
-            // if (lastType && typeChecker.typeToString(type).startsWith('BindingTarget')) {
-            //     if (types.length > 1) {
-            //         types.pop();
-            //     }
-            // }
-
-            if (types.length == 1) {
-                // If only one type remains, this will be the type that represents the base type
-                type = types[0];
-            }
+        if (type.isUnion()) {
+            return this.baseTypeOfUnionTypes(type.types);
         }
 
-        // If this is a union between a type and a binding target to that same type, that type
-        // will represent the thingworx base type
-        if (type.isUnion() && type.types.length == 2) {
-            const firstType = this.baseTypeOfType(type.types[0]);
-            const secondType = this.baseTypeOfType(type.types[1]);
-
-            if (firstType == secondType) {
-                return firstType;
-            }
+        // If this is a function, return its return value
+        let signatures = type.getCallSignatures();
+        if (signatures.length && !type.isClassOrInterface()) {
+            const signature = signatures[0];
+            return this.baseTypeOfType(signature.getReturnType());
         }
 
         // If the type is a binding target type, extract the generic argument and resolve it
-        if (type.symbol?.escapedName == 'BindingTarget') {
+        if (type.symbol?.escapedName == 'BindingTarget' || type.symbol?.escapedName == 'BindingTargetBase') {
             if ('typeArguments' in type) {
                 const argument = (type.typeArguments as TS.TypeParameter[])?.[0];
                 if (argument) {
@@ -2172,6 +2582,10 @@ export class UITransformer {
         // If the type is a binding target, only the inner type is needed
         if (typeName.startsWith('BindingTarget<')) {
             typeName = typeName.substring('BindingTarget<'.length, typeName.length - 1);
+        }
+
+        if (typeName.startsWith('BindingTargetBase<')) {
+            typeName = typeName.substring('BindingTargetBase<'.length, typeName.length - 1);
         }
 
         // If the type is a thingworx generic type, remove the generics
@@ -2286,6 +2700,239 @@ export class UITransformer {
         }
 
         return baseType;
+    }
+
+    /**
+     * Gets the thingworx UI base type corresponding to the specified union type.
+     * @param types             The types participating in the union type whose thingworx base type should be inferred.
+     * @returns                 A string representing the thingworx base type of the type
+     *                          or `undefined` if the type could not be determined or is not assignable
+     *                          to a thingworx base type.
+     */
+    private baseTypeOfUnionTypes(types: TS.Type[]): string | undefined {
+        // Remove any optional types if specified
+        let optionalIndex = types.findIndex(t => (t.flags & TS.TypeFlags.Undefined) == TS.TypeFlags.Undefined);
+        if (optionalIndex != -1) {
+            types = types.slice();
+            types.splice(optionalIndex, 1);
+
+            if (types.length == 1) {
+                return this.baseTypeOfType(types[0]);
+            }
+
+            return this.baseTypeOfUnionTypes(types);
+        }
+
+        // If this is a union between a type, and binding target to that same type, that type
+        // will represent the thingworx base type
+        if (types.length == 2) {
+            const firstType = this.baseTypeOfType(types[0]);
+            const secondType = this.baseTypeOfType(types[1]);
+
+            if (firstType == secondType) {
+                return firstType;
+            }
+        }
+
+        // If this is a union between a type, a binding target to that same type and a function returning that same type, that type
+        // will represent the thingworx base type
+        if (types.length == 3) {
+            const firstType = this.baseTypeOfType(types[0]);
+            const secondType = this.baseTypeOfType(types[1]);
+            const thirdType = this.baseTypeOfType(types[2]);
+
+            if (firstType == secondType && thirdType == secondType) {
+                return firstType;
+            }
+        }
+    }
+
+    /**
+     * Returns an array of class elements representing virtual properties that participate in bindings.
+     * @returns         An array of class elements
+     */
+    virtualProperties(): TS.ClassElement[] {
+        return Object.keys(this.virtualControllerProperties).map(name => {
+            const property = this.virtualControllerProperties[name];
+            const type = property.baseType == 'JSON' ? 'TWJSON' : property.baseType;
+
+            // For each virtual property create a property declaration for it
+            if (property.didBindExpressions?.length) {
+                // For virtual source properties, set them up as setters calling the appropriate
+                // binding expressions on change
+                return TS.addSyntheticLeadingComment(
+                    TS.factory.createSetAccessorDeclaration(
+                        // Decorate it with the property decorator
+                        [TS.factory.createDecorator(TS.factory.createIdentifier('property'))],
+                        TS.factory.createStringLiteral(name),
+                        [TS.factory.createParameterDeclaration(
+                            undefined,
+                            undefined,
+                            'value',
+                            undefined,
+                            TS.factory.createTypeReferenceNode(type),
+                            undefined
+                        )],
+                        // And in its body, call all referenced binding expressions
+                        TS.factory.createBlock(property.didBindExpressions.map(expression => {
+                            const bindingExpression = Object.entries(this.bindingExpressions).find(e => e[1] == expression);
+                            if (!bindingExpression) {
+                                return TS.factory.createEmptyStatement();
+                            }
+        
+                            return TS.factory.createExpressionStatement(
+                                // Assign the result of each referenced binding expression to its target property
+                                TS.factory.createAssignment(
+                                    TS.factory.createElementAccessExpression(
+                                        TS.factory.createThis(),
+                                        TS.factory.createStringLiteral(bindingExpression[0]),
+                                    ),
+                                    TS.factory.createCallExpression(
+                                        TS.factory.createElementAccessExpression(
+                                            TS.factory.createThis(),
+                                            TS.factory.createStringLiteral(UIBindingExpressionPrefix + bindingExpression[0]),
+                                        ),
+                                        undefined,
+                                        []
+                                    ),
+                                ),
+                            );
+                        }), true),
+                    ),
+                    TS.SyntaxKind.SingleLineCommentTrivia,
+                    'Automatically generated property for triggering binding expressions.',
+                    true,
+                );
+            }
+            else {
+                // For virtual target properties create a basic property declaration for them
+                return TS.addSyntheticLeadingComment(
+                    TS.factory.createPropertyDeclaration(
+                        // Decorate it with the property decorator
+                        [TS.factory.createDecorator(TS.factory.createIdentifier('property'))],
+                        TS.factory.createStringLiteral(name),
+                        undefined,
+                        TS.factory.createTypeReferenceNode(TS.factory.createIdentifier(type)),
+                        undefined,
+                    ),
+                    TS.SyntaxKind.SingleLineCommentTrivia,
+                    'Automatically generated property for assigning the result of a binding expression.',
+                    true,
+                );
+            }
+        });
+    }
+
+    /**
+     * Returns an array of class elements representing virtual services and methods that participate in bindings.
+     * @returns         An array of class elements
+     */
+    virtualMethods(): TS.ClassElement[] {
+
+        /**
+         * Creates and returns a transformer factory for transforming service and binding expression
+         * method body statements.
+         * @param replacementMap        The replacement map to use.
+         * @returns                     A transformer factory.
+         */
+        function createServiceTransformer(replacementMap: Map<TS.Node, TS.Node>) {
+            return (context: TS.TransformationContext) => {
+                function transformer(node: TS.Node): TS.Node {
+                    const replacementNode = replacementMap.get(node);
+                    if (replacementNode) {
+                        return replacementNode;
+                    }
+
+                    return TS.visitEachChild(node, transformer, context);
+                }
+
+                return transformer;
+            }
+        }
+
+        /**
+         * Creates a method declaration for the specified binding expression.
+         * @param name              The name to assign to the method declaration.
+         * @param expression        The expression for which to create a method.
+         * @param decorate          Whether the resulting method declaration should be decorated as a service.
+         * @returns                 A method declaration.
+         */
+        const createMethodDeclaration = (name: string, expression: UIBindingExpression, decorate = false): TS.MethodDeclaration => {
+
+            // Transform the method body to replace binding references with the appropriate property access or event invocations
+            let body: TS.Block;
+            const transformedBody = TS.transform<TS.Node>(expression.body, [createServiceTransformer(expression.replacementMap)]).transformed[0];
+            if (TS.isBlock(transformedBody)) {
+                body = CloneNode(transformedBody, {
+                    factory: this.context.factory,
+                });
+            }
+            else if (TS.isExpression(transformedBody)) {
+                body = TS.factory.createBlock([
+                    TS.factory.createReturnStatement(CloneNode(transformedBody, {
+                        factory: this.context.factory,
+                    }))
+                ], true);
+            }
+            else {
+                // Normally this branch shouldn't be reached as the cloned body should retain the original type
+                ThrowErrorForNode(expression.body, `Unexpected type of expression function body.`);
+            }
+
+            return TS.addSyntheticLeadingComment(
+                TS.factory.createMethodDeclaration(
+                    decorate ? [TS.factory.createDecorator(TS.factory.createIdentifier('service'))] : [],
+                    undefined,
+                    TS.factory.createStringLiteral(name),
+                    undefined,
+                    [],
+                    [],
+                    undefined,
+                    TS.factory.createBlock([...body.statements], true),
+                ),
+                TS.SyntaxKind.SingleLineCommentTrivia,
+                'Automatically generated method service or binding expression.',
+                true,
+            );
+        }
+
+        // Convert all services into method declarations annotated with the service decorator
+        const services = Object.keys(this.virtualControllerServices).map(name => {
+            const service = this.virtualControllerServices[name];
+
+            return createMethodDeclaration(name, service, true);
+        });
+
+        // Convert all remaining binding expressions into generic methods that will be invoked by the appropriate property setters
+        const methods = Object.keys(this.bindingExpressions).filter(name => !this.virtualControllerServices[name]).map(name => {
+            const expression = this.bindingExpressions[name];
+
+            return createMethodDeclaration(UIBindingExpressionPrefix + name, expression, true);
+        });
+
+        return services.concat(methods);
+    }
+
+    /**
+     * Returns an array of class elements representing virtual events used to invoke services.
+     * @returns         An array of class elements
+     */
+    virtualEvents(): TS.ClassElement[] {
+        // Create each event as a property declaration with the appropriate decorator
+        return Object.keys(this.virtualControllerEvents).map(name => {
+            return TS.addSyntheticLeadingComment(
+                TS.factory.createPropertyDeclaration(
+                    [TS.factory.createDecorator(TS.factory.createIdentifier('twevent'))],
+                    TS.factory.createStringLiteral(name),
+                    TS.factory.createToken(TS.SyntaxKind.ExclamationToken),
+                    TS.factory.createTypeReferenceNode(TS.factory.createIdentifier('TWEvent')),
+                    undefined
+                ),
+                TS.SyntaxKind.SingleLineCommentTrivia,
+                'Automatically generated event for triggering binding expression services.',
+                true,
+            );
+        });
     }
 
     // #region Compilation result
