@@ -98,6 +98,11 @@
             "description": "Contains option for how superclass calls are handled.",
             "markdownDescription": "Contains option for how superclass calls are handled."
         },
+        "repositoryPath": {
+            "type": "string",
+            "description": "A path to the folder that will be used as a source for repository uploads as part of upload commands. This is relative to each subproject's root in multi-project repositories.",
+            "markdownDescription": "A path to the folder that will be used as a source for repository uploads as part of upload commands. This is relative to each subproject's root in multi-project repositories."
+        },
         "copyEntities": {
             "type": "boolean",
             "description": "When enabled, any XML files in the project's src directory will be copied to the build output directory.",
