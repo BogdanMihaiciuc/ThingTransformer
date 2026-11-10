@@ -52,6 +52,36 @@ export class UINavigationPlugin implements UIPlugin {
     }
 }
 
+
+/**
+ * A plugin used for data export-like widgets that require setting a `DataBinding` property
+ * based on the binding assigned to the `Data` property.
+ */
+export class UIDataExportPlugin implements UIPlugin {
+
+    transformerDidProcessWidget(transformer: UITransformer, className: string, element: TS.JsxElement | TS.JsxSelfClosingElement, widget: UIWidget) {
+        // Find the data binding for this widget's data property
+        const dataBinding = transformer.propertyBindings.find(b => b.TargetArea == 'UI' && b.TargetId == widget.Properties.Id);
+        const fields = transformer.fieldsOfWidgetProperty(widget, 'Data');
+        
+        if (dataBinding) {
+            widget.Properties.DataBinding = {...dataBinding};
+        }
+
+        if (fields) {
+            const columnFormat: Record<string, unknown> = {};
+            for (const field of fields) {
+                columnFormat[field.name] = {
+                    ...field,
+                    type: 'Field',
+                };
+            }
+
+            widget.Properties.ColumnFormat = columnFormat;
+        }
+    }
+}
+
 /**
  * A plugin used for contained mashup-like widgets that require setting a `JSON` property
  * based on the value of a `MASHUPNAME` property.

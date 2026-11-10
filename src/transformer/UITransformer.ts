@@ -4,7 +4,7 @@ import { ConstantValueUndefined, type TWConfigurationTable, type TWExtractedPerm
 import { UIControllerReference, UIJSXAttribute, UIMashupBinding, UIMashupEventBinding, UIReference, UIReferenceInitializerFunction, UIReferenceKind, UIServiceReference, UIWidgetReference, UIBaseTypes, UIWidget, UIMashupContent, UIMashupDataItem, UIBindingExpression, UIBindingExpressionPrefix } from './UICoreTypes';
 import { ArgumentsOfDecoratorNamed, ConfigurationTablesDefinitionWithClassExpression, ConfigurationWithObjectLiteralExpression, ConstantOrLiteralValueOfExpression, DecoratorNamed, HasDecoratorNamed, JSONWithObjectLiteralExpression, ThrowErrorForNode, VisibilityPermissionsOfKindForNode, XMLRepresentationOfInfotable, CreatePrinter } from './SharedFunctions';
 import { Builder } from 'xml2js';
-import { UIBMCollectionViewPlugin, UIBMPresentationControllerPlugin, UINavigationPlugin } from './UIBuiltinPlugins';
+import { UIBMCollectionViewPlugin, UIBMPresentationControllerPlugin, UIDataExportPlugin, UINavigationPlugin } from './UIBuiltinPlugins';
 import type { UIPlugin } from './UIPlugin';
 import * as Crypto from 'crypto';
 import * as FS from 'fs';
@@ -88,6 +88,8 @@ export class UITransformer {
         Navigation: new UINavigationPlugin('MashupName', 'MashupParameters'),
         Navigationfunction: new UINavigationPlugin('TargetMashup', '_currentParameterDefs'),
         Mashupcontainer: new UINavigationPlugin('Name', 'MashupParameters'),
+        Dataexport: new UIDataExportPlugin(),
+        Dataexportfunction: new UIDataExportPlugin(),
 
         BMCollectionView: new UIBMCollectionViewPlugin,
         BMWindowController: new UIBMPresentationControllerPlugin,
