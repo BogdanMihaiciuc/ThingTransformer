@@ -1,3 +1,7 @@
+# 2.2.1
+
+Resolves an issue where data export widgets and data export functions specified via a typescript mashup did not work at runtime.
+
 # 2.2.0
 
 Adds support for media entities via a new `MediaList` class.
